@@ -75,6 +75,44 @@ public final class MarkerStore {
         return true;
     }
 
+    /** What {@link #addAll} did with the pins it was given. */
+    public record Added(int added, int duplicates, int overLimit, int operatorOnly) {}
+
+    /**
+     * Adds imported pins with one save. A pin with the same dimension, position and name as one already here is a
+     * repeat and is left out; interactive pins only for operators; nothing beyond {@link #MAX_MARKERS}. A pin keeps
+     * its id unless that id is taken.
+     */
+    public static Added addAll(List<Marker> in) {
+        boolean operator = MarkerType.isOperator();
+        int added = 0, duplicates = 0, overLimit = 0, operatorOnly = 0;
+        for (Marker m : in) {
+            if (contains(m)) duplicates++;
+            else if (m.type.operatorOnly() && !operator) operatorOnly++;
+            else if (markers.size() >= MAX_MARKERS) overLimit++;
+            else {
+                Marker copy = new Marker(find(m.id) == null ? m.id : UUID.randomUUID(), m.name, m.type, m.dimension, m.x, m.y, m.z, m.created, false);
+                copy.band = m.band;
+                markers.add(copy);
+                added++;
+            }
+        }
+        if (added > 0) save();
+        return new Added(added, duplicates, overLimit, operatorOnly);
+    }
+
+    private static boolean contains(Marker m) {
+        for (Marker o : markers) {
+            if (o.dimension == m.dimension && o.x == m.x && o.y == m.y && o.z == m.z && o.name.equals(m.name)) return true;
+        }
+        return false;
+    }
+
+    /** All saved pins of this world, for export. */
+    public static List<Marker> all() {
+        return List.copyOf(markers);
+    }
+
     public static void remove(Marker m) {
         markers.remove(m);
         if (Navigation.isTracking(m)) Navigation.clear();

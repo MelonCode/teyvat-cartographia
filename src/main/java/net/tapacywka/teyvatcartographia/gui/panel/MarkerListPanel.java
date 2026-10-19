@@ -2,6 +2,9 @@ package net.tapacywka.teyvatcartographia.gui.panel;
 
 import net.minecraft.world.level.Level;
 import net.minecraft.resources.ResourceKey;
+import net.tapacywka.teyvatcartographia.gui.FileDialogs;
+import net.tapacywka.teyvatcartographia.gui.PinTransfer;
+import net.tapacywka.teyvatcartographia.gui.Ui;
 import net.tapacywka.teyvatcartographia.gui.Ui.Grid;
 import net.tapacywka.teyvatcartographia.gui.WorldMapScreen;
 import net.tapacywka.teyvatcartographia.marker.AutoMarkers;
@@ -28,6 +31,9 @@ import java.util.List;
  * Dark list of saved markers in the viewed dimension; click to fly the map to a marker. Shows up to
  * {@link #MAX_ROWS} rows in a block centred vertically in the panel (shorter lists start at the block's top);
  * longer lists scroll by rows with the mouse wheel and show a thin scroll bar, like the pick list on the map.
+ * At the bottom: Export and Import ({@link PinTransfer}); Import opens a choice between our file and Xaero's Minimap
+ * above the buttons (it stays open after a pick), and the outcome is shown for a while in a popup left of the panel,
+ * pointing at the button that was used.
  */
 public final class MarkerListPanel extends SidePanel {
     /** Row: 2 text lines (9 + 2 + 9) with 4 units padding top and bottom = 28 = one tile. */
@@ -105,7 +111,79 @@ public final class MarkerListPanel extends SidePanel {
 
 
     private float listBottom() {
-        return y + h - Grid.PAD;
+        return actionsTop() - Grid.PAD;
+    }
+
+    // ------------------------------------------------------------------ export and import
+
+    /** True while the import choice (our file or Xaero's Minimap) is open above the button row. */
+    private boolean importMenu;
+
+    /** The row of the Export and Import buttons at the bottom. */
+    private float transferRowY() {
+        return bottomActionY();
+    }
+
+    private float halfWidth() {
+        return (contentW() - Grid.GAP) / 2f;
+    }
+
+    /** Top of the n-th import choice above the button row (0 = the lowest: Xaero's Minimap, 1: our own file). */
+    private float choiceY(int n) {
+        return transferRowY() - (n + 1) * (Grid.ACTION_H + Grid.GAP);
+    }
+
+    private float actionsTop() {
+        return importMenu ? choiceY(1) : transferRowY();
+    }
+
+
+    private void renderTransfer(GuiGraphics g, int mx, int my, float bx, float bw) {
+        boolean free = !FileDialogs.isOpen();
+        float row = transferRowY(), half = halfWidth();
+        Ui.actionButton(g, bx, row, half, Component.translatable("teyvatcartographia.transfer.export"), Icon.EXPORT, free, mx, my);
+        Ui.actionButton(g, bx + half + Grid.GAP, row, half, Component.translatable("teyvatcartographia.transfer.import"), Icon.IMPORT, free, mx, my);
+        if (importMenu) {
+            Ui.actionButton(g, bx, choiceY(1), bw, Component.translatable("teyvatcartographia.transfer.import.file"), null, free, mx, my);
+            Ui.actionButton(g, bx, choiceY(0), bw, Component.translatable("teyvatcartographia.transfer.import.xaero"), null, free, mx, my);
+        }
+        // The outcome of the last export or import: a popup over the map left of the panel, pointing at its button
+        // (at Import when the choice was closed since).
+        PinTransfer.Outcome o = PinTransfer.message();
+        if (o != null) Ui.popupLeftOf(g, o.title(), o.lines(), x - 1, sourceY(o.source()) + Grid.ACTION_H / 2f, y + h - Grid.MARGIN);
+    }
+
+    private float sourceY(PinTransfer.Source source) {
+        return switch (source) {
+            case EXPORT -> transferRowY();
+            case FILE -> importMenu ? choiceY(1) : transferRowY();
+            case XAERO -> importMenu ? choiceY(0) : transferRowY();
+        };
+    }
+
+    /** Returns true if a transfer button took the click. */
+    private boolean transferClicked(double mx, double my) {
+        if (FileDialogs.isOpen()) return false;
+        float bx = contentX(), bw = contentW(), row = transferRowY(), half = halfWidth();
+        if (Ui.actionHit(bx, row, half, mx, my)) {
+            importMenu = false;
+            PinTransfer.export();
+            return true;
+        }
+        if (Ui.actionHit(bx + half + Grid.GAP, row, half, mx, my)) {
+            importMenu = !importMenu;
+            return true;
+        }
+        // The choice stays open after a pick, so the outcome's popup can point at the button that was used.
+        if (importMenu && Ui.actionHit(bx, choiceY(1), bw, mx, my)) {
+            PinTransfer.importFile();
+            return true;
+        }
+        if (importMenu && Ui.actionHit(bx, choiceY(0), bw, mx, my)) {
+            PinTransfer.importXaero();
+            return true;
+        }
+        return false;
     }
 
     /** Rows that fit at once (at most {@link #MAX_ROWS}). */
@@ -136,6 +214,7 @@ public final class MarkerListPanel extends SidePanel {
     protected void renderBody(GuiGraphics g, int mx, int my, float bx, float by, float bw) {
         boolean rebuilt = refresh();
         scroll = Math.max(0, Math.min(items.size() - capacity(), scroll));
+        renderTransfer(g, mx, my, bx, bw);
         if (items.isEmpty()) {
             DrawText.text(g, Component.translatable("teyvatcartographia.list.empty"), bx, DrawText.textY(by, Grid.ROW), Theme.TEXT_MUTED, false);
             return;
@@ -170,6 +249,7 @@ public final class MarkerListPanel extends SidePanel {
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (closeClicked(mx, my)) return true;
+        if (transferClicked(mx, my)) return true;
         float top = listTop();
         if (my >= top) {
             int k = (int) ((my - top) / ROW_STEP);

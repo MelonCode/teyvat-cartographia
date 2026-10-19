@@ -78,7 +78,7 @@ public final class Ui {
     // ------------------------------------------------------------------ buttons
 
     /**
-     * Full-width capsule action button ("Teleport", "Confirm"): dark icon circle in the left cap, label centred in
+     * Full-width capsule action button ("Teleport", "Confirm"): dark icon circle in the left cap (none for a null icon), label centred in
      * the space between that circle and the right edge (so it looks centred next to the icon).
      * Height is always {@link Grid#ACTION_H}.
      */
@@ -90,17 +90,17 @@ public final class Ui {
         float cx = x + h / 2f, cy = y + h / 2f, r = h / 2f - 2;
         if (Theme.Style.square) {
             Draw.bevel(g, x, y, w, h, fill, hover ? Theme.BUTTON_HOVER_OUTLINE : Theme.BEVEL_BORDER, false);
-            Draw.bevel(g, cx - r, cy - r, 2 * r, 2 * r, Theme.BUTTON_ICON_BADGE, Theme.BEVEL_BORDER, true);
+            if (icon != null) Draw.bevel(g, cx - r, cy - r, 2 * r, 2 * r, Theme.BUTTON_ICON_BADGE, Theme.BEVEL_BORDER, true);
         } else {
             Draw.capsule(g, x, y, w, h, fill);
             if (hover) Draw.capsuleOutline(g, x, y, w, h, 1f, Theme.BUTTON_HOVER_OUTLINE);
-            Draw.circle(g, cx, cy, r, Theme.BUTTON_ICON_BADGE);
+            if (icon != null) Draw.circle(g, cx, cy, r, Theme.BUTTON_ICON_BADGE);
         }
         if (icon != null) Draw.icon(g, icon, cx, cy, Grid.ICON, enabled ? Theme.YELLOW : Theme.BUTTON_ICON_DISABLED);
         // Equal gaps: from the icon badge's right edge to the text, and from the text to the button's visible right edge.
         // In square themes the bevel's frame and shade take the last two units (measured on screenshots: without them
-        // the label sat one unit right of the face's centre).
-        float labelLeft = cx + r, labelRight = x + w - (Theme.Style.square ? 2 : 0);
+        // the label sat one unit right of the face's centre). Without an icon there is no badge: centred on the face.
+        float labelLeft = icon != null ? cx + r : x, labelRight = x + w - (Theme.Style.square ? 2 : 0);
         DrawText.textCentered(g, label, (labelLeft + labelRight) / 2f, DrawText.textY(y, h), enabled ? Theme.CREAM : Theme.BUTTON_TEXT_DISABLED, false);
     }
 
@@ -311,6 +311,51 @@ public final class Ui {
         DrawText.text(g, title, x + Grid.PAD, y + Grid.PAD, Theme.GOLD, false);
         if (sub != null) DrawText.text(g, sub, x + Grid.PAD, y + Grid.PAD + DrawText.LINE + 2, Theme.CREAM, false);
     }
+
+    /** Length and half height of the pointer of {@link #popupLeftOf} (the size of the pick list's pointer). */
+    private static final float POINTER_L = 5, POINTER_H = 4;
+
+    /** Corner radius of {@link #popupLeftOf} in round themes (as the tooltips). */
+    private static final float POPUP_R = 3;
+
+    /**
+     * A popup with a gold title and cream lines, left of a button: the tip of its pointer is at {@code tipX}, level
+     * with {@code cy} (the button's middle); the box is centred on {@code cy} where it fits above {@code bottom}. Like
+     * the side panels it is frosted glass: the vanilla menu blur ({@link Backdrop}) under the translucent panel colour,
+     * box and pointer as one shape with one outline.
+     */
+    public static void popupLeftOf(GuiGraphics g, Component title, java.util.List<Component> lines, float tipX, float cy, float bottom) {
+        int w = DrawText.width(title);
+        for (Component l : lines) w = Math.max(w, DrawText.width(l));
+        w += 2 * Grid.PAD;
+        int lineStep = DrawText.LINE + 2;
+        int h = 2 * Grid.PAD + DrawText.LINE + Grid.GAP + lines.size() * lineStep - 2;
+        float right = Draw.snap(tipX - POINTER_L);
+        float x = right - w, y = Draw.snap(Math.min(cy - h / 2f, bottom - h));
+        float py = Math.max(y + POINTER_H + 3, Math.min(y + h - POINTER_H - 3, Draw.snap(cy)));
+        float tip = right + POINTER_L, r = Theme.Style.square ? 0 : POPUP_R;
+        // Blur: the box (in round themes without its corners, which the rounded fill covers) and the pointer.
+        if (r == 0) Backdrop.draw(g, x, y, right, y + h);
+        else {
+            Backdrop.draw(g, x + r, y, right - r, y + h);
+            Backdrop.draw(g, x, y + r, x + r, y + h - r);
+            Backdrop.draw(g, right - r, y + r, right, y + h - r);
+        }
+        Backdrop.drawTriangle(g, right, py - POINTER_H, right, py + POINTER_H, tip, py);
+        // Fill: box and pointer side by side (they must not overlap, the colour is translucent), then one outline
+        // around both; in square themes one unit inside the edge, as the vanilla tooltip.
+        if (r == 0) Draw.rect(g, x, y, right, y + h, Theme.PANEL_DARK);
+        else Draw.roundRect(g, x, y, w, h, r, Theme.PANEL_DARK);
+        Draw.triangle(g, right, py - POINTER_H, right, py + POINTER_H, tip, py, Theme.PANEL_DARK);
+        Draw.calloutOutline(g, x, y, w, h, r, tip, py, POINTER_H, r == 0 ? 1 : 0, 1, Theme.TOOLTIP_OUTLINE);
+        DrawText.text(g, title, x + Grid.PAD, y + Grid.PAD, Theme.GOLD, false);
+        float ty = y + Grid.PAD + DrawText.LINE + Grid.GAP;
+        for (Component l : lines) {
+            DrawText.text(g, l, x + Grid.PAD, ty, Theme.CREAM, false);
+            ty += lineStep;
+        }
+    }
+
 
     /** A one-line tooltip whose right edge is at {@code right}, centred on {@code cy} (beside a button at the screen edge). */
     public static void tooltipLeftOf(GuiGraphics g, String title, float right, float cy) {

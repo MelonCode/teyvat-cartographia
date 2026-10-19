@@ -334,6 +334,57 @@ public final class Draw {
         fillConvex(g, roundRectPath(snap(x), snap(y), snap(x + w) - snap(x), snap(y + h) - snap(y), r), argb);
     }
 
+    /**
+     * Outline of a callout: a rounded rectangle with a pointer on its right side (base on the right edge from
+     * {@code cy - halfH} to {@code cy + halfH}, tip at {@code tipX}), as one band of {@code thickness} starting
+     * {@code inset} inside the shape, so the box and the pointer read as one piece.
+     */
+    public static void calloutOutline(GuiGraphics g, float x, float y, float w, float h, float r, float tipX, float cy, float halfH,
+                                      float inset, float thickness, int argb) {
+        if (w <= 0 || h <= 0) return;
+        int seg = r > 0 ? Math.max(3, cornerSegments(r)) : 1;
+        int n = calloutPath(x, y, w, h, r, seg, tipX, cy, halfH, inset);
+        System.arraycopy(PX, 0, CX, 0, n);
+        System.arraycopy(PY, 0, CY, 0, n);
+        calloutPath(x, y, w, h, r, seg, tipX, cy, halfH, inset + thickness);
+        System.arraycopy(PX, 0, BX, 0, n);
+        System.arraycopy(PY, 0, BY, 0, n);
+        band(g, CX, CY, BX, BY, n, argb);
+    }
+
+    /**
+     * The callout's loop moved {@code d} inwards into PX/PY: the corners as in {@link #roundRectPath}, the pointer's
+     * three points after the top right corner. The pointer's sides move along their normals, so its tip goes back by
+     * {@code d * sqrt(L^2 + H^2) / H} and its half height shrinks by {@code d * (sqrt(1 + s^2) - s)}, s = H / L.
+     */
+    private static int calloutPath(float x, float y, float w, float h, float r, int seg, float tipX, float cy, float halfH, float d) {
+        float len = tipX - (x + w), s = halfH / len;
+        float tip = tipX - d * (float) Math.sqrt(len * len + halfH * halfH) / halfH;
+        float half = halfH - d * ((float) Math.sqrt(1 + s * s) - s);
+        x += d; y += d; w -= 2 * d; h -= 2 * d;
+        r = Math.max(0f, Math.min(r - d, Math.min(w, h) / 2f));
+        int q = Math.max(1, seg), steps = 4 * q;
+        float[] cs = cosTable(steps), sn = sinTable(steps);
+        int n = 0;
+        for (int c = 0; c < 4; c++) {
+            float ccx = (c == 0 || c == 1) ? x + w - r : x + r;
+            float ccy = (c == 1 || c == 2) ? y + h - r : y + r;
+            int base = (3 + c) * q;
+            for (int i = 0; i <= seg; i++) {
+                int k = (base + i) % steps;
+                PX[n] = ccx + cs[k] * r;
+                PY[n] = ccy + sn[k] * r;
+                n++;
+            }
+            if (c == 0) {
+                PX[n] = x + w; PY[n] = cy - half; n++;
+                PX[n] = tip; PY[n] = cy; n++;
+                PX[n] = x + w; PY[n] = cy + half; n++;
+            }
+        }
+        return n;
+    }
+
     /** Outline of a rounded rectangle; drawn as an anti-aliased band of the given thickness inside the bounds. */
     public static void roundRectOutline(GuiGraphics g, float x, float y, float w, float h, float r, float thickness, int argb) {
         if (w <= 0 || h <= 0) return;
@@ -659,6 +710,24 @@ public final class Draw {
         int c = 0xFFFFFFFF;
         vtx(b, m, x0, y0, u0, v0, c); vtx(b, m, x0, y1, u0, v1, c); vtx(b, m, x1, y1, u1, v1, c);
         vtx(b, m, x0, y0, u0, v0, c); vtx(b, m, x1, y1, u1, v1, c); vtx(b, m, x1, y0, u1, v0, c);
+        MeshData mesh = b.build();
+        if (mesh == null) return;
+        setup();
+        RenderSystem.disableBlend();
+        RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+        RenderSystem.setShaderTexture(0, textureId);
+        BufferUploader.drawWithShader(mesh);
+        RenderSystem.enableBlend();
+        restore();
+    }
+
+    /** A triangle of a texture replacing what is underneath, like {@link #texturedQuadOpaque}; points and UVs as x, y, u, v. */
+    public static void texturedTriangleOpaque(GuiGraphics g, int textureId, float x1, float y1, float u1, float v1,
+                                              float x2, float y2, float u2, float v2, float x3, float y3, float u3, float v3) {
+        Matrix4f m = mat(g);
+        BufferBuilder b = beginTex();
+        int c = 0xFFFFFFFF;
+        vtx(b, m, x1, y1, u1, v1, c); vtx(b, m, x2, y2, u2, v2, c); vtx(b, m, x3, y3, u3, v3, c);
         MeshData mesh = b.build();
         if (mesh == null) return;
         setup();

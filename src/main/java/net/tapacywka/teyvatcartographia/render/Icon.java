@@ -8,7 +8,7 @@ package net.tapacywka.teyvatcartographia.render;
 public enum Icon {
     // UI
     PLAYER, CLOSE, PLUS, MINUS, GEAR, COMPASS, TARGET, LOCATE,
-    LIST, LAYERS, PENCIL, TRASH, CHECK,
+    LIST, LAYERS, PENCIL, TRASH, CHECK, EXPORT, IMPORT,
     // Custom pin types (the seven Genshin Impact custom pins)
     BOSS, QUEST, STAR, FOOD, CLOVER, PICKAXE, HOOK,
     // Operator pin types

@@ -77,6 +77,15 @@ public final class Backdrop {
         Draw.texturedQuadOpaque(g, blurred.getColorTextureId(), x0, y0, x1, y1, x0 / gw, 1 - y0 / gh, x1 / gw, 1 - y1 / gh);
     }
 
+    /** Draws the blurred backdrop into the given GUI triangle (a popup's pointer; no-op without a capture this frame). */
+    public static void drawTriangle(GuiGraphics g, float x1, float y1, float x2, float y2, float x3, float y3) {
+        if (!ready || blurred == null) return;
+        Window w = Minecraft.getInstance().getWindow();
+        float gw = (float) (w.getWidth() / w.getGuiScale()), gh = (float) (w.getHeight() / w.getGuiScale());
+        Draw.texturedTriangleOpaque(g, blurred.getColorTextureId(), x1, y1, x1 / gw, 1 - y1 / gh,
+                x2, y2, x2 / gw, 1 - y2 / gh, x3, y3, x3 / gw, 1 - y3 / gh);
+    }
+
     private static TextureTarget ensure(TextureTarget t, int w, int h) {
         if (t == null) {
             t = new TextureTarget(w, h, false, Minecraft.ON_OSX);
