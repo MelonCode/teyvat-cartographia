@@ -1,6 +1,7 @@
 modLoader="javafml"
 loaderVersion="*"
 license="${mod_license}"
+issueTrackerURL="https://github.com/Tapacywka/teyvat-cartographia/issues"
 
 [[mods]]
 modId="${mod_id}"
