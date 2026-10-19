@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📥 Latest release
+    url: https://github.com/Tapacywka/teyvat-cartographia/releases/latest
+    about: Download the newest version. Your bug may already be fixed there.
+  - name: 📖 Read the README
+    url: https://github.com/Tapacywka/teyvat-cartographia#readme
+    about: Installation, controls, themes and where the mod stores its data.

@@ -1,0 +1,80 @@
+name: 💥 Crash report
+description: The game crashes or does not start with the mod installed
+labels: ["bug", "crash"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!IMPORTANT]
+        > **A crash report is required.** After a crash, Minecraft writes it to the `crash-reports` folder of your game directory. Without it the crash usually cannot be found.
+        >
+        > Please check the [existing issues](https://github.com/Tapacywka/teyvat-cartographia/issues?q=is%3Aissue) and make sure you are on the [latest release](https://github.com/Tapacywka/teyvat-cartographia/releases/latest) first.
+
+  - type: input
+    id: mod-version
+    attributes:
+      label: Mod version
+      placeholder: 0.1.0+mc1.21.1-neoforge
+    validations:
+      required: true
+
+  - type: input
+    id: neoforge-version
+    attributes:
+      label: NeoForge version
+      placeholder: 21.1.257
+    validations:
+      required: true
+
+  - type: dropdown
+    id: when
+    attributes:
+      label: When does it crash?
+      options:
+        - While the game is starting
+        - When joining a world or a server
+        - When opening the world map
+        - While playing (minimap, pins, path)
+        - When leaving a world
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What were you doing?
+      description: The last things you did before the crash, step by step if you can repeat it.
+    validations:
+      required: true
+
+  - type: input
+    id: crash-report
+    attributes:
+      label: Crash report
+      description: A link to the file from `crash-reports/` uploaded to [GitHub Gist](https://gist.github.com) or [mclo.gs](https://mclo.gs).
+    validations:
+      required: true
+
+  - type: input
+    id: logs
+    attributes:
+      label: Log
+      description: A link to `logs/latest.log` (or `logs/debug.log`) uploaded the same way.
+
+  - type: dropdown
+    id: alone
+    attributes:
+      label: Does it crash with Teyvat Cartographia alone?
+      options:
+        - "Yes, only this mod is installed"
+        - "No, only together with other mods"
+        - "I have not checked"
+    validations:
+      required: true
+
+  - type: textarea
+    id: mods
+    attributes:
+      label: Other mods or modpack
+      placeholder: "Example: All the Mods 10, or Sodium, Iris and Distant Horizons"

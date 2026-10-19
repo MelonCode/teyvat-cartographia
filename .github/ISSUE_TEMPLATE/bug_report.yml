@@ -1,0 +1,112 @@
+name: 🐞 Bug report
+description: Something in the mod does not work or looks wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!IMPORTANT]
+        > **Before reporting, please check the [existing issues](https://github.com/Tapacywka/teyvat-cartographia/issues?q=is%3Aissue).** If your problem is already there, add a comment to it instead of opening a new one.
+        >
+        > Make sure you are on the [latest release](https://github.com/Tapacywka/teyvat-cartographia/releases/latest). If the game crashed, use the **Crash report** form instead.
+
+  - type: input
+    id: mod-version
+    attributes:
+      label: Mod version
+      description: The file name of the JAR in your `mods` folder, or the version from the mod list.
+      placeholder: 0.1.0+mc1.21.1-neoforge
+    validations:
+      required: true
+
+  - type: input
+    id: neoforge-version
+    attributes:
+      label: NeoForge version
+      description: Shown in the bottom left corner of the title screen and in the launcher.
+      placeholder: 21.1.257
+    validations:
+      required: true
+
+  - type: dropdown
+    id: theme
+    attributes:
+      label: Theme
+      options:
+        - Minecraft
+        - Genshin Impact
+        - A custom theme from a resource pack
+        - Not related to the theme
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen?
+      multiple: true
+      options:
+        - World map
+        - Minimap
+        - Cave layers
+        - Pins and tracking
+        - Pin in the world (beam, distance, pulse)
+        - Walking path
+        - Settings
+        - Saving and loading the map
+        - Performance (FPS, stutters, memory)
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the problem, and what you expected to happen instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can the problem be seen again? Walk through it step by step.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or video
+      description: For visual problems a screenshot helps a lot. Drag and drop images here. Mention your GUI scale and screen resolution if the layout looks wrong.
+
+  - type: input
+    id: logs
+    attributes:
+      label: Log
+      description: |
+        A link to `logs/latest.log` uploaded to [GitHub Gist](https://gist.github.com) or [mclo.gs](https://mclo.gs). Please do not paste the whole log here.
+
+  - type: dropdown
+    id: alone
+    attributes:
+      label: Does it happen with Teyvat Cartographia alone?
+      description: Try the same steps with only this mod installed, if you can.
+      options:
+        - "Yes, only this mod is installed"
+        - "No, only together with other mods"
+        - "I have not checked"
+    validations:
+      required: true
+
+  - type: textarea
+    id: mods
+    attributes:
+      label: Other mods or modpack
+      description: The modpack name and version, or the mods you think may be involved (other map mods, shaders, optimisation mods).
+      placeholder: "Example: All the Mods 10, or Sodium, Iris and Distant Horizons"

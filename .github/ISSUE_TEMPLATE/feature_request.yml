@@ -1,0 +1,53 @@
+name: 💡 Feature request
+description: An idea for the map, the minimap, pins, themes or anything else
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! Please look through the [existing issues](https://github.com/Tapacywka/teyvat-cartographia/issues?q=is%3Aissue) first: if someone already suggested it, a 👍 on that issue helps more than a new one.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: What is it about?
+      multiple: true
+      options:
+        - World map
+        - Minimap
+        - Cave layers
+        - Pins and tracking
+        - Walking path
+        - Settings
+        - Themes and resource packs
+        - Compatibility with another mod
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: What are you trying to do in the game, and what is missing or getting in the way?
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How could the mod help? Describe how it should look or work.
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Screenshots from Genshin Impact, other games or other map mods that show what you mean. Drag and drop images here.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
