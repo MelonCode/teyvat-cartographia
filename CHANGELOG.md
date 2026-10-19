@@ -1,0 +1,51 @@
+# Changelog
+
+All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>-<loader>`.
+
+## 0.1.0+mc1.21.1-neoforge (first release)
+
+The first public release for Minecraft 1.21.1 on NeoForge 21.1. Client only.
+
+### World map
+* Full-screen map of the world you have explored, drawn from loaded chunks: soft painted palette, relief shading,
+  contour lines, water depth, fog of war over unexplored land, darker at night with lit places keeping their colour.
+* Zoom from 1/16 to 16 towards the cursor, panning with the mouse or keys, chunk grid, biome labels, biome under the
+  cursor, player and cursor coordinates, explored chunk counter.
+* Separate maps per world or server and per dimension, saved on disk; dimension list with vanilla dimensions first
+  and modded ones in alphabetical order; the Nether mapped below its roof.
+* Off-screen indicators for the player and the tracked pin.
+
+### Cave layers
+* Caves around you are mapped in layers 16 blocks high while you are underground (Overworld).
+* The minimap and the world map switch to your layer; a layer field at the right edge of the world map shows the
+  others, like the Genshin Impact map. Pins belong to their layer.
+
+### Minimap
+* Square (Minecraft theme) or round (Genshin Impact theme) minimap with the player arrow, view cone, pins, the path
+  and the tracked pin on the rim.
+* North up or rotating with the view; size, corner, offsets, opacity, zoom and update rate.
+* Coordinates, biome (long names wrap) and a clock under it.
+
+### Pins and tracking
+* Custom pins for everyone, Interactive pins (waypoint, statue, domain) for operators with teleport, and System
+  points: world spawn and last death.
+* Up to 100 pins per world, pin list sorted by distance, rename, retype, delete.
+* Track a pin: its colour follows its kind (custom orange, interactive mint, system violet).
+
+### Pin in the world and path
+* The tracked pin appears in the 3D world like a Genshin Impact waypoint: constant size, visible through terrain,
+  distance in blocks, a beam of light within 225 blocks, an arrow when the target is above or below you.
+* Pulse key (V): a diamond closes in on the pin and the pin and the path stars show again.
+* Walking path to the target: a precise path over loaded terrain following a coarse path over the explored map (up
+  to 1024 blocks), round water, lava, trees, walls and mountains. Drawn as a dash-dot line on the map and the minimap
+  (without the walked part) and as twinkling stars in the world near the camera.
+
+### Settings and themes
+* Quick switches on the map and a full settings screen (also from the mod list) with foldable sub-sections, settings
+  per pin kind for the map, the minimap, the beam and the path.
+* Minecraft theme by default; Genshin Impact theme as a built-in resource pack. Custom themes through resource packs.
+* English and Russian translations.
+
+### Performance
+* Cached HUD layers, no per-frame allocations, chunk work on worker threads, path searches in short slices: the mod
+  is meant to cost at most 2 to 3% FPS.

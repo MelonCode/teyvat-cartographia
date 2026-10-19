@@ -1,0 +1,160 @@
+package net.tapacywka.teyvatcartographia.render;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import net.tapacywka.teyvatcartographia.TeyvatCartographia;
+import net.tapacywka.teyvatcartographia.config.MapConfig;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
+import net.minecraft.util.profiling.InactiveProfiler;
+import net.minecraft.util.profiling.ProfilerFiller;
+
+import java.io.Reader;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * Finds the available themes and applies the selected one ({@link MapConfig#THEME}) on every resource reload
+ * (F3+T, resource pack changes) and when the player picks another theme ({@link #applyNow}).
+ * <p>
+ * A theme is a folder {@code assets/teyvatcartographia/themes/<id>/} with
+ * <ul>
+ *   <li>{@code theme.json}: {@code { "name": "<translation key or text>", "style": { "shape": "round" | "square",
+ *       "fog_tile": int } }}; its presence makes the theme selectable;</li>
+ *   <li>{@code colors.json}: {@code { "colors": { "panel_dark": "#F2272F3A", ... } }} ({@code #AARRGGBB} or
+ *       {@code #RRGGBB}; keys are the colour fields of {@link Theme} in lower case);</li>
+ *   <li>{@code icons/64/<name>.png} (64 x 64 each, see {@link IconAtlas}) and optionally {@code fog.png}.</li>
+ * </ul>
+ * Colours not given by the theme keep the built-in defaults; missing icons and fog fall back to the built-in
+ * {@code minecraft} theme ({@link Theme#DEFAULT}). Every resource pack providing a theme's {@code colors.json} is
+ * merged (lowest priority first), so a pack may change a single colour of any theme.
+ * <p>
+ * Only enabled resource packs are seen, so a pack's theme becomes selectable once the pack is enabled (the Genshin
+ * Impact theme is the mod's built-in pack, off by default). A selected theme whose pack was disabled falls back to
+ * the default theme.
+ */
+public final class ThemeLoader extends SimplePreparableReloadListener<ThemeLoader.Prepared> {
+    record Prepared(List<String> ids, Map<String, Component> names, String id, Map<String, Integer> colors, JsonObject style) {}
+
+    private static List<String> available = List.of(Theme.DEFAULT);
+    private static Map<String, Component> names = Map.of();
+
+    /** Ids of the selectable themes, the default one first. */
+    public static List<String> available() {
+        return available;
+    }
+
+    public static Component displayName(String id) {
+        Component c = names.get(id);
+        return c != null ? c : Component.literal(id);
+    }
+
+    /** Re-reads and applies the theme now (after the player changed it in the settings). */
+    public static void applyNow() {
+        ResourceManager rm = Minecraft.getInstance().getResourceManager();
+        ThemeLoader loader = new ThemeLoader();
+        loader.apply(loader.prepare(rm, InactiveProfiler.INSTANCE), rm, InactiveProfiler.INSTANCE);
+    }
+
+    @Override
+    protected Prepared prepare(ResourceManager rm, ProfilerFiller profiler) {
+        List<String> ids = new ArrayList<>();
+        Map<String, Component> titles = new HashMap<>();
+        Map<String, JsonObject> styles = new HashMap<>();
+        Map<ResourceLocation, Resource> found = rm.listResources("themes", l -> l.getPath().endsWith("/theme.json"));
+        for (Map.Entry<ResourceLocation, Resource> e : found.entrySet()) {
+            ResourceLocation loc = e.getKey();
+            if (!loc.getNamespace().equals(TeyvatCartographia.MOD_ID)) continue;
+            String[] parts = loc.getPath().split("/");
+            if (parts.length != 3) continue; // themes/<id>/theme.json
+            String id = parts[1];
+            try (Reader r = e.getValue().openAsReader()) {
+                JsonObject root = JsonParser.parseReader(r).getAsJsonObject();
+                String name = root.has("name") ? root.get("name").getAsString() : id;
+                titles.put(id, Component.translatableWithFallback(name, name));
+                styles.put(id, root.has("style") ? root.getAsJsonObject("style") : new JsonObject());
+                ids.add(id);
+            } catch (Exception ex) {
+                TeyvatCartographia.LOGGER.warn("Could not read theme {}", loc, ex);
+            }
+        }
+        Collections.sort(ids);
+        ids.remove(Theme.DEFAULT);
+        ids.add(0, Theme.DEFAULT);
+
+        String id = MapConfig.get(MapConfig.THEME);
+        if (!ids.contains(id)) {
+            if (!id.equals(Theme.DEFAULT)) TeyvatCartographia.LOGGER.warn("Theme '{}' not found, using the default theme", id);
+            id = Theme.DEFAULT;
+        }
+        return new Prepared(List.copyOf(ids), titles, id, readColors(rm, id), styles.getOrDefault(id, new JsonObject()));
+    }
+
+    private static Map<String, Integer> readColors(ResourceManager rm, String themeId) {
+        Map<String, Integer> colors = new HashMap<>();
+        ResourceLocation loc = Theme.asset(themeId, "colors.json");
+        for (Resource res : rm.getResourceStack(loc)) {
+            try (Reader r = res.openAsReader()) {
+                JsonObject root = JsonParser.parseReader(r).getAsJsonObject();
+                JsonObject obj = root.has("colors") ? root.getAsJsonObject("colors") : root;
+                for (Map.Entry<String, JsonElement> e : obj.entrySet()) {
+                    String key = e.getKey().toLowerCase(Locale.ROOT);
+                    if (!Theme.isKey(key)) {
+                        TeyvatCartographia.LOGGER.warn("Theme {} ({}): unknown colour '{}'", loc, res.sourcePackId(), e.getKey());
+                        continue;
+                    }
+                    Integer argb = parse(e.getValue().getAsString());
+                    if (argb == null) {
+                        TeyvatCartographia.LOGGER.warn("Theme {} ({}): bad colour '{}' for '{}'", loc, res.sourcePackId(), e.getValue(), e.getKey());
+                    } else {
+                        colors.put(key, argb);
+                    }
+                }
+            } catch (Exception ex) {
+                TeyvatCartographia.LOGGER.warn("Could not read theme colours {} from {}", loc, res.sourcePackId(), ex);
+            }
+        }
+        return colors;
+    }
+
+    @Override
+    protected void apply(Prepared p, ResourceManager rm, ProfilerFiller profiler) {
+        available = p.ids();
+        names = p.names();
+        Theme.id = p.id();
+        Theme.Style.reset();
+        JsonObject s = p.style();
+        try {
+            if (s.has("shape")) Theme.Style.square = "square".equals(s.get("shape").getAsString());
+            if (s.has("fog_tile")) Theme.Style.fogTile = Math.max(16, s.get("fog_tile").getAsInt());
+        } catch (RuntimeException ex) {
+            TeyvatCartographia.LOGGER.warn("Bad style in theme '{}'", p.id(), ex);
+        }
+        Theme.apply(p.colors());
+        IconAtlas.invalidate();
+        FogTexture.invalidate();
+        TeyvatCartographia.LOGGER.info("Teyvat Cartographia: theme '{}' applied", p.id());
+    }
+
+    static Integer parse(String s) {
+        String hex = s.trim();
+        if (hex.startsWith("#")) hex = hex.substring(1);
+        else if (hex.startsWith("0x") || hex.startsWith("0X")) hex = hex.substring(2);
+        if (hex.length() != 6 && hex.length() != 8) return null;
+        try {
+            long v = Long.parseLong(hex, 16);
+            return hex.length() == 6 ? (int) (0xFF000000L | v) : (int) v;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+}

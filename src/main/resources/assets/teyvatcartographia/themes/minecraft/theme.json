@@ -1,0 +1,7 @@
+{
+  "name": "teyvatcartographia.theme.minecraft",
+  "style": {
+    "shape": "square",
+    "fog_tile": 440
+  }
+}

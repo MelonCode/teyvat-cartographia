@@ -1,0 +1,210 @@
+package net.tapacywka.teyvatcartographia.config;
+
+import net.neoforged.neoforge.common.ModConfigSpec;
+
+/**
+ * Client-side user settings (UI only). Stored by NeoForge in {@code config/teyvatcartographia-client.toml}.
+ * Explored map data and markers are stored separately under {@code <gameDir>/teyvatcartographia/}.
+ */
+public final class MapConfig {
+    public enum Corner { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
+
+    public enum Orientation { NORTH_UP, PLAYER_UP }
+
+    /** How often the minimap is redrawn while the player moves or turns. */
+    public enum UpdateRate {
+        RATE_10(10), RATE_20(20), RATE_30(30), RATE_60(60), UNLIMITED(0);
+
+        /** Minimum time between two redraws, 0 for every frame. */
+        public final long intervalNs;
+
+        UpdateRate(int perSecond) {
+            intervalNs = perSecond == 0 ? 0 : 1_000_000_000L / perSecond;
+        }
+    }
+
+    public static final ModConfigSpec SPEC;
+
+    // Appearance
+    public static final ModConfigSpec.ConfigValue<String> THEME;
+
+    // Minimap
+    public static final ModConfigSpec.BooleanValue MINIMAP_ENABLED;
+    public static final ModConfigSpec.IntValue MINIMAP_RADIUS;
+    public static final ModConfigSpec.EnumValue<Corner> MINIMAP_CORNER;
+    public static final ModConfigSpec.IntValue MINIMAP_OFFSET_X;
+    public static final ModConfigSpec.IntValue MINIMAP_OFFSET_Y;
+    public static final ModConfigSpec.DoubleValue MINIMAP_OPACITY;
+    public static final ModConfigSpec.DoubleValue MINIMAP_ZOOM;
+    public static final ModConfigSpec.EnumValue<Orientation> MINIMAP_ORIENTATION;
+    public static final ModConfigSpec.EnumValue<UpdateRate> MINIMAP_UPDATE_RATE;
+    public static final ModConfigSpec.BooleanValue MINIMAP_SHOW_COORDS;
+    public static final ModConfigSpec.BooleanValue MINIMAP_SHOW_BIOME;
+    public static final ModConfigSpec.BooleanValue MINIMAP_SHOW_TIME;
+    public static final ModConfigSpec.EnumValue<TimeSource> MINIMAP_TIME_SOURCE;
+
+    // World map
+    public static final ModConfigSpec.BooleanValue MAP_SHOW_LABELS;
+    public static final ModConfigSpec.BooleanValue MAP_SHOW_GRID;
+    public static final ModConfigSpec.DoubleValue MAP_DEFAULT_ZOOM;
+
+    /**
+     * The three kinds of pins, each with its own settings: the players' own (custom), the operators' waypoints,
+     * statues and domains (interactive), and the automatic world spawn and last death (system).
+     */
+    public enum PinKind {
+        CUSTOM("custom"), INTERACTIVE("interactive"), SYSTEM("system");
+
+        public final String id;
+
+        PinKind(String id) {
+            this.id = id;
+        }
+    }
+
+    /**
+     * Settings of one kind of pins: the kind as a whole ({@code enabled}) and where its pins are drawn (the tracked pin
+     * is always drawn on the maps and as the marker in the world), and the path to a tracked pin of this kind
+     * ({@code path}) and where it is drawn. The nested values count only while their switch is on: read them through
+     * the methods.
+     */
+    public static final class PinOptions {
+        public final ModConfigSpec.BooleanValue enabled, map, minimap, beam, path, pathMap, pathMinimap, pathWorld;
+
+        private PinOptions(ModConfigSpec.Builder b, PinKind kind) {
+            b.push(kind.id);
+            enabled = b.comment("Show these pins").translation("teyvatcartographia.config.pins." + kind.id).define("enabled", true);
+            map = b.comment("On the world map").translation("teyvatcartographia.config.pins.map").define("map", true);
+            minimap = b.comment("On the minimap").translation("teyvatcartographia.config.pins.minimap").define("minimap", true);
+            beam = b.comment("A beam of light over a tracked pin in the world").translation("teyvatcartographia.config.pins.beam").define("beam", true);
+            path = b.comment("Show the path to a tracked pin of this kind").translation("teyvatcartographia.config.path." + kind.id).define("path", true);
+            pathMap = b.comment("The path on the world map (dash-dot line)").translation("teyvatcartographia.config.path.map").define("pathMap", true);
+            pathMinimap = b.comment("The path on the minimap (dash-dot line)").translation("teyvatcartographia.config.path.minimap").define("pathMinimap", true);
+            pathWorld = b.comment("The path in the world (stars)").translation("teyvatcartographia.config.path.world").define("pathWorld", true);
+            b.pop();
+        }
+
+        public boolean onMap() {
+            return get(enabled) && get(map);
+        }
+
+        public boolean onMinimap() {
+            return get(enabled) && get(minimap);
+        }
+
+        public boolean beam() {
+            return get(enabled) && get(beam);
+        }
+
+        public boolean pathOnMap() {
+            return get(path) && get(pathMap);
+        }
+
+        public boolean pathOnMinimap() {
+            return get(path) && get(pathMinimap);
+        }
+
+        public boolean pathInWorld() {
+            return get(path) && get(pathWorld);
+        }
+
+        private void reset() {
+            for (ModConfigSpec.BooleanValue v : new ModConfigSpec.BooleanValue[]{enabled, map, minimap, beam, path, pathMap, pathMinimap, pathWorld}) resetValue(v);
+        }
+    }
+    private static final PinOptions[] PINS = new PinOptions[PinKind.values().length];
+
+    public static PinOptions pins(PinKind kind) {
+        return PINS[kind.ordinal()];
+    }
+
+    // Cartography
+    public static final ModConfigSpec.IntValue CHUNKS_PER_TICK;
+    public static final ModConfigSpec.IntValue SCAN_RADIUS;
+    public static final ModConfigSpec.IntValue MAX_CACHED_TILES;
+    public static final ModConfigSpec.EnumValue<Detail> DETAIL;
+    public static final ModConfigSpec.BooleanValue CAVES_ENABLED;
+
+    public enum Detail { LOW, MEDIUM, HIGH }
+
+    /** Clock under the minimap: the time of day in the game world, or the real time of the player's computer. */
+    public enum TimeSource { GAME_TIME, REAL_TIME }
+
+    static {
+        ModConfigSpec.Builder b = new ModConfigSpec.Builder();
+
+        b.push("appearance");
+        THEME = b.comment("Interface theme: the id of a folder in assets/teyvatcartographia/themes/ (built in: minecraft; genshin comes with the mod's built-in resource pack; enabled resource packs may add more)")
+                .translation("teyvatcartographia.config.theme").define("theme", "minecraft", o -> o instanceof String s && s.matches("[a-z0-9_.-]+"));
+        b.pop();
+
+        b.push("minimap");
+        MINIMAP_ENABLED = b.comment("Show the minimap on the HUD").translation("teyvatcartographia.config.minimap_enabled").define("enabled", true);
+        MINIMAP_RADIUS = b.comment("Minimap radius in GUI pixels").translation("teyvatcartographia.config.minimap_radius").defineInRange("radius", 48, 24, 110);
+        MINIMAP_CORNER = b.comment("Screen corner the minimap is anchored to").translation("teyvatcartographia.config.minimap_corner").defineEnum("corner", Corner.TOP_LEFT);
+        MINIMAP_OFFSET_X = b.comment("Horizontal distance from the anchored corner").translation("teyvatcartographia.config.minimap_offset_x").defineInRange("offsetX", 8, 0, 1000);
+        MINIMAP_OFFSET_Y = b.comment("Vertical distance from the anchored corner").translation("teyvatcartographia.config.minimap_offset_y").defineInRange("offsetY", 8, 0, 1000);
+        MINIMAP_OPACITY = b.comment("Minimap opacity").translation("teyvatcartographia.config.minimap_opacity").defineInRange("opacity", 0.95, 0.2, 1.0);
+        MINIMAP_ZOOM = b.comment("Minimap scale in GUI pixels per block: 1/16, 1/8, 1/4, 1/3, 1/2, 1, 2, 3, 4, 8 or 16 (other values snap to the nearest). Below 1 only the tracked target keeps its pin").translation("teyvatcartographia.config.minimap_zoom").defineInRange("zoom", 1.0, 1 / 16.0, 16.0);
+        MINIMAP_ORIENTATION = b.comment("NORTH_UP: north is always up. PLAYER_UP: the map rotates with the view direction").translation("teyvatcartographia.config.minimap_orientation").defineEnum("orientation", Orientation.NORTH_UP);
+        MINIMAP_UPDATE_RATE = b.comment("How many times per second the minimap is redrawn while you move or turn: RATE_10, RATE_20, RATE_30, RATE_60 or UNLIMITED (every frame). Lower gives more FPS").translation("teyvatcartographia.config.minimap_rate").defineEnum("updateRate", UpdateRate.RATE_30);
+        MINIMAP_SHOW_COORDS = b.comment("Show player coordinates under the minimap").translation("teyvatcartographia.config.minimap_coords").define("showCoordinates", true);
+        MINIMAP_SHOW_BIOME = b.comment("Show the biome you are in under the minimap").translation("teyvatcartographia.config.minimap_biome").define("showBiome", true);
+        MINIMAP_SHOW_TIME = b.comment("Show a clock under the minimap").translation("teyvatcartographia.config.minimap_time").define("showTime", true);
+        MINIMAP_TIME_SOURCE = b.comment("Clock under the minimap: GAME_TIME = time of day in the world, REAL_TIME = your computer's clock").translation("teyvatcartographia.config.minimap_time_source").defineEnum("timeSource", TimeSource.GAME_TIME);
+        b.pop();
+
+        // Below scale 1 the maps show only the tracked target; the tracked target is always shown on them.
+        b.push("pins");
+        for (PinKind kind : PinKind.values()) PINS[kind.ordinal()] = new PinOptions(b, kind);
+        b.pop();
+
+        b.push("worldmap");
+        MAP_SHOW_LABELS = b.comment("Show biome name labels").translation("teyvatcartographia.config.map_labels").define("showLabels", false);
+        MAP_SHOW_GRID = b.comment("Show the chunk/region grid when zoomed in").translation("teyvatcartographia.config.map_grid").define("showGrid", false);
+
+        MAP_DEFAULT_ZOOM = b.comment("Initial world map scale (GUI pixels per block): 1/16, 1/8, 1/4, 1/3, 1/2, 1, 2, 3, 4, 8 or 16 (other values snap to the nearest)").translation("teyvatcartographia.config.map_zoom").defineInRange("defaultZoom", 1.0, 1 / 16.0, 16.0);
+        b.pop();
+
+        b.push("cartography");
+        CHUNKS_PER_TICK = b.comment("Maximum number of chunks sampled per client tick").translation("teyvatcartographia.config.chunks_per_tick").defineInRange("chunksPerTick", 6, 1, 32);
+        SCAN_RADIUS = b.comment("Maximum mapping radius around the player, in chunks (limited by the render distance)").translation("teyvatcartographia.config.scan_radius").defineInRange("scanRadius", 16, 2, 32);
+        MAX_CACHED_TILES = b.comment("Maximum number of 256x256 map regions kept in memory").translation("teyvatcartographia.config.max_tiles").defineInRange("maxCachedTiles", 160, 32, 1024);
+        DETAIL = b.comment("Terrain detail: LOW = flat colours, MEDIUM = relief shading, HIGH = relief + contour lines").translation("teyvatcartographia.config.detail").defineEnum("detail", Detail.HIGH);
+        CAVES_ENABLED = b.comment("Map the caves around you while underground, in layers of 16 blocks; the world map and the minimap switch to the layer you are in").translation("teyvatcartographia.config.caves").define("caves", true);
+        b.pop();
+
+        SPEC = b.build();
+    }
+
+    private MapConfig() {}
+
+    public static void save() {
+        SPEC.save();
+    }
+
+    /** Resets every value to its default and saves. */
+    public static void resetAll() {
+        resetValue(THEME); resetValue(MINIMAP_ENABLED); resetValue(MINIMAP_RADIUS); resetValue(MINIMAP_CORNER);
+        resetValue(MINIMAP_OFFSET_X); resetValue(MINIMAP_OFFSET_Y); resetValue(MINIMAP_OPACITY);
+        resetValue(MINIMAP_ZOOM); resetValue(MINIMAP_ORIENTATION); resetValue(MINIMAP_UPDATE_RATE); resetValue(MINIMAP_SHOW_COORDS);
+        resetValue(MINIMAP_SHOW_BIOME); resetValue(MINIMAP_SHOW_TIME); resetValue(MINIMAP_TIME_SOURCE);
+        for (PinOptions o : PINS) o.reset();
+        resetValue(MAP_SHOW_LABELS); resetValue(MAP_SHOW_GRID); resetValue(MAP_DEFAULT_ZOOM);
+        resetValue(CHUNKS_PER_TICK); resetValue(SCAN_RADIUS); resetValue(MAX_CACHED_TILES); resetValue(DETAIL); resetValue(CAVES_ENABLED);
+        save();
+    }
+
+    private static <T> void resetValue(ModConfigSpec.ConfigValue<T> value) {
+        value.set(value.getDefault());
+    }
+
+    /** Safe read: config values throw if read before the config file was loaded. */
+    public static <T> T get(ModConfigSpec.ConfigValue<T> value) {
+        try {
+            return value.get();
+        } catch (IllegalStateException e) {
+            return value.getDefault();
+        }
+    }
+}

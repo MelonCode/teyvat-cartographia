@@ -1,0 +1,6 @@
+{
+  "pack": {
+    "pack_format": 34,
+    "description": { "translate": "teyvatcartographia.pack.genshin.description", "fallback": "Genshin Impact theme for Teyvat Cartographia" }
+  }
+}
