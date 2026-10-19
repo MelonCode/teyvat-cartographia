@@ -9,7 +9,8 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   `.json` file you choose; Import adds the pins of such a file (or of another world's `markers.json`). Pins that are
   already there are skipped, the 100 pin limit holds, interactive pins come in only for operators.
 * Import from Xaero's Minimap (its waypoints also show on Xaero's World Map): the waypoints of the current world are
-  found on their own, otherwise you pick the Xaero world folder. Death points are left out; waypoints become star pins.
+  found on their own, otherwise you pick any waypoint file of the Xaero world (a game without Xaero data just says
+  so). Death points are left out; waypoints become star pins.
 
 ## 0.1.0+mc1.21.1-neoforge (first release)
 

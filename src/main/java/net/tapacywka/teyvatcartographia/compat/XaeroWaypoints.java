@@ -88,7 +88,7 @@ public final class XaeroWaypoints {
     }
 
     /**
-     * All waypoints under a folder chosen by the player: a world folder (holding {@code dim%} folders) or one
+     * All waypoints under a Xaero folder: a world folder (holding {@code dim%} folders) or one
      * dimension folder. Death points are left out; every waypoint becomes a custom star pin.
      */
     public static List<Marker> read(Path folder) throws IOException {
@@ -105,14 +105,10 @@ public final class XaeroWaypoints {
         return out;
     }
 
-    /** True if the folder is a Xaero world or dimension folder. */
-    public static boolean isWaypointFolder(Path folder) {
-        if (dimension(folder) != null) return true;
-        try (Stream<Path> s = Files.list(folder)) {
-            return s.anyMatch(p -> Files.isDirectory(p) && dimension(p) != null);
-        } catch (IOException e) {
-            return false;
-        }
+    /** The world folder of a Xaero waypoint file ({@code <world>/<dimension>/<file>.txt}), or null if the file is not in one. */
+    public static Path worldFolderOf(Path file) {
+        Path dim = file.toAbsolutePath().getParent();
+        return dim == null || dimension(dim) == null ? null : dim.getParent();
     }
 
     private static void readDimension(Path dir, List<Marker> out) throws IOException {

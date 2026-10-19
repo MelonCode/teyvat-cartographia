@@ -11,7 +11,7 @@ import java.nio.file.Path;
 import java.util.function.Consumer;
 
 /**
- * The system's own save / open / folder dialogs (tinyfd, shipped with the game). A dialog runs on its own thread so
+ * The system's own save and open dialogs (tinyfd, shipped with the game). A dialog runs on its own thread so
  * the game keeps drawing; the answer comes back on the main thread, null if the player cancelled. One at a time.
  */
 public final class FileDialogs {
@@ -26,7 +26,7 @@ public final class FileDialogs {
     public static void save(String title, Path suggested, String pattern, String description, Consumer<Path> done) {
         run(() -> {
             try (MemoryStack stack = MemoryStack.stackPush()) {
-                return TinyFileDialogs.tinyfd_saveFileDialog(title, suggested.toString(), filter(stack, pattern), description);
+                return TinyFileDialogs.tinyfd_saveFileDialog(text(title), suggested.toString(), filter(stack, pattern), text(description));
             }
         }, done);
     }
@@ -35,13 +35,18 @@ public final class FileDialogs {
     public static void openFile(String title, Path start, String pattern, String description, Consumer<Path> done) {
         run(() -> {
             try (MemoryStack stack = MemoryStack.stackPush()) {
-                return TinyFileDialogs.tinyfd_openFileDialog(title, start + File.separator, filter(stack, pattern), description, false);
+                return TinyFileDialogs.tinyfd_openFileDialog(text(title), start + File.separator, filter(stack, pattern), text(description), false);
             }
         }, done);
     }
 
-    public static void openFolder(String title, Path start, Consumer<Path> done) {
-        run(() -> TinyFileDialogs.tinyfd_selectFolderDialog(title, start.toString()), done);
+
+    /**
+     * A title or description as tinyfd takes it: it refuses straight quotes ("Xaero's" showed "INVALID TITLE WITH
+     * QUOTES" instead of the title), so they become typographic ones.
+     */
+    private static String text(String s) {
+        return s.replace('\'', '\u2019').replace('"', '\u201D');
     }
 
     private static PointerBuffer filter(MemoryStack stack, String pattern) {

@@ -1,7 +1,6 @@
 package net.tapacywka.teyvatcartographia.gui;
 
 import net.minecraft.network.chat.Component;
-import net.neoforged.fml.loading.FMLPaths;
 import net.tapacywka.teyvatcartographia.TeyvatCartographia;
 import net.tapacywka.teyvatcartographia.compat.XaeroWaypoints;
 import net.tapacywka.teyvatcartographia.map.WorldId;
@@ -103,7 +102,11 @@ public final class PinTransfer {
         });
     }
 
-    /** The waypoints of the current world if Xaero's Minimap has a folder for it; otherwise the player picks the folder. */
+    /**
+     * The waypoints of the current world if Xaero's Minimap has a folder for it; otherwise the player picks any
+     * waypoint file of a Xaero world (the system's file dialog: its folder dialog is the old "Browse For Folder" one)
+     * and gets the waypoints of that whole world. Without any Xaero data in this game: a message instead of the dialog.
+     */
     public static void importXaero() {
         Path folder = XaeroWaypoints.currentWorldFolder();
         if (folder != null) {
@@ -111,14 +114,18 @@ public final class PinTransfer {
             return;
         }
         List<Path> roots = XaeroWaypoints.roots();
-        Path start = roots.isEmpty() ? FMLPaths.GAMEDIR.get() : roots.get(0);
-        FileDialogs.openFolder(t("teyvatcartographia.transfer.xaero.title"), start, chosen -> {
+        if (roots.isEmpty()) {
+            say(importTitle(Source.XAERO), Source.XAERO, Component.translatable("teyvatcartographia.transfer.xaero.missing"));
+            return;
+        }
+        FileDialogs.openFile(t("teyvatcartographia.transfer.xaero.title"), roots.get(0), "*.txt", t("teyvatcartographia.transfer.xaero.file_type"), chosen -> {
             if (chosen == null) return;
-            if (!XaeroWaypoints.isWaypointFolder(chosen)) {
+            Path world = XaeroWaypoints.worldFolderOf(chosen);
+            if (world == null) {
                 say(importTitle(Source.XAERO), Source.XAERO, Component.translatable("teyvatcartographia.transfer.xaero.none"));
                 return;
             }
-            importXaero(chosen);
+            importXaero(world);
         });
     }
 
