@@ -13,7 +13,7 @@ import java.util.Arrays;
  * The long walking path to the tracked target over the explored map: drawn on the world map, and the precise near
  * {@link PathFinder} (the stars in the world) heads along it. A* on a grid of {@code STEP} x {@code STEP} block cells within
  * {@code RADIUS} blocks of the player, read from the stored map regions: each cell samples four columns; deep water and
- * lava ({@link MapTile#FLAG_IMPASSABLE}) cannot be crossed (a swimming player swims out through the surrounding water),
+ * lava ({@link MapTile#FLAG_IMPASSABLE}) cannot be crossed (a player in it or over it swims out through the surrounding water),
  * shallow water can, climbs and anything much higher than the
  * player cost more, like the near path. Unexplored cells (the fog) can be crossed at a small extra cost ({@link #fog}
  * marks the points there), and the path is smoothed into soft arcs ({@link PathSmoother}). The forest canopy stands in for the ground there, so the path is
@@ -53,7 +53,7 @@ public final class FarPath {
     private static boolean[] shallow;
     /** Deep water: entered only from the start or other deep water, so a swimming player swims out and nobody swims in. */
     private static boolean[] deep;
-    /** The player was in the water when the search began: only then may the path swim (out of it to the shore). */
+    /** The player was in the water or over deep water when the search began: only then may the path swim (out of it to the shore). */
     private static boolean swimming;
     private static float[] cost;
     private static int[] from;
@@ -225,7 +225,9 @@ public final class FarPath {
         startPZ = (float) p.getZ();
         start = cellOf(p.getX(), p.getZ());
         startY = (int) Math.floor(p.getY());
-        swimming = p.isInWater();
+        // In the water, or over deep water (flying, in a boat): the path may swim out to the shore (B21).
+        ground(start);
+        swimming = p.isInWater() || deep[start];
         double dx = t.x() - p.getX(), dz = t.z() - p.getZ(), d = Math.hypot(dx, dz);
         double reach = Math.min(d, RADIUS - STEP);
         goal = cellOf(p.getX() + dx / d * reach, p.getZ() + dz / d * reach);

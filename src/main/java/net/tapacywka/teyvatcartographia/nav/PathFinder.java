@@ -8,7 +8,7 @@ import java.util.Arrays;
 /**
  * Walking path from the player towards the navigation target over the loaded terrain, for the stars in the world and
  * the line on the world map. A* on a grid of {@code STEP} x {@code STEP} block cells within {@code RADIUS} blocks of
- * the player: deep water (two blocks or more; a swimming player swims out through the surrounding water) and tree trunks cannot be crossed,
+ * the player: deep water (two blocks or more; a player in it or over it swims out through the surrounding water) and tree trunks cannot be crossed,
  * shallow water can; climbs cost more
  * the steeper they are and anything much higher than the player costs extra, so the path goes round hills and
  * mountains and stays reasonably level. A target farther away is approached along the {@link FarPath} when there is one,
@@ -46,7 +46,7 @@ public final class PathFinder {
     private static final boolean[] shallow = new boolean[CELLS];
     /** Deep water: entered only from the start or other deep water, so a swimming player swims out and nobody swims in. */
     private static final boolean[] deep = new boolean[CELLS];
-    /** The player was in the water when the search began: only then may the path swim (out of it to the shore). */
+    /** The player was in the water or over deep water when the search began: only then may the path swim (out of it to the shore). */
     private static boolean swimming;
     private static final float[] cost = new float[CELLS];
     private static final int[] from = new int[CELLS];
@@ -206,7 +206,9 @@ public final class PathFinder {
         startPZ = (float) pz;
         start = cellOf(px, pz);
         startY = (int) Math.floor(py);
-        swimming = inWater;
+        // In the water, or over deep water (flying, in a boat): the path may swim out to the shore (B21).
+        ground(start);
+        swimming = inWater || deep[start];
         goal = cellOf(gx, gz);
         goalX = goal % SIDE;
         goalZ = goal / SIDE;

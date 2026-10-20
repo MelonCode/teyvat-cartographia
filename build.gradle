@@ -21,6 +21,11 @@ base {
     archivesName = mod_id
 }
 
+// The file is named with a "v" before the version (teyvatcartographia-v0.1.2...jar); the mod's own version has none.
+tasks.named('jar', Jar) {
+    archiveVersion = "v${project.version}"
+}
+
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 neoForge {

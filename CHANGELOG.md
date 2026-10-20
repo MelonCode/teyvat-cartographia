@@ -23,6 +23,10 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * Side panels are never narrower than 176 units, so the buttons and Russian labels fit on small GUI scales (2K at
   GUI 6 to 8).
 
+### Fixes
+* Flying or in a boat over deep water, the path to the target was missing; now it leads out across the water to the
+  shore, as it does for a swimming player.
+
 ## 0.1.1+mc1.21.1-neoforge
 
 ### Shared interactive pins (optional server side)

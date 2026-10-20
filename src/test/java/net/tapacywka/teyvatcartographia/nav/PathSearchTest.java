@@ -1,6 +1,5 @@
 package net.tapacywka.teyvatcartographia.nav;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -186,8 +185,8 @@ class PathSearchTest {
     }
 
     @Test
-    @Disabled("B21: over deep water and not in it (flying, in a boat) the search finds no way out; enable once fixed")
     void overDeepWaterButNotInItThereIsStillAPath() {
+        // B21: flying or in a boat over a lake, the path swims out to the shore like a swimmer's.
         Ground g = new Ground().deepWater(-30, -30, 30, 30);
         assertTrue(search(g, 0.5, 0.5, false, 60.5, 0.5) > 10);
         assertTrue(PathFinder.reachedGoal());
