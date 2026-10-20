@@ -60,6 +60,23 @@ public final class Route {
         return count = n;
     }
 
+    /**
+     * A line given point by point, as if collected from the paths (the unit tests): {@code n} points (x, z), none in the
+     * fog; the walked part starts again from its beginning.
+     */
+    static void useForTest(float[] points, int n) {
+        kNear = PathFinder.version();
+        kFar = FarPath.version();
+        xz = java.util.Arrays.copyOf(points, Math.max(2 * n, 2));
+        ys = new float[Math.max(n, 1)];
+        along = new float[Math.max(n, 1)];
+        fog = new boolean[Math.max(n, 1)];
+        java.util.Arrays.fill(ys, Float.NaN);
+        for (int i = 1; i < n; i++) along[i] = along[i - 1] + (float) Math.hypot(xz[2 * i] - xz[2 * i - 2], xz[2 * i + 1] - xz[2 * i - 1]);
+        count = n;
+        progressVersion = Integer.MIN_VALUE;
+    }
+
     /** Changes whenever the line changes (for cached layers). */
     public static int version() {
         return 31 * PathFinder.version() + FarPath.version();
@@ -159,6 +176,14 @@ public final class Route {
     }
 
     /** Horizontal distance from (x, z) to the line; infinite without a line. */
+    /** The pulse key keeps the path while the player is this close to its line (blocks); farther off it searches again. */
+    public static final double NEAR_LINE = 8;
+
+    /** Whether (x, z) is near the line: the pulse key then shows the stars again without a new search (B10). */
+    public static boolean nearLine(double x, double z) {
+        return distanceTo(x, z) <= NEAR_LINE;
+    }
+
     public static double distanceTo(double x, double z) {
         int n = collect();
         double best = n == 1 ? Math.hypot(x(0) - x, z(0) - z) : Double.POSITIVE_INFINITY;

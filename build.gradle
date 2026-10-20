@@ -74,6 +74,8 @@ dependencies {
 
 tasks.named('test', Test).configure {
     useJUnitPlatform()
+    // The tests read the mod's resources and sources from the project folder (they do not run in it).
+    systemProperty 'teyvatcartographia.projectDir', layout.projectDirectory.asFile.absolutePath
     testLogging {
         events 'failed'
         exceptionFormat = 'full'

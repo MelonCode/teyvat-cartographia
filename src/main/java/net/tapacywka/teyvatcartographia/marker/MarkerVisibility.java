@@ -37,24 +37,35 @@ public final class MarkerVisibility {
      */
     public static boolean shown(Marker m, double scale, boolean minimap) {
         if (Navigation.isTracking(m)) return true;
-        if (pinsHidden(scale)) return false;
         MapConfig.PinOptions o = MapConfig.pins(kind(m));
-        return minimap ? o.onMinimap() : o.onMap();
+        return shown(false, scale, MapConfig.get(o.enabled), MapConfig.get(minimap ? o.minimap : o.map));
+    }
+
+    /** {@link #shown}: for a tracked pin or not, at {@code scale}, with its kind on or off and on or off there. */
+    static boolean shown(boolean tracked, double scale, boolean kindOn, boolean thereOn) {
+        if (tracked) return true;
+        if (pinsHidden(scale)) return false;
+        return kindOn && thereOn;
     }
     /**
      * Where pin {@code m} lies against the shown layer {@code band} (null: the surface): 1 on a layer above it, -1 below,
      * 0 on the same layer. Cave bands from the sea level up are above the surface, the others below it.
      */
     public static int layerRelation(Marker m, Integer band) {
-        if (java.util.Objects.equals(m.band, band)) return 0;
-        return Integer.compare(layerHeight(m.band), layerHeight(band));
+        var level = net.minecraft.client.Minecraft.getInstance().level;
+        return layerRelation(m.band, band, level == null ? 63 : level.getSeaLevel());
+    }
+
+    /** {@link #layerRelation(Marker, Integer)} of a pin on {@code pinBand} with {@code band} shown, at that sea level. */
+    static int layerRelation(Integer pinBand, Integer band, int seaLevel) {
+        if (java.util.Objects.equals(pinBand, band)) return 0;
+        return Integer.compare(layerHeight(pinBand, seaLevel), layerHeight(band, seaLevel));
     }
 
     /** Height order of a layer (twice the band's lowest Y; the surface just under the first band above the sea). */
-    private static int layerHeight(Integer band) {
+    private static int layerHeight(Integer band, int seaLevel) {
         if (band != null) return 2 * band * net.tapacywka.teyvatcartographia.map.data.CaveScanner.BAND;
-        var level = net.minecraft.client.Minecraft.getInstance().level;
-        return 2 * (level == null ? 63 : level.getSeaLevel()) + 1;
+        return 2 * seaLevel + 1;
     }
 
     /** Below scale 1 the map and the minimap show only the tracked target. */

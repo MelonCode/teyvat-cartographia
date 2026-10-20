@@ -33,9 +33,10 @@ public final class SharedPins {
     /** The one-time offer was looked at in this world (shown, or not needed). */
     private static boolean offerChecked;
 
-    /** True if the server keeps shared pins (it has the mod: its channel is there). */
+    /** True if the server keeps shared pins (it has the mod: its channel is there); false without a game (unit tests). */
     public static boolean available() {
-        ClientPacketListener c = Minecraft.getInstance().getConnection();
+        Minecraft mc = Minecraft.getInstance();
+        ClientPacketListener c = mc == null ? null : mc.getConnection();
         return c != null && c.hasChannel(SharedPinsNetwork.Pins.TYPE);
     }
 

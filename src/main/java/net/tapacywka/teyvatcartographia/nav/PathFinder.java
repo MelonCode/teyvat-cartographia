@@ -1,13 +1,7 @@
 package net.tapacywka.teyvatcartographia.nav;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.tags.FluidTags;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.levelgen.Heightmap;
 
 import java.util.Arrays;
 
@@ -45,7 +39,7 @@ public final class PathFinder {
     private static final float SHORT_OF_TARGET = 4;
     /** Time per slice: 0.8 ms, so a slice with its last few cells stays within 1 ms. */
     private static final long SLICE_NANOS = 800_000L;
-    private static final int UNKNOWN = Integer.MIN_VALUE, BLOCKED = Integer.MIN_VALUE + 1;
+    private static final int UNKNOWN = Integer.MIN_VALUE, BLOCKED = Terrain.BLOCKED;
 
     // Per-cell ground height (or UNKNOWN / BLOCKED), water flag, and the A* state.
     private static final int[] height = new int[CELLS];
@@ -59,7 +53,9 @@ public final class PathFinder {
     private static final boolean[] closed = new boolean[CELLS];
     private static final CellHeap open = new CellHeap(CELLS * 8);
     private static int originX, originZ;
-    private static final BlockPos.MutableBlockPos POS = new BlockPos.MutableBlockPos();
+    /** The ground of the search: the loaded level in the game ({@link #LEVEL}), a drawn grid in the unit tests. */
+    private static Terrain terrain;
+    private static final LevelTerrain LEVEL = new LevelTerrain();
 
     /** The found path: {@code pointCount} points (x, y, z), from the player towards the target. */
     private static float[] points = new float[3 * 512];
@@ -103,8 +99,6 @@ public final class PathFinder {
     // A search in progress: its start, goal, best cell so far and whether it is running.
     private static boolean searching, building;
     private static int start, goal, goalX, goalZ, best, startY;
-    /** The search started underground: the ground is the cave floor around the player's height, not the surface. */
-    private static boolean underground;
     private static float bestH, startPX, startPY, startPZ;
     private static long searchNanos;
 
@@ -125,7 +119,7 @@ public final class PathFinder {
         if (building) {
             // The found path is smoothed and laid on the ground in a tick of its own.
             long t0 = System.nanoTime();
-            build(mc.level, best);
+            build(best);
             long spent = System.nanoTime() - t0;
             building = false;
             computeMaxNanos = Math.max(computeMaxNanos, spent);
@@ -147,10 +141,10 @@ public final class PathFinder {
             lastTarget = t;
             handled = Navigation.pathRequest();
             farGeneration = FarPath.generation();
-            begin(p, t);
+            begin(mc, p, t);
         }
         long t0 = System.nanoTime();
-        boolean done = step(mc.level, t0 + SLICE_NANOS);
+        boolean done = step(t0 + SLICE_NANOS);
         long spent = System.nanoTime() - t0;
         searchNanos += spent;
         computeMaxNanos = Math.max(computeMaxNanos, spent);
@@ -169,36 +163,51 @@ public final class PathFinder {
     private static void continueAtEnd(LocalPlayer p, Navigation.Target t) {
         int n = Route.collect();
         if (continued || pointCount < 2 || n < 2) return;
-        float ex = Route.x(n - 1), ez = Route.z(n - 1);
-        if (Math.hypot(t.x() - ex, t.z() - ez) < SHORT_OF_TARGET) return;
-        if (Math.hypot(p.getX() - ex, p.getZ() - ez) > END_REACH) return;
+        if (!continuesAtEnd(p.getX(), p.getZ(), Route.x(n - 1), Route.z(n - 1), t.x(), t.z())) return;
         continued = true;
         Navigation.requestPath();
     }
+
+    /**
+     * Whether a line ending at (ex, ez) is searched again for a player at (px, pz): the line stops short of the target
+     * at (tx, tz) and the player has come near its end.
+     */
+    static boolean continuesAtEnd(double px, double pz, double ex, double ez, double tx, double tz) {
+        return Math.hypot(tx - ex, tz - ez) >= SHORT_OF_TARGET && Math.hypot(px - ex, pz - ez) <= END_REACH;
+    }
     /** Sets up a search from the player towards the target (the target's cell, or the cell towards it at the edge). */
-    private static void begin(LocalPlayer p, Navigation.Target t) {
-        originX = (int) Math.floor(p.getX()) - RADIUS;
-        originZ = (int) Math.floor(p.getZ()) - RADIUS;
-        Arrays.fill(height, UNKNOWN);
-        Arrays.fill(cost, Float.MAX_VALUE);
-        Arrays.fill(closed, false);
-        startPX = (float) p.getX();
-        startPY = (float) p.getY();
-        startPZ = (float) p.getZ();
-        start = cellOf(p.getX(), p.getZ());
-        startY = (int) Math.floor(p.getY());
-        swimming = p.isInWater();
-        underground = net.tapacywka.teyvatcartographia.map.data.MapDataManager.get().undergroundBand() != null;
+    private static void begin(Minecraft mc, LocalPlayer p, Navigation.Target t) {
         double dx = t.x() - p.getX(), dz = t.z() - p.getZ(), d = Math.hypot(dx, dz);
         double reach = Math.min(d, RADIUS - STEP);
-        double gx = p.getX() + dx / d * reach, gz = p.getZ() + dz / d * reach;
+        double gx = d < 1e-6 ? p.getX() : p.getX() + dx / d * reach, gz = d < 1e-6 ? p.getZ() : p.getZ() + dz / d * reach;
         // A far target: towards the far path's last point in reach, so both paths (and the stars) go the same way.
         int guide = d > reach ? FarPath.lastWithin(p.getX(), p.getZ(), reach) : -1;
         if (guide >= 0) {
             gx = FarPath.x(guide);
             gz = FarPath.z(guide);
         }
-        goal = d < 1e-6 ? start : cellOf(gx, gz);
+        boolean underground = net.tapacywka.teyvatcartographia.map.data.MapDataManager.get().undergroundBand() != null;
+        start(LEVEL.set(mc.level, (int) Math.floor(p.getY()), underground), p.getX(), p.getY(), p.getZ(), p.isInWater(), gx, gz);
+    }
+
+    /**
+     * Sets up a search over {@code ground} from a player at (px, py, pz), in the water or not, to the point (gx, gz)
+     * within {@code RADIUS}.
+     */
+    private static void start(Terrain ground, double px, double py, double pz, boolean inWater, double gx, double gz) {
+        terrain = ground;
+        originX = (int) Math.floor(px) - RADIUS;
+        originZ = (int) Math.floor(pz) - RADIUS;
+        Arrays.fill(height, UNKNOWN);
+        Arrays.fill(cost, Float.MAX_VALUE);
+        Arrays.fill(closed, false);
+        startPX = (float) px;
+        startPY = (float) py;
+        startPZ = (float) pz;
+        start = cellOf(px, pz);
+        startY = (int) Math.floor(py);
+        swimming = inWater;
+        goal = cellOf(gx, gz);
         goalX = goal % SIDE;
         goalZ = goal / SIDE;
         open.clear();
@@ -211,8 +220,27 @@ public final class PathFinder {
         searching = true;
     }
 
+    /**
+     * The whole search at once (the unit tests): over {@code ground} from (px, py, pz) to (gx, gz); returns the number of
+     * points of the path ({@link #x}, {@link #y}, {@link #z}).
+     */
+    static int search(Terrain ground, double px, double py, double pz, boolean inWater, double gx, double gz) {
+        start(ground, px, py, pz, inWater, gx, gz);
+        while (!step(Long.MAX_VALUE)) {
+            // runs to the end
+        }
+        searching = false;
+        build(best);
+        return pointCount;
+    }
+
+    /** Whether the search reached the goal's cell (the unit tests). */
+    static boolean reachedGoal() {
+        return best == goal;
+    }
+
     /** Runs the search until {@code deadline} (checked every few cells); true when it is done (the path is built next tick). */
-    private static boolean step(ClientLevel level, long deadline) {
+    private static boolean step(long deadline) {
         int expanded = 0;
         while (!open.isEmpty()) {
             // Checked often: a new cell reads up to 24 blocks of each of its neighbours' columns.
@@ -229,13 +257,13 @@ public final class PathFinder {
                 bestH = h;
                 best = c;
             }
-            int cx = c % SIDE, cz = c / SIDE, ch = ground(level, c);
+            int cx = c % SIDE, cz = c / SIDE, ch = ground(c);
             for (int k = 0; k < 8; k++) {
                 int nx = cx + NX[k], nz = cz + NZ[k];
                 if (nx < 0 || nz < 0 || nx >= SIDE || nz >= SIDE) continue;
                 int n = nz * SIDE + nx;
                 if (closed[n]) continue;
-                int nh = ground(level, n);
+                int nh = ground(n);
                 if (nh == BLOCKED || nh == UNKNOWN) continue;
                 if (deep[n] && (!swimming || c != start && !deep[c])) continue; // swum only out of the water the player is in
                 int climb = ch == BLOCKED || ch == UNKNOWN ? 0 : Math.abs(nh - ch);
@@ -265,49 +293,20 @@ public final class PathFinder {
         return cz * SIDE + cx;
     }
 
-    /**
-     * Walkable ground height of a cell (the block above the surface), looked up once: under leaves the ground below
-     * the canopy, BLOCKED for a trunk or deep water, UNKNOWN outside the loaded chunks.
-     */
-    private static int ground(ClientLevel level, int c) {
+    /** Walkable ground height of a cell (see {@link Terrain#ground}), read once: BLOCKED for a trunk, nothing found or outside the loaded chunks. */
+    private static int ground(int c) {
         int h = height[c];
         if (h != UNKNOWN) return h;
         int x = originX + (c % SIDE) * STEP + STEP / 2, z = originZ + (c / SIDE) * STEP + STEP / 2;
-        shallow[c] = false;
-        deep[c] = false;
-        if (!level.hasChunk(x >> 4, z >> 4)) return height[c] = BLOCKED;
-        int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
-        // Underground: from just above the player down, through the rock of the ceiling to the open space, then on
-        // to its floor.
-        boolean needSpace = underground;
-        if (underground) y = startY + 3; // not the heightmap: on the client it can be wrong under thick rock
-        int bottom = level.getMinBuildHeight();
-        for (int i = 0; i < 24 && y > bottom; i++) {
-            BlockState s = level.getBlockState(POS.set(x, y - 1, z));
-            if (needSpace) {
-                if (s.isAir() || !s.blocksMotion() && s.getFluidState().isEmpty()) needSpace = false;
-                y--;
-                continue;
-            }
-            if (s.getFluidState().is(FluidTags.WATER)) {
-                // Shallow: one block of water over the ground; deeper water is swum, at the surface (see deep).
-                if (level.getBlockState(POS.set(x, y - 2, z)).getFluidState().is(FluidTags.WATER)) deep[c] = true;
-                else shallow[c] = true;
-                return height[c] = y;
-            }
-            if (s.is(BlockTags.LOGS)) return height[c] = BLOCKED;
-            if (s.is(BlockTags.LEAVES) || s.isAir() || !s.blocksMotion()) {
-                y--;
-                continue;
-            }
-            return height[c] = y;
-        }
-        return height[c] = BLOCKED;
+        h = terrain.ground(x, z);
+        int water = h == BLOCKED ? Terrain.DRY : terrain.water();
+        shallow[c] = water == Terrain.SHALLOW;
+        deep[c] = water == Terrain.DEEP;
+        return height[c] = h;
     }
 
-
     /** Smoothed path from the start along the found cells, resampled every SPACING blocks on the ground. */
-    private static void build(ClientLevel level, int end) {
+    private static void build(int end) {
         // Cells from the end back to the start, then reversed into raw (x, z) points.
         int n = 0;
         for (int c = end; c != -1 && n < RAW.length / 2; c = from[c]) n++;
@@ -337,7 +336,7 @@ public final class PathFinder {
             while (next <= along + len) {
                 if (3 * pointCount + 3 > points.length) points = Arrays.copyOf(points, points.length * 2);
                 float f = (next - along) / len, x = ax + (bx - ax) * f, z = az + (bz - az) * f;
-                int g = ground(level, cellOf(x, z));
+                int g = ground(cellOf(x, z));
                 points[3 * pointCount] = x;
                 points[3 * pointCount + 1] = g == BLOCKED || g == UNKNOWN ? startPY : g;
                 points[3 * pointCount + 2] = z;

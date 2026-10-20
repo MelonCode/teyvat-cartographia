@@ -133,10 +133,9 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
     }
 
     /**
-     * The marker is shown for {@code SHOW_MS} after tracking starts or the pulse key is pressed, then fades out; it
-     * fades in over {@code FADE_IN_MS} and out over {@code FADE_OUT_MS}.
+     * The marker is shown for a minute after tracking starts or the pulse key is pressed, then fades out; it
+     * fades in and out ({@link MarkerTiming}).
      */
-    private static final long SHOW_MS = 60_000, FADE_IN_MS = 400, FADE_OUT_MS = 1_500;
     /** Target the timer belongs to (a new target starts it again) and when its showing began. */
     private static Navigation.Target shownTarget;
     private static long shownSince;
@@ -154,21 +153,19 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
     /**
      * Pulse key: shows the marker again for a minute (fading in if hidden) and a golden diamond closes in on it.
      * Presses while the diamond is still running are ignored (restarting cut the running one off). The path is searched
-     * again from here only when the player is off it; within {@code ON_PATH} blocks of the line the stars just show again.
+     * again from here only when the player is off it; near the line ({@link Route#nearLine}) the stars just show again.
      */
     public static void pulse() {
         if (Navigation.target() == null) return;
         long now = Util.getMillis();
-        if (pulseStart != Long.MIN_VALUE && now - pulseStart < MarkerRenderer.WORLD_PULSE_LIFE * 1000) return;
+        if (MarkerTiming.pulseRunning(pulseStart, now)) return;
         // Start the fade-in from the current visibility, so a visible marker does not blink.
-        shownSince = now - (long) (visibility(now) * FADE_IN_MS);
+        shownSince = now - (long) (visibility(now) * MarkerTiming.FADE_IN_MS);
         pulseStart = now;
         LocalPlayer p = Minecraft.getInstance().player;
-        if (p == null || Route.distanceTo(p.getX(), p.getZ()) > ON_PATH) Navigation.requestPath();
+        if (p == null || !Route.nearLine(p.getX(), p.getZ())) Navigation.requestPath();
     }
 
-    /** The pulse key keeps the path while the player is this close to it (blocks). */
-    private static final double ON_PATH = 8;
 
     /** Keeps the timer on the tracked target: tracking another target (or the same one again) shows it for a minute. */
     private static void trackTimer(Navigation.Target t) {
@@ -180,10 +177,7 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
 
     private static float visibility(long now) {
         if (shownTarget == null) return 0f;
-        long elapsed = now - shownSince;
-        if (elapsed < FADE_IN_MS) return smooth(elapsed / (double) FADE_IN_MS);
-        if (elapsed < SHOW_MS) return 1f;
-        return smooth(1 - (elapsed - SHOW_MS) / (double) FADE_OUT_MS);
+        return MarkerTiming.visibility(now - shownSince);
     }
 
     @Override

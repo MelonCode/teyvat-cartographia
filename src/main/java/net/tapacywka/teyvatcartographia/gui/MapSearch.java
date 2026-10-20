@@ -117,7 +117,7 @@ public final class MapSearch {
     public void setQuery(String q) {
         if (q.equals(query)) return;
         query = q;
-        needle = normalize(q.trim());
+        needle = needle(q);
         pinsStamp = Integer.MIN_VALUE;
         checkNanos = 0;
         update();
@@ -158,15 +158,11 @@ public final class MapSearch {
         pinsStamp = MarkerStore.version();
         pinsNanos = now;
         LocalPlayer p = Minecraft.getInstance().player;
-        ResourceKey<Level> here = p == null ? null : p.level().dimension();
-        List<PinHit> found = new ArrayList<>();
-        for (int i = 0, n = MarkerStore.count(); i < n; i++) add(found, MarkerStore.get(i), p, here);
-        for (Marker m : AutoMarkers.everywhere()) add(found, m, p, here);
-        // The player's dimension first, by distance; then the others by dimension and name.
-        found.sort(Comparator.comparing((PinHit h) -> !h.here).thenComparing(PinHit::dimension).thenComparingDouble(PinHit::distance)
-                .thenComparing(h -> h.marker.name, String.CASE_INSENSITIVE_ORDER));
-        List<Marker> list = new ArrayList<>(found.size());
-        for (PinHit h : found) list.add(h.marker);
+        List<Marker> all = new ArrayList<>();
+        for (int i = 0, n = MarkerStore.count(); i < n; i++) all.add(MarkerStore.get(i));
+        all.addAll(AutoMarkers.everywhere());
+        List<Marker> list = p == null ? match(all, needle, null, 0, 0, 0)
+                : match(all, needle, p.level().dimension(), p.getX(), p.getY(), p.getZ());
         // By id: the automatic points are made anew each time, and an equal list must not rebuild the rows.
         boolean same = list.size() == pins.size();
         for (int i = 0; same && i < list.size(); i++) same = list.get(i).id.equals(pins.get(i).id);
@@ -174,10 +170,27 @@ public final class MapSearch {
         pins = list;
     }
 
-    private void add(List<PinHit> found, Marker m, LocalPlayer p, ResourceKey<Level> here) {
-        if (!matches(m.name, needle)) return;
-        boolean h = m.dimension == here;
-        found.add(new PinHit(m, h, h ? "" : m.dimension.location().toString(), h && p != null ? Navigation.distance(p, m.centerX(), m.y, m.centerZ()) : 0));
+    /**
+     * The pins whose names hold {@code needle} (normalized): those of the player's dimension {@code here} (null: no
+     * player) first, nearest to (px, py, pz) first; then the others by dimension and name.
+     */
+    static List<Marker> match(List<Marker> pins, String needle, ResourceKey<Level> here, double px, double py, double pz) {
+        List<PinHit> found = new ArrayList<>();
+        for (Marker m : pins) {
+            if (!matches(m.name, needle)) continue;
+            boolean h = here != null && m.dimension == here;
+            found.add(new PinHit(m, h, h ? "" : m.dimension.location().toString(), h ? Navigation.distance(px, py, pz, m.centerX(), m.y, m.centerZ()) : 0));
+        }
+        found.sort(Comparator.comparing((PinHit h) -> !h.here).thenComparing(PinHit::dimension).thenComparingDouble(PinHit::distance)
+                .thenComparing(h -> h.marker.name, String.CASE_INSENSITIVE_ORDER));
+        List<Marker> list = new ArrayList<>(found.size());
+        for (PinHit h : found) list.add(h.marker);
+        return list;
+    }
+
+    /** A query as the search compares it: trimmed, lower case, "ё" as "е". */
+    static String needle(String query) {
+        return normalize(query.trim());
     }
 
     private void updateBiomes() {

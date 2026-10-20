@@ -113,7 +113,11 @@ public final class MarkerStore {
      * limit; the server checks again).
      */
     public static Added addAll(List<Marker> in) {
-        boolean operator = MarkerType.isOperator();
+        return addAll(in, MarkerType.isOperator());
+    }
+
+    /** {@link #addAll(List)} for a player with or without operator rights. */
+    static Added addAll(List<Marker> in, boolean operator) {
         int added = 0, duplicates = 0, overLimit = 0, operatorOnly = 0;
         List<Marker> toServer = new ArrayList<>();
         for (Marker m : in) {

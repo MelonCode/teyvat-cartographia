@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
-import java.util.Objects;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
@@ -88,15 +87,14 @@ public final class MapDataManager {
     private int[] sweepOffsets = new int[0];
 
     // Cave layers of the active dimension: stores by band, the bands with saved data, and the band the player is in
-    // (null above ground), switched only after it stayed the same for UNDERGROUND_TICKS ticks.
+    // (null above ground, see Underground).
     private static final double CAVE_RADIUS = 32;
-    private static final int CAVE_TICKS = 10, UNDERGROUND_TICKS = 10, ROOF = 4, ROOF_SCAN = 128;
+    private static final int CAVE_TICKS = 10, ROOF_SCAN = 128;
     private static final BlockPos.MutableBlockPos ROOF_POS = new BlockPos.MutableBlockPos();
     private final Map<Integer, TileStore> caveStores = new HashMap<>();
     private final TreeSet<Integer> caveBands = new TreeSet<>();
     private final NavigableSet<Integer> caveBandsView = java.util.Collections.unmodifiableNavigableSet(caveBands.descendingSet());
-    private Integer underground, undergroundCandidate;
-    private int candidateTicks;
+    private final Underground underground = new Underground();
 
     private MapDataManager() {}
 
@@ -108,7 +106,7 @@ public final class MapDataManager {
 
     /** The cave band the player is in, or null above ground (or without cave layers). */
     public Integer undergroundBand() {
-        return cavesSupported() ? underground : null;
+        return cavesSupported() ? underground.current() : null;
     }
 
     /** Store of a cave band of the active dimension. */
@@ -225,7 +223,7 @@ public final class MapDataManager {
         for (TileStore s : caveStores.values()) s.drainLoaded();
         applyResults();
         updateUnderground(player);
-        if (underground != null && cavesSupported() && tickCounter % CAVE_TICKS == 0) scanCaves(player, underground);
+        if (underground.current() != null && cavesSupported() && tickCounter % CAVE_TICKS == 0) scanCaves(player, underground.current());
 
         int pcx = player.chunkPosition().x, pcz = player.chunkPosition().z;
         if (tickCounter % 20 == 0) {
@@ -301,8 +299,7 @@ public final class MapDataManager {
         caveStores.values().forEach(TileStore::close);
         caveStores.clear();
         caveBands.clear();
-        underground = undergroundCandidate = null;
-        candidateTicks = 0;
+        underground.reset();
     }
 
     private Path caveDir(int band) {
@@ -310,33 +307,22 @@ public final class MapDataManager {
     }
 
     /**
-     * Underground: at least ROOF solid blocks (leaves left out) above the player's head, up to ROOF_SCAN blocks up,
-     * so a forest or the roof of a house does not count. The sky light and the heightmaps are not used: on the client
-     * they are not reliable in closed caves. A new state (or band) holds only once it stayed the same for
-     * UNDERGROUND_TICKS ticks.
+     * Underground ({@link Underground}): the solid blocks (leaves left out) above the player's head are counted up to
+     * ROOF_SCAN blocks up. The sky light and the heightmaps are not used: on the client they are not reliable in closed
+     * caves.
      */
     private void updateUnderground(LocalPlayer player) {
         Integer now = null;
         if (cavesSupported()) {
             BlockPos eye = BlockPos.containing(player.getEyePosition());
             int solid = 0, top = Math.min(level.getMaxBuildHeight(), eye.getY() + ROOF_SCAN);
-            for (int y = eye.getY() + 1; y < top && solid < ROOF; y++) {
+            for (int y = eye.getY() + 1; y < top && solid < Underground.ROOF; y++) {
                 var s = level.getBlockState(ROOF_POS.set(eye.getX(), y, eye.getZ()));
                 if (s.blocksMotion() && !s.is(net.minecraft.tags.BlockTags.LEAVES)) solid++;
             }
-            if (solid >= ROOF) now = CaveScanner.band(player.getBlockY());
+            now = Underground.band(solid, player.getBlockY());
         }
-        if (Objects.equals(now, underground)) {
-            candidateTicks = 0;
-        } else if (Objects.equals(now, undergroundCandidate)) {
-            if (++candidateTicks >= UNDERGROUND_TICKS) {
-                underground = now;
-                candidateTicks = 0;
-            }
-        } else {
-            undergroundCandidate = now;
-            candidateTicks = 0;
-        }
+        underground.update(now);
     }
 
     /** Maps the chunks around the player that reach into CAVE_RADIUS, for the player's band, on the workers. */

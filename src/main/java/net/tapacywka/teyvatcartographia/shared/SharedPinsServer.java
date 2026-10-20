@@ -72,13 +72,24 @@ public final class SharedPinsServer {
             return;
         }
         Data d = data(player.server);
+        if (!apply(d.pins, edit)) return;
+        d.setDirty();
+        for (ServerPlayer p : player.server.getPlayerList().getPlayers()) send(p, d.pins);
+    }
+
+    /**
+     * An operator's edit applied to the shared pins: interactive pins only, names trimmed (at most NAME_MAX, not
+     * empty), a change keeps the pin's place (only the name and the type), new pins up to MAX_SHARED and not a
+     * repeat of one there (same dimension, place and name). Returns whether anything changed.
+     */
+    static boolean apply(List<Marker> pins, SharedPinsNetwork.Edit edit) {
         boolean changed = false;
         for (Marker in : edit.put()) {
             if (!in.type.operatorOnly()) continue; // shared pins are interactive pins only
             String name = in.name.trim();
             if (name.length() > NAME_MAX) name = name.substring(0, NAME_MAX);
             if (name.isEmpty()) continue;
-            Marker old = find(d.pins, in.id);
+            Marker old = find(pins, in.id);
             if (old != null) {
                 // A change keeps the place: only the name and the type are editable.
                 if (!old.name.equals(name) || old.type != in.type) {
@@ -86,17 +97,15 @@ public final class SharedPinsServer {
                     old.type = in.type;
                     changed = true;
                 }
-            } else if (d.pins.size() < MAX_SHARED && !repeat(d.pins, in, name)) {
+            } else if (pins.size() < MAX_SHARED && !repeat(pins, in, name)) {
                 Marker m = new Marker(in.id, name, in.type, in.dimension, in.x, in.y, in.z, in.created, false);
                 m.band = in.band;
-                d.pins.add(m);
+                pins.add(m);
                 changed = true;
             }
         }
-        for (UUID id : edit.remove()) changed |= d.pins.removeIf(m -> m.id.equals(id));
-        if (!changed) return;
-        d.setDirty();
-        for (ServerPlayer p : player.server.getPlayerList().getPlayers()) send(p, d.pins);
+        for (UUID id : edit.remove()) changed |= pins.removeIf(m -> m.id.equals(id));
+        return changed;
     }
 
     private static Marker find(List<Marker> pins, UUID id) {

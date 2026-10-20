@@ -130,8 +130,13 @@ public final class Navigation {
      * when the point's height is unknown ({@link Integer#MIN_VALUE}).
      */
     public static double distance(LocalPlayer player, double x, int y, double z) {
-        double dx = x - player.getX(), dz = z - player.getZ();
-        double dy = y == Integer.MIN_VALUE ? 0 : y - player.getY();
+        return distance(player.getX(), player.getY(), player.getZ(), x, y, z);
+    }
+
+    /** {@link #distance(LocalPlayer, double, int, double)} from the point (px, py, pz). */
+    public static double distance(double px, double py, double pz, double x, int y, double z) {
+        double dx = x - px, dz = z - pz;
+        double dy = y == Integer.MIN_VALUE ? 0 : y - py;
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
@@ -148,12 +153,26 @@ public final class Navigation {
      */
     public static int level(LocalPlayer player) {
         Target t = target();
-        if (t == null || player == null || t.y() == Integer.MIN_VALUE || t.dimension() != player.level().dimension()) return 0;
-        double dy = t.y() - player.getY(), ady = Math.abs(dy);
+        if (t == null || player == null || t.dimension() != player.level().dimension()) return 0;
+        return level(player.getX(), player.getY(), player.getZ(), t.x(), t.y(), t.z());
+    }
+
+    /** {@link #level(LocalPlayer)} for a player at (px, py, pz) and a target at (x, y, z), y {@link Integer#MIN_VALUE} if unknown. */
+    static int level(double px, double py, double pz, double x, int y, double z) {
+        if (y == Integer.MIN_VALUE) return 0;
+        double dy = y - py, ady = Math.abs(dy);
         if (ady <= LEVEL_MIN) return 0;
-        double dx = t.x() - player.getX(), dz = t.z() - player.getZ();
+        double dx = x - px, dz = z - pz;
         boolean steep = ady > LEVEL_HEIGHT || ady > Math.sqrt(dx * dx + dz * dz) * LEVEL_SLOPE;
         return !steep ? 0 : dy > 0 ? 1 : -1;
+    }
+
+    /**
+     * Whether a player {@code distance} blocks from the target (-1: another dimension) has arrived: only automatic
+     * points (the spawn, the death place) end their tracking on arrival, custom pins stay tracked.
+     */
+    static boolean arrives(Target t, double distance) {
+        return t != null && t.auto() != null && distance >= 0 && distance < ARRIVE_DISTANCE;
     }
 
     /** Whether the target is in the player's current dimension. */
@@ -176,8 +195,7 @@ public final class Navigation {
                 return;
             }
         }
-        double d = distance(mc.player);
-        if (d >= 0 && d < ARRIVE_DISTANCE) {
+        if (arrives(target, distance(mc.player))) {
             mc.player.displayClientMessage(Component.translatable("teyvatcartographia.nav.arrived"), true);
             clear();
         }
