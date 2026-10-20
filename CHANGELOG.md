@@ -2,7 +2,7 @@
 
 All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>-<loader>`.
 
-## Unreleased
+## 0.1.1+mc1.21.1-neoforge
 
 ### Shared interactive pins (optional server side)
 * Install the mod on a NeoForge server (or play singleplayer or LAN) and the interactive pins (waypoint, statue,

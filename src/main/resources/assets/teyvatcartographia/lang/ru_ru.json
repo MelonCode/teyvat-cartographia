@@ -25,7 +25,7 @@
   "teyvatcartographia.pin.coords": "X %s  Z %s  ·  %s",
   "teyvatcartographia.pin.total": "Всего меток %s/%s",
   "teyvatcartographia.pin.total_shared": "Общие %s/%s",
-  "teyvatcartographia.pin.local_only": "Эту метку видите только вы",
+  "teyvatcartographia.pin.local_only": "Видна только вам",
   "teyvatcartographia.pin.local_only.hint": "Чтобы интерактивные метки видели все игроки, Teyvat Cartographia нужен и на сервере. Здесь они хранятся у вас на компьютере.",
   "teyvatcartographia.shared.offer.title": "Общие интерактивные метки",
   "teyvatcartographia.shared.offer.message": "На этом сервере интерактивные метки общие для всех игроков. Перенести в общие ваши интерактивные метки на этом сервере (%s)? Их увидят все игроки, а другие операторы смогут их менять.",

@@ -108,7 +108,7 @@ find your way back home.
 <h2 id="installation">📥 Installation</h2>
 
 1. Install [NeoForge](https://neoforged.net) 21.1 for Minecraft 1.21.1.
-2. Download `teyvatcartographia-0.1.0+mc1.21.1-neoforge.jar` from
+2. Download `teyvatcartographia-0.1.1+mc1.21.1-neoforge.jar` from
    [Modrinth](https://modrinth.com/mod/teyvat-cartographia) or the
    [latest GitHub release](https://github.com/Tapacywka/teyvat-cartographia/releases/latest) and put it into your
    `mods/` folder.
@@ -181,6 +181,15 @@ find your way back home.
 * Track a pin or an automatic point. The tracked pin's colour depends on its kind: custom orange, interactive mint,
   system violet. Tracking an automatic point ends on arrival.
 * Distances are in blocks everywhere and in 3D: from your feet to the floor of the point.
+* **Shared interactive pins**: with the mod also on a NeoForge server (and in singleplayer and LAN), the interactive
+  pins operators place are shared with every player who has the mod. Operators track, teleport to, rename, retype and
+  remove them; other players can only track them. The server keeps them in the world and checks the rights of every
+  change; up to 200 per world, apart from each player's own 100. An operator with interactive pins of their own on such
+  a server is asked once whether to move them to the shared ones. Players without the mod can still join.
+* **Export and import** from the pin list: save every pin of the world to a `.json` file, add the pins of such a file
+  (or of another world's `markers.json`); repeats are skipped.
+* **Import from Xaero's Minimap** (its waypoints also show on Xaero's World Map): the waypoints of the current world
+  are found on their own, or pick any waypoint file of a Xaero world. Death points are left out.
 
 <h3 id="pin-in-the-world">Pin in the world</h3>
 
@@ -273,6 +282,8 @@ The mod is meant to cost at most 2 to 3% FPS:
 | Map regions | `teyvatcartographia/<world>/<dimension>/r.<x>.<z>.png` + `.dat` (heights and metadata) + `.lod.png` (64 x 64 thumbnail for far zoom) + `index.txt` |
 | Cave layers | `teyvatcartographia/<world>/<dimension>/caves/b<layer>/` |
 | Pins and the tracked target | `teyvatcartographia/<world>/markers.json` |
+| Exported pins (default folder) | `teyvatcartographia/exports/` |
+| Shared interactive pins (on the server) | `<world save>/data/teyvatcartographia_pins.dat` |
 
 `<world>` is `sp_<save folder>` in singleplayer and `mp_<server address>` on servers.
 
@@ -284,7 +295,7 @@ Requirements: JDK 21 (Gradle's toolchain support will use or download one), inte
 ./gradlew build
 ```
 
-On Windows: `gradlew.bat build`. The mod JAR is written to `build/libs/teyvatcartographia-0.1.0+mc1.21.1-neoforge.jar`.
+On Windows: `gradlew.bat build`. The mod JAR is written to `build/libs/teyvatcartographia-0.1.1+mc1.21.1-neoforge.jar`.
 `./gradlew runClient` starts a development client with the mod.
 
 <h2 id="bug-reports-and-ideas">🐞 Bug reports and ideas</h2>
