@@ -4,6 +4,16 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 
 ## Unreleased
 
+### Shared interactive pins (optional server side)
+* Install the mod on a NeoForge server (or play singleplayer or LAN) and the interactive pins (waypoint, statue,
+  domain) operators place are shared with every player who has the mod. Operators can track, teleport to, rename,
+  retype and remove them; other players can only track them. The server keeps them in the world and checks the
+  rights of every change. Up to 200 shared pins per world, apart from each player's own 100.
+* On a server with the mod, an operator with interactive pins of their own there is asked once whether to move them
+  to the shared ones.
+* Both sides stay optional: players without the mod can join a server with it, and on a server without it
+  interactive pins stay on your computer, as before (the pin panel says so).
+
 ### Pins
 * Export and import: buttons at the bottom of the pin list. Export saves every pin of the world (all dimensions) to a
   `.json` file you choose; Import adds the pins of such a file (or of another world's `markers.json`). Pins that are

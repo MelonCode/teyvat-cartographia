@@ -2,6 +2,7 @@ package net.tapacywka.teyvatcartographia.nav;
 
 import net.tapacywka.teyvatcartographia.marker.Marker;
 import net.tapacywka.teyvatcartographia.marker.MarkerStore;
+import net.tapacywka.teyvatcartographia.marker.SharedPins;
 import net.tapacywka.teyvatcartographia.marker.MarkerType;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -53,7 +54,8 @@ public final class Navigation {
         if (target != null && target.markerId() != null && checkedVersion != MarkerStore.version()) {
             checkedVersion = MarkerStore.version();
             Marker m = MarkerStore.find(target.markerId());
-            if (m == null) {
+            // A shared pin may be tracked before the server's list came in after joining: keep it until then.
+            if (m == null && !SharedPins.pending()) {
                 target = null;
                 MarkerStore.save();
             }

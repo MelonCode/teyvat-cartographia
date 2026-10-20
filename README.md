@@ -64,7 +64,7 @@ find your way back home.
 | Minecraft | **1.21.1** (Java Edition) |
 | Mod loader | **NeoForge 21.1** (built against 21.1.257) |
 | Java | **21** |
-| Side | **Client only.** Servers don't need it, so you can join vanilla and modded servers. |
+| Side | **Client**, optional on the server. Servers don't need it, so you can join vanilla and modded servers. On a NeoForge server with the mod, operators' interactive pins are shared with every player. |
 | Languages | English, Russian |
 | License | [MIT](https://github.com/Tapacywka/teyvat-cartographia/blob/main/LICENSE) |
 

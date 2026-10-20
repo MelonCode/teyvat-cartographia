@@ -57,7 +57,7 @@ public final class MarkerListPanel extends SidePanel {
 
     @Override
     protected Component title() {
-        return Component.translatable("teyvatcartographia.list.title", MarkerStore.count(), MarkerStore.MAX_MARKERS);
+        return Component.translatable("teyvatcartographia.list.title", MarkerStore.localCount(), MarkerStore.MAX_MARKERS);
     }
 
     @Override

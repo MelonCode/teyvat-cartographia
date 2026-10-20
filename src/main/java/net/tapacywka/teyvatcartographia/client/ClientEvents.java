@@ -10,6 +10,7 @@ import net.tapacywka.teyvatcartographia.map.data.MapDataManager;
 import net.tapacywka.teyvatcartographia.marker.Marker;
 import net.tapacywka.teyvatcartographia.marker.MarkerStore;
 import net.tapacywka.teyvatcartographia.marker.MarkerType;
+import net.tapacywka.teyvatcartographia.marker.SharedPins;
 import net.tapacywka.teyvatcartographia.nav.Navigation;
 import net.tapacywka.teyvatcartographia.nav.FarPath;
 import net.tapacywka.teyvatcartographia.nav.PathFinder;
@@ -30,6 +31,7 @@ public final class ClientEvents {
         MapDataManager data = MapDataManager.get();
         data.tick();
         MarkerStore.switchWorld(data.worldId());
+        SharedPins.tickOffer();
         Navigation.tick();
         PathFinder.tick();
         FarPath.tick();
@@ -62,7 +64,7 @@ public final class ClientEvents {
 
     private static void quickPin(LocalPlayer player) {
         ResourceKey<Level> dim = player.level().dimension();
-        Marker m = Marker.custom(Component.translatable("teyvatcartographia.marker.default_name", MarkerStore.count() + 1).getString(),
+        Marker m = Marker.custom(Component.translatable("teyvatcartographia.marker.default_name", MarkerStore.localCount() + 1).getString(),
                 MarkerType.STAR, dim, player.getBlockX(), player.getBlockY(), player.getBlockZ());
         m.band = net.tapacywka.teyvatcartographia.map.data.MapDataManager.get().undergroundBand(); // underground: on that cave layer
         if (MarkerStore.add(m)) {

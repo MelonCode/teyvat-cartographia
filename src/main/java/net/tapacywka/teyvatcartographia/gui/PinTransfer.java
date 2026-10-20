@@ -70,7 +70,7 @@ public final class PinTransfer {
     }
 
     public static void export() {
-        if (MarkerStore.count() == 0) {
+        if (MarkerStore.localCount() == 0) {
             say(exportTitle(), Source.EXPORT, Component.translatable("teyvatcartographia.transfer.export.none"));
             return;
         }

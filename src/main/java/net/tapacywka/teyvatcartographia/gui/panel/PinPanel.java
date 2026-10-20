@@ -10,12 +10,14 @@ import net.tapacywka.teyvatcartographia.map.data.TileStore;
 import net.tapacywka.teyvatcartographia.marker.Marker;
 import net.tapacywka.teyvatcartographia.marker.MarkerStore;
 import net.tapacywka.teyvatcartographia.marker.MarkerType;
+import net.tapacywka.teyvatcartographia.marker.SharedPins;
 import net.tapacywka.teyvatcartographia.nav.Navigation;
 import net.tapacywka.teyvatcartographia.render.Draw;
 import net.tapacywka.teyvatcartographia.render.DrawText;
 import net.tapacywka.teyvatcartographia.render.Icon;
 import net.tapacywka.teyvatcartographia.render.MarkerRenderer;
 import net.tapacywka.teyvatcartographia.render.Theme;
+import net.tapacywka.teyvatcartographia.shared.SharedPinsServer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -36,13 +38,18 @@ import java.util.List;
  *   <li>read-only view (automatic points, and interaction pins for players without operator rights): coordinates
  *       and "Track" only.</li>
  * </ul>
- * The type grid has two sections: "Custom" for everyone and "System" for operators only.
+ * The type grid has two sections: "Custom" for everyone and "System" for operators only. On a server with the mod,
+ * interactive pins are shared with every player ({@code SharedPins}): a shared pin keeps an interactive type, and the
+ * total bar counts the shared pins against the server's limit.
  */
 public final class PinPanel extends SidePanel {
     private static final List<MarkerType.Category> ALL_SECTIONS = List.of(MarkerType.Category.EXPLORATION, MarkerType.Category.INTERACTION);
     private static final List<MarkerType.Category> PLAYER_SECTIONS = List.of(MarkerType.Category.EXPLORATION);
-    private static final List<List<MarkerType>> SECTION_TYPES = ALL_SECTIONS.stream()
-            .map(c -> Arrays.stream(MarkerType.values()).filter(t -> t.category == c).toList()).toList();
+    private static final List<MarkerType.Category> SHARED_SECTIONS = List.of(MarkerType.Category.INTERACTION);
+    private static final java.util.Map<MarkerType.Category, List<MarkerType>> SECTION_TYPES = new java.util.EnumMap<>(MarkerType.Category.class);
+    static {
+        for (MarkerType.Category c : ALL_SECTIONS) SECTION_TYPES.put(c, Arrays.stream(MarkerType.values()).filter(t -> t.category == c).toList());
+    }
     private static final int CELL = Grid.SLOT + Grid.GAP;
     /** Section header: one text line above the section's tiles. */
     private static final int SECTION_HEAD = DrawText.LINE + Grid.GAP;
@@ -91,7 +98,7 @@ public final class PinPanel extends SidePanel {
     }
 
     private static String defaultName() {
-        return Component.translatable("teyvatcartographia.marker.default_name", MarkerStore.count() + 1).getString();
+        return Component.translatable("teyvatcartographia.marker.default_name", MarkerStore.localCount() + 1).getString();
     }
 
     @Override
@@ -171,9 +178,37 @@ public final class PinPanel extends SidePanel {
         return coordsY() + Grid.CHIP_H + Grid.PAD;
     }
 
-    /** Type sections the player may pick from: interaction only for operators. */
-    private static List<MarkerType.Category> sections() {
+    /** Type sections the player may pick from: interaction only for operators; a shared pin keeps an interactive type. */
+    private List<MarkerType.Category> sections() {
+        if (editing != null && editing.shared) return SHARED_SECTIONS;
         return MarkerType.isOperator() ? ALL_SECTIONS : PLAYER_SECTIONS;
+    }
+
+    private List<MarkerType> types(int section) {
+        return SECTION_TYPES.get(sections().get(section));
+    }
+
+    /** True if the pin is (or, when confirmed, becomes) one of the server's shared pins. */
+    private boolean shared() {
+        return editing != null ? editing.shared || MarkerStore.sharedType(type) : MarkerStore.sharedType(type);
+    }
+
+    /** An interactive pin in multiplayer on a server without the mod: only this player sees it (the bar says so). */
+    private boolean localOnly() {
+        Minecraft mc = Minecraft.getInstance();
+        return type.operatorOnly() && !shared() && !mc.isLocalServer();
+    }
+
+    /** The total bar: shared pins against the server's limit, or the player's own against theirs. */
+    private Component totalText() {
+        if (shared()) return Component.translatable("teyvatcartographia.pin.total_shared", SharedPins.count(), SharedPinsServer.MAX_SHARED);
+        if (localOnly()) return Component.translatable("teyvatcartographia.pin.local_only");
+        return Component.translatable("teyvatcartographia.pin.total", MarkerStore.localCount(), MarkerStore.MAX_MARKERS);
+    }
+
+    /** Room for a new pin of the selected type. */
+    private boolean room() {
+        return shared() ? SharedPins.count() < SharedPinsServer.MAX_SHARED : MarkerStore.localCount() < MarkerStore.MAX_MARKERS;
     }
 
     private int columns() {
@@ -191,7 +226,7 @@ public final class PinPanel extends SidePanel {
         float y = gridY();
         int cols = columns();
         for (int j = 0; j < k; j++) {
-            int rows = (SECTION_TYPES.get(j).size() + cols - 1) / cols;
+            int rows = (types(j).size() + cols - 1) / cols;
             y += SECTION_HEAD + rows * CELL - Grid.GAP + Grid.PAD;
         }
         return y;
@@ -216,12 +251,13 @@ public final class PinPanel extends SidePanel {
     /** Bottom of the type grid (all visible sections). */
     private float gridBottom() {
         int last = sections().size() - 1, cols = columns();
-        int rows = (SECTION_TYPES.get(last).size() + cols - 1) / cols;
+        int rows = (types(last).size() + cols - 1) / cols;
         return sectionY(last) + SECTION_HEAD + rows * CELL - Grid.GAP;
     }
 
     @Override
     protected void renderBody(GuiGraphics g, int mx, int my, float bx, float by, float bw) {
+        localOnlyHint = false;
         int maxText = (int) (bw - Grid.CHIP_H - Grid.GAP);
         boolean readOnly = readOnly();
         // Operator rights revoked while a new pin had an interaction type selected: back to the first type.
@@ -258,7 +294,7 @@ public final class PinPanel extends SidePanel {
             List<MarkerType.Category> sections = sections();
             for (int k = 0; k < sections.size(); k++) {
                 DrawText.text(g, Component.translatable(sections.get(k).langKey()), gridX(), sectionY(k), Theme.TEXT_DARK_SOFT, false);
-                List<MarkerType> types = SECTION_TYPES.get(k);
+                List<MarkerType> types = types(k);
                 for (int i = 0; i < types.size(); i++) {
                     MarkerType t = types.get(i);
                     float sx = slotX(i), sy = slotY(k, i), s = Grid.SLOT;
@@ -269,8 +305,9 @@ public final class PinPanel extends SidePanel {
             float ty = totalY();
             Ui.chip(g, bx, ty, bw, Grid.CHIP_H, Theme.PANEL_LIGHT_FIELD);
             float inset = Theme.Style.square ? Grid.PAD : Grid.CHIP_H / 2f; // text clear of the rounded cap
-            DrawText.text(g, Component.translatable("teyvatcartographia.pin.total", MarkerStore.count(), MarkerStore.MAX_MARKERS),
-                    bx + inset, DrawText.textY(ty, Grid.CHIP_H), Theme.PANEL_LIGHT_BAR, false);
+            int textW = (int) (bw - inset - (editing != null ? Grid.TOOL + Grid.GAP : 0) - (compactTeleport() ? Grid.TOOL + Grid.GAP : 0));
+            DrawText.text(g, DrawText.fit(totalText().getString(), textW), bx + inset, DrawText.textY(ty, Grid.CHIP_H), Theme.PANEL_LIGHT_BAR, false);
+            if (localOnly() && Draw.inRect(mx, my, bx, ty, bw, Grid.CHIP_H)) localOnlyHint = true;
             if (editing != null) Ui.toolButton(g, trashX(), ty, Icon.TRASH, mx, my);
             if (compactTeleport()) Ui.toolButton(g, teleportToolX(), ty, Icon.TARGET, mx, my);
         }
@@ -281,13 +318,18 @@ public final class PinPanel extends SidePanel {
             float ay = actionY(i);
             switch (actions.get(i)) {
                 case CONFIRM -> Ui.actionButton(g, bx, ay, bw, Component.translatable("teyvatcartographia.pin.confirm"), Icon.CHECK,
-                        editing != null || MarkerStore.count() < MarkerStore.MAX_MARKERS, mx, my);
+                        editing != null || room(), mx, my);
                 case TRACK -> Ui.actionButton(g, bx, ay, bw,
                         Component.translatable(Navigation.isTracking(editing) ? "teyvatcartographia.pin.untrack" : "teyvatcartographia.pin.track"), Icon.LOCATE, true, mx, my);
                 case TELEPORT -> Ui.actionButton(g, bx, ay, bw, Component.translatable("teyvatcartographia.pin.teleport"), Icon.TARGET, true, mx, my);
             }
         }
+        if (localOnlyHint) Ui.wrappedTooltip(g, Component.translatable("teyvatcartographia.pin.local_only"),
+                Component.translatable("teyvatcartographia.pin.local_only.hint"), mx, my, screen.width, screen.height);
     }
+
+    /** The mouse is over the total bar while it says the pin is the player's own only (its tooltip explains why). */
+    private boolean localOnlyHint;
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
@@ -315,7 +357,7 @@ public final class PinPanel extends SidePanel {
             return true;
         }
         for (int k = 0; k < sections().size(); k++) {
-            List<MarkerType> types = SECTION_TYPES.get(k);
+            List<MarkerType> types = types(k);
             for (int i = 0; i < types.size(); i++) {
                 if (Draw.inRect(mx, my, slotX(i), slotY(k, i), Grid.SLOT, Grid.SLOT)) {
                     type = types.get(i);
