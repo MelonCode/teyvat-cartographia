@@ -75,8 +75,37 @@ public final class DrawText {
         g.pose().popPose();
     }
 
+    /**
+     * Development check of the room texts get (devtest {@code FitAuditTest}): null in play, so nothing is measured. The
+     * probe learns the place from the call stack.
+     */
+    public static TextRoom probe;
+
+    /** Receives a text, its width and the room it has (all in GUI units). */
+    public interface TextRoom {
+        void report(String text, float width, float room);
+    }
+
+    /** Reports a text drawn without shortening and the room it has, while the probe is on. */
+    public static void room(Component text, float room) {
+        if (probe != null) probe.report(text.getString(), width(text), room);
+    }
+
+    public static void room(String text, float room) {
+        if (probe != null) probe.report(text, width(text), room);
+    }
+
+    /** The first variant that fits {@code maxWidth} as it is, else the last one shortened (longest variant first). */
+    public static String fitFirst(int maxWidth, String... variants) {
+        for (int i = 0; i < variants.length - 1; i++) {
+            if (width(variants[i]) <= maxWidth) return fit(variants[i], maxWidth);
+        }
+        return fit(variants[variants.length - 1], maxWidth);
+    }
+
     /** Shortens a string with an ellipsis to fit {@code maxWidth}. */
     public static String fit(String s, int maxWidth) {
+        if (probe != null) probe.report(s, width(s), maxWidth);
         if (width(s) <= maxWidth) return s;
         String e = "…";
         int lo = 0, hi = s.length();

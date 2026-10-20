@@ -79,8 +79,7 @@ public final class MapStorage {
                 out.write(s.flags());
                 out.write(s.chunkState());
                 for (short b : s.chunkBiome()) out.writeShort(b);
-                out.writeInt(s.biomePalette().size());
-                for (ResourceKey<Biome> b : s.biomePalette()) out.writeUTF(b == null ? "" : b.location().toString());
+                writePalette(out, s.biomePalette());
                 out.write(s.light());
             }
             Files.move(datTmp, dat, StandardCopyOption.REPLACE_EXISTING);
@@ -118,12 +117,7 @@ public final class MapStorage {
                     in.readFully(flags);
                     in.readFully(chunkState);
                     for (int i = 0; i < chunkBiome.length; i++) chunkBiome[i] = in.readShort();
-                    int n = in.readInt();
-                    for (int i = 0; i < n && i < 4096; i++) {
-                        // An unreadable id keeps its place in the palette (as unknown), so the other indices stay right.
-                        ResourceLocation id = ResourceLocation.tryParse(in.readUTF());
-                        palette.add(id == null ? null : ResourceKey.create(Registries.BIOME, id));
-                    }
+                    palette.addAll(readPalette(in));
                     in.readFully(light);
                 }
             } catch (IOException e) {
@@ -136,6 +130,48 @@ public final class MapStorage {
         tile.gpuDirty = true;
         return tile;
     }
+
+    /** The biome of every chunk of a region: palette indices ({@code -1} = unknown) and the palette. */
+    record RegionBiomes(short[] chunkBiome, List<ResourceKey<Biome>> palette) {}
+
+    /**
+     * Reads only the chunk biomes of a region's metadata (for the biome search, {@link BiomeIndex}); {@code null}
+     * if the file is missing, outdated or damaged. Safe on worker threads.
+     */
+    static RegionBiomes readBiomes(Path dat) {
+        try (DataInputStream in = new DataInputStream(new BufferedInputStream(new GZIPInputStream(Files.newInputStream(dat))))) {
+            if (in.readInt() != MAGIC || in.readInt() != VERSION) return null;
+            int pixels = MapTile.SIZE * MapTile.SIZE;
+            in.skipNBytes(pixels * 2L + pixels + MapTile.CHUNKS * MapTile.CHUNKS); // heights, flags, chunk states (as in load)
+            short[] chunkBiome = new short[MapTile.CHUNKS * MapTile.CHUNKS];
+            for (int i = 0; i < chunkBiome.length; i++) chunkBiome[i] = in.readShort();
+            return new RegionBiomes(chunkBiome, readPalette(in));
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    /**
+     * A biome palette: a count, then one id per entry (also in {@link BiomeIndex}'s cache). An unreadable id keeps its
+     * place (as unknown), so the other indices stay right.
+     */
+    static List<ResourceKey<Biome>> readPalette(DataInputStream in) throws IOException {
+        List<ResourceKey<Biome>> palette = new ArrayList<>();
+        int n = in.readInt();
+        for (int i = 0; i < n && i < 4096; i++) {
+            ResourceLocation id = ResourceLocation.tryParse(in.readUTF());
+            palette.add(id == null ? null : ResourceKey.create(Registries.BIOME, id));
+        }
+        return palette;
+    }
+
+    static void writePalette(DataOutputStream out, List<ResourceKey<Biome>> palette) throws IOException {
+        out.writeInt(palette.size());
+        for (ResourceKey<Biome> b : palette) out.writeUTF(b == null ? "" : b.location().toString());
+    }
+
+    /** Matches a region's metadata file, {@code r.<tx>.<tz>.dat}. */
+    static final Pattern DAT_FILE = Pattern.compile("r\\.(-?\\d+)\\.(-?\\d+)\\.dat");
 
     // ------------------------------------------------------------------ LOD thumbnails
 

@@ -92,6 +92,7 @@ public final class SettingsPanel extends SidePanel {
             Row r = rows.get(i);
             float ty = DrawText.textY(rowY(i), Grid.ROW);
             if (r.section) {
+                DrawText.room(r.label, bw);
                 DrawText.text(g, r.label, bx, ty, Theme.GOLD, false);
             } else {
                 DrawText.text(g, DrawText.fit(r.label.getString(), (int) (bw - Grid.TOGGLE_W - Grid.GAP)), bx, ty, Theme.WHITE, false);

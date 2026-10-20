@@ -22,8 +22,9 @@ public abstract class SidePanel {
     }
 
     public void layout(float screenW, float screenH) {
-        // ~30% of the width, kept on the 4-unit grid and between 160 and 216 units.
-        w = Math.max(160, Math.min(216, Math.round(screenW * 0.3f / Grid.STEP) * Grid.STEP));
+        // ~30% of the width, kept on the 4-unit grid and between 176 and 216 units (narrower, Russian labels and
+        // the half-width buttons do not fit: measured by the text room audit).
+        w = Math.max(176, Math.min(216, Math.round(screenW * 0.3f / Grid.STEP) * Grid.STEP));
         h = screenH;
         y = 0;
         // Start off-screen to the right; render() slides it in. Avoids covering the map before the first frame.

@@ -101,6 +101,7 @@ public final class Ui {
         // In square themes the bevel's frame and shade take the last two units (measured on screenshots: without them
         // the label sat one unit right of the face's centre). Without an icon there is no badge: centred on the face.
         float labelLeft = icon != null ? cx + r : x, labelRight = x + w - (Theme.Style.square ? 2 : 0);
+        DrawText.room(label, labelRight - labelLeft - 2 * Grid.GAP);
         DrawText.textCentered(g, label, (labelLeft + labelRight) / 2f, DrawText.textY(y, h), enabled ? Theme.CREAM : Theme.BUTTON_TEXT_DISABLED, false);
     }
 
@@ -305,6 +306,8 @@ public final class Ui {
     public static void tooltip(GuiGraphics g, String title, String sub, int mx, int my, int screenW, int screenH) {
         int w = Math.max(DrawText.width(title), sub == null ? 0 : DrawText.width(sub)) + 2 * Grid.PAD;
         int h = Grid.PAD * 2 + DrawText.LINE + (sub == null ? 0 : DrawText.LINE + 2);
+        DrawText.room(title, screenW - 2 * Grid.MARGIN - 2 * Grid.PAD);
+        if (sub != null) DrawText.room(sub, screenW - 2 * Grid.MARGIN - 2 * Grid.PAD);
         float x = Math.min(mx + 12, screenW - w - Grid.MARGIN), y = Math.max(Grid.MARGIN, my - h - 4);
         if (x < Grid.MARGIN) x = Grid.MARGIN;
         tooltipBox(g, x, y, w, h); // near-opaque so map labels underneath don't show through
@@ -332,6 +335,8 @@ public final class Ui {
         int h = 2 * Grid.PAD + DrawText.LINE + Grid.GAP + lines.size() * lineStep - 2;
         float right = Draw.snap(tipX - POINTER_L);
         float x = right - w, y = Draw.snap(Math.min(cy - h / 2f, bottom - h));
+        DrawText.room(title, right - Grid.MARGIN - 2 * Grid.PAD);
+        for (Component l : lines) DrawText.room(l, right - Grid.MARGIN - 2 * Grid.PAD);
         float py = Math.max(y + POINTER_H + 3, Math.min(y + h - POINTER_H - 3, Draw.snap(cy)));
         float tip = right + POINTER_L, r = Theme.Style.square ? 0 : POPUP_R;
         // Blur: the box (in round themes without its corners, which the rounded fill covers) and the pointer.
@@ -360,6 +365,7 @@ public final class Ui {
     /** A one-line tooltip whose right edge is at {@code right}, centred on {@code cy} (beside a button at the screen edge). */
     public static void tooltipLeftOf(GuiGraphics g, String title, float right, float cy) {
         int w = DrawText.width(title) + 2 * Grid.PAD, h = Grid.PAD * 2 + DrawText.LINE;
+        DrawText.room(title, right - Grid.MARGIN - 2 * Grid.PAD);
         float x = Draw.snap(right - w), y = Draw.snap(cy - h / 2f);
         tooltipBox(g, x, y, w, h);
         DrawText.text(g, title, x + Grid.PAD, y + Grid.PAD, Theme.GOLD, false);

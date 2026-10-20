@@ -2,6 +2,24 @@
 
 All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>-<loader>`.
 
+## Unreleased
+
+### Map search
+* The pin list has a search field (click it, or press Ctrl+F on the world map). It finds pins of every dimension by
+  name and the explored biomes by name. A click on a pin flies the map to it and opens it; a click on a biome flies to
+  its nearest explored place, and each further click to the next one ("Place 2 of 5"). The found spot sends out a few
+  rings when the map arrives. Enter opens the first result, Esc leaves the field.
+* The first search in a world reads the explored map in the background once (about 1 second per 1000 map regions)
+  and keeps a small index next to the map, so later searches are instant.
+
+### Pin list and panels
+* Rows of the pin list: the name uses the whole first line; the coordinates and the distance share the second.
+* An interactive pin only you have (on a server without the mod, or one not moved to the shared pins) says
+  "local" in the list.
+* The pin panel leaves the dimension out of the coordinates line when it does not fit.
+* Side panels are never narrower than 176 units, so the buttons and Russian labels fit on small GUI scales (2K at
+  GUI 6 to 8).
+
 ## 0.1.1+mc1.21.1-neoforge
 
 ### Shared interactive pins (optional server side)

@@ -114,6 +114,7 @@ public final class TeyvatConfigScreen extends Screen {
 
         @Override
         void render(GuiGraphics g, float x, float w, int mx, int my) {
+            DrawText.room(label, w);
             DrawText.text(g, label, x, y + Grid.PAD, Theme.GOLD, false);
             Draw.rect(g, x, y + SECTION_H - 3, x + w, y + SECTION_H - 2, Theme.PANEL_LINE);
         }
@@ -144,6 +145,7 @@ public final class TeyvatConfigScreen extends Screen {
             boolean hover = Draw.inRect(mx, my, x, y + 2, w, Grid.ROW - 4);
             Draw.rect(g, x, y + 2, x + w, y + Grid.ROW - 2, hover ? Theme.PANEL_DARK_TILE_HOVER : Theme.INFO_BOX);
             Draw.rect(g, x, y + 2, x + 2, y + Grid.ROW - 2, Theme.GOLD);
+            DrawText.room(label, w - 2 - 3 * Grid.GAP - 6); // up to the fold arrow
             DrawText.text(g, label, x + 2 + Grid.GAP, DrawText.textY(y, Grid.ROW), Theme.CREAM, false);
             float ax = x + w - Grid.GAP - 3, ay = y + Grid.ROW / 2f;
             if (open()) Draw.triangle(g, ax - 3, ay - 1.5f, ax + 3, ay - 1.5f, ax, ay + 2f, Theme.CREAM);
@@ -273,6 +275,7 @@ public final class TeyvatConfigScreen extends Screen {
             }
             String text = labeler != null ? labeler.apply(v)
                     : integer ? String.format(Locale.ROOT, format, (int) Math.round(v)) : String.format(Locale.ROOT, format, v);
+            DrawText.room(text, VALUE_W + Grid.GAP); // right of the track and its knob
             DrawText.textRight(g, Component.literal(text), x + w, DrawText.textY(y, Grid.ROW), Theme.CREAM, false);
         }
 
@@ -344,6 +347,7 @@ public final class TeyvatConfigScreen extends Screen {
         int fill = active ? hover ? Theme.BUTTON_HOVER : Theme.BUTTON : Ui.inactive(Theme.BUTTON);
         if (Theme.Style.square) Draw.bevel(g, bx, by, bw, h, fill, hover ? Theme.BUTTON_HOVER_OUTLINE : Theme.BEVEL_BORDER, false);
         else Draw.capsule(g, bx, by, bw, h, fill);
+        DrawText.room(value, bw - 2 * h); // between the arrows in the caps
         DrawText.textCentered(g, value, bx + bw / 2, DrawText.textY(by, h), active ? Theme.CREAM : Ui.inactive(Theme.CREAM), false);
         float cy = by + h / 2f, a = h / 2f; // arrows centred in the caps
         int arrow = active ? Theme.GOLD : Ui.inactive(Theme.GOLD);

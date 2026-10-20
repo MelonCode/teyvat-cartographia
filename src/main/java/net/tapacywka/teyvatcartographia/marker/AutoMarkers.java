@@ -57,6 +57,20 @@ public final class AutoMarkers {
         return cached;
     }
 
+    /**
+     * The automatic markers of every dimension (for the map search), built fresh without touching the cache of
+     * {@link #forDimension}: the spawn point is known only while the player is in the overworld.
+     */
+    public static List<Marker> everywhere() {
+        Minecraft mc = Minecraft.getInstance();
+        ClientLevel level = mc.level;
+        if (level == null || mc.player == null) return List.of();
+        List<Marker> out = new ArrayList<>(2);
+        if (level.dimension() == Level.OVERWORLD) out.addAll(build(Level.OVERWORLD, level.getSharedSpawnPos(), null));
+        mc.player.getLastDeathLocation().ifPresent(d -> out.addAll(build(d.dimension(), null, d)));
+        return out;
+    }
+
     private static int version;
 
     /** Changes whenever the automatic markers returned by {@link #forDimension} change (place, type or dimension). */

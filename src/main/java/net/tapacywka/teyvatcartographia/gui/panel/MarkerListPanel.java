@@ -2,11 +2,14 @@ package net.tapacywka.teyvatcartographia.gui.panel;
 
 import net.minecraft.world.level.Level;
 import net.minecraft.resources.ResourceKey;
+import net.tapacywka.teyvatcartographia.gui.ChipField;
 import net.tapacywka.teyvatcartographia.gui.FileDialogs;
+import net.tapacywka.teyvatcartographia.gui.MapSearch;
 import net.tapacywka.teyvatcartographia.gui.PinTransfer;
 import net.tapacywka.teyvatcartographia.gui.Ui;
 import net.tapacywka.teyvatcartographia.gui.Ui.Grid;
 import net.tapacywka.teyvatcartographia.gui.WorldMapScreen;
+import net.tapacywka.teyvatcartographia.map.data.BiomeIndex;
 import net.tapacywka.teyvatcartographia.marker.AutoMarkers;
 import net.tapacywka.teyvatcartographia.marker.Marker;
 import net.tapacywka.teyvatcartographia.marker.MarkerStore;
@@ -28,9 +31,11 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Dark list of saved markers in the viewed dimension; click to fly the map to a marker. Shows up to
- * {@link #MAX_ROWS} rows in a block centred vertically in the panel (shorter lists start at the block's top);
- * longer lists scroll by rows with the mouse wheel and show a thin scroll bar, like the pick list on the map.
+ * Dark list of saved markers in the viewed dimension; click to fly the map to a marker. Above the list a search
+ * field ({@link MapSearch}): while it holds text, the list shows the matching pins of every dimension and the matching
+ * explored biomes under two small headings; a click on a biome flies to its nearest place, each further click to the
+ * next one. Rows fill a block centred vertically in the panel (shorter lists start at the block's top); longer lists
+ * scroll by rows with the mouse wheel and show a thin scroll bar, like the pick list on the map.
  * At the bottom: Export and Import ({@link PinTransfer}); Import opens a choice between our file and Xaero's Minimap
  * above the buttons (it stays open after a pick), and the outcome is shown for a while in a popup left of the panel,
  * pointing at the button that was used.
@@ -39,15 +44,50 @@ public final class MarkerListPanel extends SidePanel {
     /** Row: 2 text lines (9 + 2 + 9) with 4 units padding top and bottom = 28 = one tile. */
     private static final float ROW_H = Grid.TILE_H;
     private static final float ROW_STEP = ROW_H + Grid.GAP;
+    /** Heading or note line of the search results. */
+    private static final float LINE_H = 16;
     private static final float SYMBOL = 16;
+    /** Side of a biome's colour swatch in the row's leading square. */
+    private static final float SWATCH = 12;
     private static final int MAX_ROWS = 10;
     private static final float BAR_W = 2;
+
+    private enum Kind { PIN, BIOME, HEADING, NOTE }
+
+    /** One line of the list, its texts fitted to the row width (built with the list, not every frame). */
+    private record Row(Kind kind, Marker marker, MapSearch.BiomeHit biome, String name, String sub, Component right, int rightColor) {
+        float height() {
+            return clickable() ? ROW_H : LINE_H;
+        }
+
+        boolean clickable() {
+            return kind == Kind.PIN || kind == Kind.BIOME;
+        }
+    }
+
     /** First visible row. */
     private int scroll;
     private List<Marker> items = List.of();
+    private List<Row> rows = List.of();
+    private float rowsWidth = -1;
+    private final MapSearch search;
+    private final ChipField field;
 
     public MarkerListPanel(WorldMapScreen screen) {
         super(screen);
+        search = screen.search();
+        Component hint = Component.translatable("teyvatcartographia.search.hint");
+        field = new ChipField(ChipField.Style.DARK, Icon.SEARCH, hint, hint, 32);
+        field.setValue(search.query());
+        field.setResponder(q -> {
+            search.setQuery(q);
+            scroll = 0;
+        });
+    }
+
+    /** Puts the cursor into the search field (Ctrl+F on the map). */
+    public void focusSearch() {
+        field.focus();
     }
 
     @Override
@@ -66,17 +106,28 @@ public final class MarkerListPanel extends SidePanel {
     }
 
     // The sorted list is rebuilt when pins change, when another dimension is viewed, and twice a second for the
-    // distance order, not every frame.
-    private int listMarkers = Integer.MIN_VALUE, listAuto;
+    // distance order, not every frame; the search results when the search reports a change (it checks ten times a
+    // second).
+    private int listMarkers = Integer.MIN_VALUE, listAuto, listSearch = Integer.MIN_VALUE;
     private ResourceKey<Level> listDim;
     private long listNanos;
+    private boolean listSearching;
 
     /** Returns true if the list was rebuilt. */
     private boolean refresh() {
         long now = System.nanoTime();
+        search.update(); // cheap: it checks the results ten times a second
+        boolean searching = search.active();
+        if (searching) {
+            if (listSearching && search.version() == listSearch) return false;
+            listSearching = true;
+            listSearch = search.version();
+            return true;
+        }
         ResourceKey<Level> dim = screen.viewedDimension();
-        if (MarkerStore.version() == listMarkers && AutoMarkers.version() == listAuto && dim == listDim
+        if (!listSearching && MarkerStore.version() == listMarkers && AutoMarkers.version() == listAuto && dim == listDim
                 && now - listNanos < 500_000_000L) return false;
+        listSearching = false;
         listMarkers = MarkerStore.version();
         listAuto = AutoMarkers.version();
         listDim = dim;
@@ -88,30 +139,101 @@ public final class MarkerListPanel extends SidePanel {
         return true;
     }
 
-    /** Texts of one row, fitted to the row width: built with the list, not every frame. */
-    private record RowText(String name, String coords, Component distance) {}
-
-    private RowText[] rowTexts = new RowText[0];
-    private float rowTextsWidth = -1;
-
-    private void buildRowTexts(float rw) {
-        rowTextsWidth = rw;
-        LocalPlayer p = Minecraft.getInstance().player;
-        ResourceKey<Level> playerDim = p == null ? null : p.level().dimension();
-        rowTexts = new RowText[items.size()];
-        for (int i = 0; i < rowTexts.length; i++) {
-            Marker m = items.get(i);
-            String dist = m.dimension == playerDim
-                    ? DistanceText.blocks(Math.round(Navigation.distance(p, m.centerX(), m.y, m.centerZ()))).getString() : null;
-            int distW = dist == null ? 0 : DrawText.width(dist) + Grid.GAP;
-            int maxW = (int) (rw - ROW_H - Grid.PAD - distW);
-            rowTexts[i] = new RowText(DrawText.fit(m.name, maxW), DrawText.fit(m.x + ", " + m.z, maxW), dist == null ? null : Component.literal(dist));
+    /**
+     * Builds the rows for the panel width {@code bw}: first which rows there are (their heights follow from that), so
+     * the texts are fitted once, to the width that is left beside the scroll bar if the list scrolls.
+     */
+    private void buildRows(float bw) {
+        List<Object> plan = new ArrayList<>(); // a Marker, a BiomeHit, or the Kind and key of a heading or note
+        if (!search.active()) {
+            plan.addAll(items);
+        } else {
+            if (!search.pins().isEmpty()) {
+                plan.add(new Line(Kind.HEADING, "teyvatcartographia.search.pins"));
+                plan.addAll(search.pins());
+            }
+            if (!search.biomes().isEmpty() || search.searchingBiomes()) plan.add(new Line(Kind.HEADING, "teyvatcartographia.search.biomes"));
+            plan.addAll(search.biomes());
+            if (search.searchingBiomes()) plan.add(new Line(Kind.NOTE, "teyvatcartographia.search.reading"));
+            if (plan.isEmpty()) plan.add(new Line(Kind.NOTE, "teyvatcartographia.search.none"));
         }
+        float total = -Grid.GAP;
+        for (Object o : plan) total += (o instanceof Line ? LINE_H : ROW_H) + Grid.GAP;
+        float rw = total > blockHeight() + 0.01f ? bw - BAR_W - Grid.GAP : bw;
+        List<Row> out = new ArrayList<>(plan.size());
+        boolean everywhere = search.active();
+        for (Object o : plan) {
+            if (o instanceof Marker m) out.add(pinRow(m, rw, everywhere));
+            else if (o instanceof MapSearch.BiomeHit h) out.add(biomeRow(h, rw));
+            else if (o instanceof Line l) out.add(line(l.kind, l.key, rw));
+        }
+        rows = out;
+        rowsWidth = rw;
     }
 
+    /** A heading or note of the search results. */
+    private record Line(Kind kind, String key) {}
+
+    private static Row line(Kind kind, String key, float rw) {
+        return new Row(kind, null, null, DrawText.fit(Component.translatable(key).getString(), (int) rw), null, null, 0);
+    }
+
+    /**
+     * A row's texts: the name over the whole first line; on the second line the first of {@code subs} that fits
+     * (longest first) and, right-aligned, the distance in the player's dimension, else the other dimension's name.
+     * {@code y} is {@link Integer#MIN_VALUE} for a place without a height (a horizontal distance).
+     */
+    private static Row row(Marker m, MapSearch.BiomeHit h, String name, ResourceKey<Level> dim, double x, int y, double z,
+                           boolean showDimension, float rw, String... subs) {
+        LocalPlayer p = Minecraft.getInstance().player;
+        Component right = null;
+        int color = Theme.GOLD;
+        if (p != null && p.level().dimension() == dim) {
+            right = DistanceText.blocks(Math.round(Navigation.distance(p, x, y, z)));
+        } else if (showDimension) {
+            right = WorldMapScreen.dimensionName(dim);
+            color = Theme.TEXT_MUTED;
+        }
+        int rightW = right == null ? 0 : DrawText.width(right) + Grid.GAP;
+        // The right-hand text must leave the second line a few letters (about 4).
+        if (right != null) DrawText.room(right, rw - ROW_H - Grid.PAD - Grid.GAP - 24);
+        int lineW = (int) (rw - ROW_H - Grid.PAD);
+        return new Row(m != null ? Kind.PIN : Kind.BIOME, m, h, DrawText.fit(name, lineW), DrawText.fitFirst(lineW - rightW, subs), right, color);
+    }
+
+    private static Row pinRow(Marker m, float rw, boolean showDimension) {
+        String coords = m.x + ", " + m.z;
+        if (!MarkerStore.localOnly(m.type, m.shared)) return row(m, null, m.name, m.dimension, m.centerX(), m.y, m.centerZ(), showDimension, rw, coords);
+        // An interactive pin only this player has (a server without the mod, or one not moved to the shared pins).
+        return row(m, null, m.name, m.dimension, m.centerX(), m.y, m.centerZ(), showDimension, rw,
+                Component.translatable("teyvatcartographia.list.local_only", coords).getString(),
+                Component.translatable("teyvatcartographia.list.local_only_short").getString());
+    }
+
+    private static Row biomeRow(MapSearch.BiomeHit h, float rw) {
+        BiomeIndex.Place p = h.shown();
+        // On a narrow panel the counter alone ("2 of 5").
+        return row(null, h, h.name().getString(), h.dimension, p.x(), Integer.MIN_VALUE, p.z(), true, rw,
+                Component.translatable("teyvatcartographia.search.place", h.shownNumber(), h.places.size()).getString(),
+                Component.translatable("teyvatcartographia.search.place_short", h.shownNumber(), h.places.size()).getString());
+    }
 
     private float listBottom() {
         return actionsTop() - Grid.PAD;
+    }
+
+    // ------------------------------------------------------------------ search field
+
+    private float fieldY() {
+        return contentY();
+    }
+
+    private float listAreaTop() {
+        return fieldY() + Grid.CHIP_H + Grid.PAD;
+    }
+
+    private void renderField(GuiGraphics g, int mx, int my, float bx, float bw) {
+        field.render(g, bx, fieldY(), bw, mx, my);
     }
 
     // ------------------------------------------------------------------ export and import
@@ -186,23 +308,48 @@ public final class MarkerListPanel extends SidePanel {
         return false;
     }
 
-    /** Rows that fit at once (at most {@link #MAX_ROWS}). */
+    // ------------------------------------------------------------------ list layout
+
+    /** Full rows that fit at once (at most {@link #MAX_ROWS}): the height of the block. */
     private int capacity() {
-        return Math.max(1, Math.min(MAX_ROWS, (int) ((listBottom() - contentY() + Grid.GAP) / ROW_STEP)));
+        return Math.max(1, Math.min(MAX_ROWS, (int) ((listBottom() - listAreaTop() + Grid.GAP) / ROW_STEP)));
     }
 
-    /** Top of the row block: a block of {@link #capacity()} rows centred in the content area. */
+    private float blockHeight() {
+        return capacity() * ROW_STEP - Grid.GAP;
+    }
+
+    /** Top of the row block: a block of {@link #capacity()} rows centred in the area under the search field. */
     private float listTop() {
-        float block = capacity() * ROW_STEP - Grid.GAP;
-        return Draw.snap(contentY() + (listBottom() - contentY() - block) / 2f);
+        return Draw.snap(listAreaTop() + (listBottom() - listAreaTop() - blockHeight()) / 2f);
     }
 
-    private int visibleRows() {
-        return Math.min(capacity(), items.size());
+    /** Rows shown from {@code first} on: as many as fit in the block. */
+    private int fitFrom(int first) {
+        float used = -Grid.GAP;
+        int n = 0;
+        for (int i = first; i < rows.size(); i++) {
+            used += rows.get(i).height() + Grid.GAP;
+            if (used > blockHeight() + 0.01f) break;
+            n++;
+        }
+        return Math.max(n, Math.min(1, rows.size() - first));
+    }
+
+    /** The last useful first row: from it on, the rest of the list fits. */
+    private int maxScroll() {
+        float used = -Grid.GAP;
+        int first = rows.size();
+        while (first > 0) {
+            used += rows.get(first - 1).height() + Grid.GAP;
+            if (used > blockHeight() + 0.01f) break;
+            first--;
+        }
+        return Math.min(first, Math.max(0, rows.size() - 1));
     }
 
     private boolean scrollable() {
-        return items.size() > capacity();
+        return maxScroll() > 0;
     }
 
     /** Row width: narrower by the scroll bar when the list scrolls. */
@@ -213,50 +360,88 @@ public final class MarkerListPanel extends SidePanel {
     @Override
     protected void renderBody(GuiGraphics g, int mx, int my, float bx, float by, float bw) {
         boolean rebuilt = refresh();
-        scroll = Math.max(0, Math.min(items.size() - capacity(), scroll));
+        renderField(g, mx, my, bx, bw);
         renderTransfer(g, mx, my, bx, bw);
-        if (items.isEmpty()) {
-            DrawText.text(g, Component.translatable("teyvatcartographia.list.empty"), bx, DrawText.textY(by, Grid.ROW), Theme.TEXT_MUTED, false);
+        // Again when the list changed, or when the room for it did (the import choice, the window size).
+        if (rebuilt || rowWidth(bw) != rowsWidth) buildRows(bw);
+        float rw = rowsWidth;
+        scroll = Math.max(0, Math.min(maxScroll(), scroll));
+        if (rows.isEmpty()) {
+            DrawText.text(g, Component.translatable("teyvatcartographia.list.empty"), bx, DrawText.textY(listTop(), Grid.ROW), Theme.TEXT_MUTED, false);
             return;
         }
-        float top = listTop();
-        float rw = rowWidth(bw);
-        if (rebuilt || rw != rowTextsWidth || rowTexts.length != items.size()) buildRowTexts(rw);
-        for (int k = 0, n = visibleRows(); k < n; k++) {
-            float ry = top + k * ROW_STEP;
-            Marker m = items.get(scroll + k);
-            RowText t = rowTexts[scroll + k];
-            boolean hover = Draw.inRect(mx, my, bx, ry, rw, ROW_H);
-            Draw.rect(g, bx, ry, bx + rw, ry + ROW_H, hover ? Theme.PANEL_DARK_TILE_HOVER : Theme.PANEL_DARK_TILE);
-            if (Navigation.isTracking(m)) Draw.rect(g, bx, ry, bx + 3, ry + ROW_H, Theme.worldMarkerPulse(MarkerVisibility.kind(m)));
-            // Symbol centred in the row's leading 28 x 28 square; text starts right after it.
-            MarkerRenderer.drawCentered(g, m.type, bx + ROW_H / 2f, ry + ROW_H / 2f, SYMBOL, 1f);
-            float tx = bx + ROW_H;
-            DrawText.text(g, t.name, tx, ry + 4, Theme.CREAM, false);
-            DrawText.text(g, t.coords, tx, ry + 4 + DrawText.LINE + 2, Theme.TEXT_MUTED, false);
-            if (t.distance != null) DrawText.textRight(g, t.distance, bx + rw - Grid.PAD, DrawText.textY(ry, ROW_H), Theme.GOLD, false);
+        float top = listTop(), ry = top;
+        for (int k = scroll, end = scroll + fitFrom(scroll); k < end; k++) {
+            Row r = rows.get(k);
+            renderRow(g, r, bx, ry, rw, mx, my);
+            ry += r.height() + Grid.GAP;
         }
         if (scrollable()) {
             // Track over the block of rows, thumb over the visible part (as in the map's pick list).
-            float barX = bx + bw - BAR_W, h = capacity() * ROW_STEP - Grid.GAP;
+            float barX = bx + bw - BAR_W, h = blockHeight();
             Draw.rect(g, barX, top, barX + BAR_W, top + h, Theme.SCROLL_TRACK);
-            float th = Math.max(8, h * capacity() / items.size());
-            float ty = top + (h - th) * scroll / (items.size() - capacity());
+            int max = maxScroll(), shown = fitFrom(scroll);
+            float th = Math.max(8, h * shown / (float) rows.size());
+            float ty = top + (h - th) * scroll / max;
             Draw.rect(g, barX, ty, barX + BAR_W, ty + th, Theme.SCROLL_THUMB);
+        }
+    }
+
+    private void renderRow(GuiGraphics g, Row r, float bx, float ry, float rw, int mx, int my) {
+        if (!r.clickable()) {
+            // Headings and notes: one muted line, set on the row grid's baseline.
+            DrawText.text(g, r.name(), bx + (r.kind() == Kind.NOTE ? Grid.GAP : 0), DrawText.textY(ry, LINE_H), Theme.TEXT_MUTED, false);
+            return;
+        }
+        boolean hover = Draw.inRect(mx, my, bx, ry, rw, ROW_H);
+        Draw.rect(g, bx, ry, bx + rw, ry + ROW_H, hover ? Theme.PANEL_DARK_TILE_HOVER : Theme.PANEL_DARK_TILE);
+        float cx = bx + ROW_H / 2f, cy = ry + ROW_H / 2f;
+        if (r.kind() == Kind.PIN) {
+            Marker m = r.marker();
+            if (Navigation.isTracking(m)) Draw.rect(g, bx, ry, bx + 3, ry + ROW_H, Theme.worldMarkerPulse(MarkerVisibility.kind(m)));
+            // Symbol centred in the row's leading 28 x 28 square; text starts right after it.
+            MarkerRenderer.drawCentered(g, m.type, cx, cy, SYMBOL, 1f);
+        } else {
+            // The biome's colour on the map: a square in square themes, a disc in round ones.
+            int c = r.biome().color == 0 ? Theme.TEXT_MUTED : r.biome().color;
+            if (Theme.Style.square) Draw.rect(g, cx - SWATCH / 2f, cy - SWATCH / 2f, cx + SWATCH / 2f, cy + SWATCH / 2f, c);
+            else Draw.circle(g, cx, cy, SWATCH / 2f, c);
+        }
+        float tx = bx + ROW_H;
+        DrawText.text(g, r.name(), tx, ry + 4, Theme.CREAM, false);
+        DrawText.text(g, r.sub(), tx, ry + 4 + DrawText.LINE + 2, Theme.TEXT_MUTED, false);
+        if (r.right() != null) DrawText.textRight(g, r.right(), bx + rw - Grid.PAD, ry + 4 + DrawText.LINE + 2, r.rightColor(), false);
+    }
+
+    /** The row under the mouse, or null. */
+    private Row rowAt(double mx, double my) {
+        float rw = rowWidth(contentW()), ry = listTop();
+        for (int k = scroll, end = scroll + fitFrom(scroll); k < end; k++) {
+            Row r = rows.get(k);
+            if (r.clickable() && Draw.inRect(mx, my, contentX(), ry, rw, ROW_H)) return r;
+            ry += r.height() + Grid.GAP;
+        }
+        return null;
+    }
+
+    private void open(Row r) {
+        if (r.kind() == Kind.PIN) {
+            screen.showMarker(r.marker());
+        } else {
+            BiomeIndex.Place p = search.next(r.biome());
+            screen.showPlace(r.biome().dimension, p.x(), p.z());
         }
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (closeClicked(mx, my)) return true;
+        if (field.click(mx, my, button)) return true;
         if (transferClicked(mx, my)) return true;
-        float top = listTop();
-        if (my >= top) {
-            int k = (int) ((my - top) / ROW_STEP);
-            if (k < visibleRows() && Draw.inRect(mx, my, contentX(), top + k * ROW_STEP, rowWidth(contentW()), ROW_H)) {
-                screen.focusMarker(items.get(scroll + k));
-                return true;
-            }
+        Row r = rowAt(mx, my);
+        if (r != null) {
+            open(r);
+            return true;
         }
         return contains(mx, my);
     }
@@ -264,7 +449,31 @@ public final class MarkerListPanel extends SidePanel {
     @Override
     public boolean mouseScrolled(double mx, double my, double amount) {
         if (!contains(mx, my)) return false;
-        scroll = Math.max(0, Math.min(items.size() - capacity(), scroll - (int) Math.signum(amount)));
+        scroll = Math.max(0, Math.min(maxScroll(), scroll - (int) Math.signum(amount)));
         return true;
+    }
+
+    @Override
+    public boolean keyPressed(int key, int scan, int mods) {
+        return field.keyPressed(key, scan, mods, this::openFirst); // Enter opens the first result
+    }
+
+    private void openFirst() {
+        for (Row r : rows) {
+            if (r.clickable()) {
+                open(r);
+                return;
+            }
+        }
+    }
+
+    @Override
+    public boolean charTyped(char c, int mods) {
+        return field.charTyped(c, mods);
+    }
+
+    @Override
+    public boolean capturesKeyboard() {
+        return field.focused();
     }
 }

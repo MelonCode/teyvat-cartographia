@@ -2,6 +2,7 @@ package net.tapacywka.teyvatcartographia.gui.panel;
 
 import net.minecraft.world.level.Level;
 import net.minecraft.resources.ResourceKey;
+import net.tapacywka.teyvatcartographia.gui.ChipField;
 import net.tapacywka.teyvatcartographia.gui.Ui;
 import net.tapacywka.teyvatcartographia.gui.Ui.Grid;
 import net.tapacywka.teyvatcartographia.gui.WorldMapScreen;
@@ -20,10 +21,8 @@ import net.tapacywka.teyvatcartographia.render.Theme;
 import net.tapacywka.teyvatcartographia.shared.SharedPinsServer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,7 +59,7 @@ public final class PinPanel extends SidePanel {
     private final ResourceKey<Level> dimension;
     private final int px, py, pz;
     private MarkerType type;
-    private final EditBox name;
+    private final ChipField name;
 
     /** Opens an existing marker (custom pins are editable, automatic points are read-only). */
     public PinPanel(WorldMapScreen screen, Marker marker) {
@@ -80,12 +79,8 @@ public final class PinPanel extends SidePanel {
         this.py = y;
         this.pz = z;
         this.type = editing != null && editing.type.custom ? editing.type : MarkerType.BOSS; // Genshin pre-selects the first type
-        name = new EditBox(Minecraft.getInstance().font, 0, 0, 100, DrawText.LINE, Component.translatable("teyvatcartographia.pin.name"));
-        name.setBordered(false);
-        name.setTextShadow(false); // dark text on a light chip: the vanilla drop shadow smears it
-        name.setMaxLength(48);
-        name.setTextColor(Theme.TEXT_DARK);
-        name.setHint(Component.translatable("teyvatcartographia.pin.name_hint"));
+        name = new ChipField(ChipField.Style.LIGHT, Icon.PENCIL, Component.translatable("teyvatcartographia.pin.name"),
+                Component.translatable("teyvatcartographia.pin.name_hint"), 48);
         name.setValue(editing != null ? editing.name : defaultName());
     }
 
@@ -110,7 +105,7 @@ public final class PinPanel extends SidePanel {
     protected Component title() {
         // Like the automatic points: the header shows the pin's (current) name and its selected type icon.
         if (readOnly()) return Component.literal(editing.name);
-        String n = name.getValue().trim();
+        String n = name.value().trim();
         return Component.literal(n.isEmpty() ? (editing != null ? editing.name : defaultName()) : n);
     }
 
@@ -195,8 +190,7 @@ public final class PinPanel extends SidePanel {
 
     /** An interactive pin in multiplayer on a server without the mod: only this player sees it (the bar says so). */
     private boolean localOnly() {
-        Minecraft mc = Minecraft.getInstance();
-        return type.operatorOnly() && !shared() && !mc.isLocalServer();
+        return MarkerStore.localOnly(type, shared());
     }
 
     /** The total bar: shared pins against the server's limit, or the player's own against theirs. */
@@ -263,37 +257,26 @@ public final class PinPanel extends SidePanel {
         // Operator rights revoked while a new pin had an interaction type selected: back to the first type.
         if (!readOnly && type.operatorOnly() && !MarkerType.isOperator()) type = MarkerType.BOSS;
         if (!readOnly) {
-            // Name chip
-            float ny = nameY();
-            Ui.chip(g, bx, ny, bw, Grid.CHIP_H, Theme.PANEL_LIGHT_CHIP);
-            Draw.icon(g, Icon.PENCIL, bx + Grid.CHIP_H / 2f, ny + Grid.CHIP_H / 2f, Grid.ICON, name.isFocused() ? Theme.CHIP_ICON : Theme.CHIP_ICON_SOFT);
-            name.setTextColor(Theme.TEXT_DARK); // follows theme changes
-            name.setX(Math.round(bx + Grid.CHIP_H));
-            name.setY(Math.round(DrawText.textY(ny, Grid.CHIP_H)));
-            name.setWidth(maxText);
-            if (name.isFocused()) {
-                name.render(g, mx, my, 0); // vanilla editor (cursor, selection) only while editing
-            } else {
-                // Idle: the plain panel text, shortened with "..." to the field width.
-                String v = name.getValue();
-                boolean hint = v.isEmpty();
-                String shown = hint ? Component.translatable("teyvatcartographia.pin.name_hint").getString() : v;
-                DrawText.text(g, DrawText.fit(shown, maxText), bx + Grid.CHIP_H, DrawText.textY(ny, Grid.CHIP_H), hint ? Theme.TEXT_DARK_SOFT : Theme.TEXT_DARK, false);
-            }
+            name.render(g, bx, nameY(), bw, mx, my);
         }
 
         // Location chip
         float cy = coordsY();
         Ui.chip(g, bx, cy, bw, Grid.CHIP_H, readOnly ? Theme.PANEL_LIGHT_CHIP : Theme.PANEL_LIGHT_CHIP_EDIT);
         Draw.icon(g, Icon.LOCATE, bx + Grid.CHIP_H / 2f, cy + Grid.CHIP_H / 2f, Grid.ICON, Theme.CHIP_ICON);
-        String coords = Component.translatable("teyvatcartographia.pin.coords", px, pz, WorldMapScreen.dimensionName(dimension)).getString();
-        DrawText.text(g, DrawText.fit(coords, maxText), bx + Grid.CHIP_H, DrawText.textY(cy, Grid.CHIP_H), Theme.TEXT_DARK, false);
+        // Too long with the dimension (always the one on the map): the coordinates alone.
+        String coords = DrawText.fitFirst(maxText,
+                Component.translatable("teyvatcartographia.pin.coords", px, pz, WorldMapScreen.dimensionName(dimension)).getString(),
+                Component.translatable("teyvatcartographia.pin.coords_short", px, pz).getString());
+        DrawText.text(g, coords,bx + Grid.CHIP_H, DrawText.textY(cy, Grid.CHIP_H), Theme.TEXT_DARK, false);
 
         if (!readOnly) {
             // Type grid by section (header line, then tiles): the same tiles as in the pin list.
             List<MarkerType.Category> sections = sections();
             for (int k = 0; k < sections.size(); k++) {
-                DrawText.text(g, Component.translatable(sections.get(k).langKey()), gridX(), sectionY(k), Theme.TEXT_DARK_SOFT, false);
+                Component head = Component.translatable(sections.get(k).langKey());
+                DrawText.room(head, bx + bw - gridX());
+                DrawText.text(g, head, gridX(), sectionY(k), Theme.TEXT_DARK_SOFT, false);
                 List<MarkerType> types = types(k);
                 for (int i = 0; i < types.size(); i++) {
                     MarkerType t = types.get(i);
@@ -335,7 +318,7 @@ public final class PinPanel extends SidePanel {
     public boolean mouseClicked(double mx, double my, int button) {
         if (closeClicked(mx, my)) return true;
         if (!contains(mx, my)) {
-            name.setFocused(false);
+            name.blur();
             return false;
         }
         float bx = contentX(), bw = contentW();
@@ -351,11 +334,7 @@ public final class PinPanel extends SidePanel {
             teleport();
             return true;
         }
-        name.setFocused(Draw.inRect(mx, my, bx, nameY(), bw, Grid.CHIP_H));
-        if (name.isFocused()) {
-            name.mouseClicked(mx, my, button);
-            return true;
-        }
+        if (name.click(mx, my, button)) return true;
         for (int k = 0; k < sections().size(); k++) {
             List<MarkerType> types = types(k);
             for (int i = 0; i < types.size(); i++) {
@@ -386,7 +365,7 @@ public final class PinPanel extends SidePanel {
 
     private void confirm() {
         if (type.operatorOnly() && !MarkerType.isOperator()) return; // re-checked: op status may have been revoked meanwhile
-        String n = name.getValue().trim();
+        String n = name.value().trim();
         if (n.isEmpty()) n = editing != null ? editing.name : defaultName();
         if (editing != null) {
             MarkerStore.update(editing, n, type);
@@ -409,24 +388,16 @@ public final class PinPanel extends SidePanel {
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
-        if (name.isFocused()) {
-            if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER || key == GLFW.GLFW_KEY_ESCAPE) {
-                name.setFocused(false);
-                return true;
-            }
-            name.keyPressed(key, scan, mods);
-            return true;
-        }
-        return false;
+        return name.keyPressed(key, scan, mods, null);
     }
 
     @Override
     public boolean charTyped(char c, int mods) {
-        return name.isFocused() && name.charTyped(c, mods);
+        return name.charTyped(c, mods);
     }
 
     @Override
     public boolean capturesKeyboard() {
-        return name.isFocused();
+        return name.focused();
     }
 }

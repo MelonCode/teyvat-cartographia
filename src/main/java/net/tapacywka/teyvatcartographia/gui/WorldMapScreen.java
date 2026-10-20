@@ -57,6 +57,18 @@ public final class WorldMapScreen extends Screen {
     private double centerX, centerZ, scale;
     private double targetX, targetZ, targetScale;
     private boolean zoomAnchored;
+    // A flight to a search result (startFlight): from where, how far into it, and how far out it zooms on the way.
+    private boolean flying;
+    private double flyFromX, flyFromZ, flyFromScale, flyBump;
+    private float flyT, flyDuration;
+    // The place a search result flew to: rings go out from it for a few seconds after arriving.
+    private ResourceKey<Level> foundDim;
+    private double foundX, foundZ;
+    private float foundAt = Float.NEGATIVE_INFINITY;
+    private static final float FOUND_PULSES = 3;
+    private boolean foundPlace;
+    /** The search of the pin list; kept while the map is open, so a closed and reopened list shows it again. */
+    private final MapSearch search = new MapSearch();
     private double anchorSX, anchorSY, anchorWX, anchorWZ;
 
     private ResourceKey<Level> viewedDim;
@@ -148,6 +160,14 @@ public final class WorldMapScreen extends Screen {
         if (p != null) p.layout(width, height);
     }
 
+    /** Opens the pin list (the list button, Ctrl+F); a pin panel it replaces takes its highlight along. */
+    private MarkerListPanel openList() {
+        if (panel instanceof PinPanel) clearSelection();
+        MarkerListPanel list = new MarkerListPanel(this);
+        openPanel(list);
+        return list;
+    }
+
     public void closePanel() {
         openPanel(null);
         clearSelection(); // the highlight belongs to the open pin panel; it goes away together with it
@@ -170,6 +190,55 @@ public final class WorldMapScreen extends Screen {
         selectMarker(m);
     }
 
+    public MapSearch search() {
+        return search;
+    }
+
+    /** A pin found by the search: flies there (in its dimension), opens its panel and sends rings out from it. */
+    public void showMarker(Marker m) {
+        viewDimension(m.dimension);
+        startFlight(m.centerX(), m.centerZ(), Math.max(targetScale, 1));
+        found(m.dimension, m.centerX(), m.centerZ(), false);
+        selectMarker(m);
+    }
+
+    /** A biome place found by the search: flies there (in its dimension) and sends rings out from it. */
+    public void showPlace(ResourceKey<Level> dim, double x, double z) {
+        viewDimension(dim);
+        startFlight(x, z, targetScale);
+        found(dim, x, z, true);
+    }
+
+    private void found(ResourceKey<Level> dim, double x, double z, boolean place) {
+        foundPlace = place;
+        foundDim = dim;
+        foundX = x;
+        foundZ = z;
+        foundAt = time + flyDuration;
+    }
+
+    /**
+     * Smooth flight to a point, ending at {@code endScale}: eased in and out, and when the point is more than a
+     * screen away, zoomed out on the way (the further, the more) so the map does not just smear past.
+     */
+    private void startFlight(double x, double z, double endScale) {
+        zoomAnchored = false;
+        endScale = clampScale(endScale);
+        // The point ends in the middle of the map left uncovered by the side panel.
+        if (panel != null) x += panel.width() / 2.0 / endScale;
+        double screens = Math.hypot(x - centerX, z - centerZ) * scale / Math.max(1, width);
+        flyBump = Math.max(0, Math.min(3, Math.log(Math.max(1, screens))));
+        flyDuration = 0.45f + 0.15f * (float) flyBump;
+        flyFromX = centerX;
+        flyFromZ = centerZ;
+        flyFromScale = scale;
+        flyT = 0;
+        flying = true;
+        targetX = x;
+        targetZ = z;
+        targetScale = endScale;
+    }
+
     public void viewDimension(ResourceKey<Level> dim) {
         if (dim == viewedDim) return;
         viewedDim = dim;
@@ -187,12 +256,14 @@ public final class WorldMapScreen extends Screen {
 
     private void flyTo(double x, double z) {
         zoomAnchored = false;
+        flying = false;
         targetX = x;
         targetZ = z;
     }
 
     private void jumpTo(double x, double z) {
         zoomAnchored = false;
+        flying = false;
         centerX = targetX = x;
         centerZ = targetZ = z;
     }
@@ -233,6 +304,22 @@ public final class WorldMapScreen extends Screen {
     // ================================================================== animation
 
     private void animate(float dt) {
+        if (flying) {
+            flyT += dt;
+            float t = Math.min(1f, flyT / flyDuration);
+            double e = t * t * (3 - 2 * t);
+            centerX = flyFromX + (targetX - flyFromX) * e;
+            centerZ = flyFromZ + (targetZ - flyFromZ) * e;
+            double ls = Math.log(flyFromScale), lt = Math.log(targetScale);
+            scale = Math.exp(ls + (lt - ls) * e - flyBump * Math.sin(Math.PI * e));
+            if (t >= 1f) {
+                flying = false;
+                centerX = targetX;
+                centerZ = targetZ;
+                scale = targetScale;
+            }
+            return;
+        }
         float k = (float) (1 - Math.exp(-dt * 14));
         double ls = Math.log(scale), lt = Math.log(targetScale);
         if (Math.abs(lt - ls) < 1e-4) scale = targetScale;
@@ -256,6 +343,7 @@ public final class WorldMapScreen extends Screen {
         anchorSY = my;
         anchorWX = view.worldX(mx, my);
         anchorWZ = view.worldZ(mx, my);
+        flying = false;
         // One step in the direction of the factor (factor > 1 zooms in, < 1 zooms out).
         targetScale = MapView.stepZoom(targetScale, factor > 1 ? 1 : factor < 1 ? -1 : 0);
         zoomAnchored = true;
@@ -293,6 +381,7 @@ public final class WorldMapScreen extends Screen {
         // 6. Markers
         hovered = null;
         drawMarkers(g, mx, my);
+        if (panel == null) drawFound(g);
         // 7. Off-screen indicator of the tracked pin, then the player
         drawTargetIndicator(g, mx, my);
         drawPlayer(g, mx, my, pt);
@@ -314,6 +403,7 @@ public final class WorldMapScreen extends Screen {
             Draw.rect(g, 0, 0, width, height, Theme.SCREEN_DIM);
             if (selected != null) drawSelectedAgain(g);
             if (selX != null) drawSelectedPoint(g);
+            drawFound(g);
             panel.render(g, mx, my, dt, width);
             Backdrop.release();
         }
@@ -496,6 +586,19 @@ public final class WorldMapScreen extends Screen {
             }
         }
         if (selX != null && panel == null) drawSelectedPoint(g);
+    }
+
+    /** Rings from a search result for {@link #FOUND_PULSES} seconds after the flight; a biome place also gets a point. */
+    private void drawFound(GuiGraphics g) {
+        float since = time - foundAt;
+        if (foundDim != viewedDim || since < 0 || since >= FOUND_PULSES) return;
+        float sx = view.screenX(foundX, foundZ), sy = view.screenY(foundX, foundZ);
+        MarkerRenderer.pulse(g, sx, sy, markerSize(), since % MarkerRenderer.PULSE_LIFE, Theme.MARKER_PULSE, 1f);
+        if (foundPlace) {
+            float a = Math.min(1f, (FOUND_PULSES - since) * 2f);
+            Draw.diamond(g, sx, sy, 5, Theme.withAlpha(Theme.PING_CORE, a));
+            Draw.diamond(g, sx, sy, 3.5f, Theme.withAlpha(Theme.PLAYER_CYAN, a));
+        }
     }
 
     private boolean isSelected(Marker m) {
@@ -852,6 +955,12 @@ public final class WorldMapScreen extends Screen {
         float right = closeX() - BIG_R - Grid.PAD;
         float y = BAR_Y;
         Component cursor = cursorText(mx, my), player = playerText();
+        if (DrawText.probe != null && cursor != null && player != null) {
+            // Both pills side by side, up to the screen's left margin (nothing else is up there).
+            DrawText.room(player.getString() + cursor.getString(),
+                    right - Grid.MARGIN - Ui.pillWidth(player, true) - Ui.pillWidth(cursor, true) - Grid.GAP
+                            + DrawText.width(player) + DrawText.width(cursor));
+        }
         if (cursor != null) right -= Ui.pill(g, right, y, cursor, Icon.LOCATE, Theme.GOLD) + Grid.GAP;
         if (player != null) Ui.pill(g, right, y, player, Icon.PLAYER, Theme.WHITE);
     }
@@ -913,8 +1022,13 @@ public final class WorldMapScreen extends Screen {
         float right = compassX() - COMPASS_D / 2f - Grid.PAD;
         // Two lines (8 + 8 glyph height, 8 gap) span the compass button's height: cy - 12 .. cy + 12.
         float cy = compassY();
-        DrawText.textRight(g, areaText(store, mx, my), right, cy - 12, Theme.WHITE, true);
-        DrawText.textRight(g, exploredText(store), right, cy + 4, Theme.WHITE, true);
+        // Room: up to the bottom-left buttons, on the same height.
+        float room = right - (rowButtonX(2) + Grid.BUTTON / 2f + Grid.PAD);
+        Component area = areaText(store, mx, my), explored = exploredText(store);
+        DrawText.room(area, room);
+        DrawText.room(explored, room);
+        DrawText.textRight(g, area, right, cy - 12, Theme.WHITE, true);
+        DrawText.textRight(g, explored, right, cy + 4, Theme.WHITE, true);
     }
 
     // ------------------------------------------------------------------ cave layers
@@ -1163,7 +1277,7 @@ public final class WorldMapScreen extends Screen {
                 return true;
             }
             if (Ui.iconButtonHit(rowButtonX(1), rowButtonY(), mx, my)) {
-                openPanel(new MarkerListPanel(this));
+                openList();
                 return true;
             }
             if (viewingPlayerDim() && Ui.iconButtonHit(rowButtonX(2), rowButtonY(), mx, my)) {
@@ -1249,6 +1363,7 @@ public final class WorldMapScreen extends Screen {
         // keep the screen centre fixed
         scale = targetScale = clampScale(s);
         zoomAnchored = false;
+        flying = false;
         targetX = centerX;
         targetZ = centerZ;
     }
@@ -1263,6 +1378,7 @@ public final class WorldMapScreen extends Screen {
             if (!dragMoved && Math.hypot(mx - dragStartX, my - dragStartY) > 3) dragMoved = true;
             if (dragMoved) {
                 zoomAnchored = false;
+                flying = false;
                 centerX -= dx / scale;
                 centerZ -= dy / scale;
                 targetX = centerX;
@@ -1322,6 +1438,12 @@ public final class WorldMapScreen extends Screen {
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
         if (panel != null && panel.keyPressed(key, scan, mods)) return true;
+        if (key == GLFW.GLFW_KEY_F && (mods & GLFW.GLFW_MOD_CONTROL) != 0 && (panel == null || !panel.capturesKeyboard())) {
+            // Ctrl+F: the pin list with the cursor in its search field.
+            MarkerListPanel list = panel instanceof MarkerListPanel l ? l : openList();
+            list.focusSearch();
+            return true;
+        }
         boolean typing = panel != null && panel.capturesKeyboard();
         if (key == GLFW.GLFW_KEY_ESCAPE) {
             if (pick != null) pick = null;

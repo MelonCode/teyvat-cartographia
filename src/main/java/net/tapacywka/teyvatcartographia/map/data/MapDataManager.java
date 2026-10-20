@@ -155,6 +155,23 @@ public final class MapDataManager {
         return viewStores.computeIfAbsent(dimension, d -> new TileStore(d, dimDir(d), io, generation));
     }
 
+    /**
+     * The biome index of a dimension's map for the search ({@code null} without a world). The first call per map
+     * opening ({@code refresh}) saves the changed regions first and queues the index refresh behind those writes,
+     * so newly explored ground is found too.
+     */
+    public BiomeIndex biomeIndex(ResourceKey<Level> dimension, boolean refresh) {
+        if (worldId == null) return null;
+        BiomeIndex index = BiomeIndex.of(dimDir(dimension));
+        if (refresh) {
+            TileStore store = active != null && active.dimension == dimension ? active : viewStores.get(dimension);
+            if (store != null) store.saveAll();
+            index.queued();
+            io.execute(index::refresh); // runs after the saves queued above (one IO thread), then hands over
+        }
+        return index;
+    }
+
     public void releaseViewStores() {
         viewStores.values().forEach(TileStore::close);
         viewStores.clear();

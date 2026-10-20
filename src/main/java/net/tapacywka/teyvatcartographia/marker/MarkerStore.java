@@ -80,6 +80,14 @@ public final class MarkerStore {
     }
 
     /**
+     * An interactive pin only this player has and sees: not shared (a server without the mod, or not moved to the
+     * shared pins), outside single player (where the integrated server shares them all).
+     */
+    public static boolean localOnly(MarkerType type, boolean shared) {
+        return type.operatorOnly() && !shared && !net.minecraft.client.Minecraft.getInstance().isLocalServer();
+    }
+
+    /**
      * A new pin: an interactive one to the server's shared pins when it keeps them (it comes back with the server's
      * list), any other to the player's own. False when there is no room left.
      */
