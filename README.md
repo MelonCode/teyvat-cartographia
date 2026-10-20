@@ -130,6 +130,7 @@ find your way back home.
 | World map | Overlapping pins | left-click the spot, pick one from the list in the lower right corner |
 | World map | Edit or track a pin | left-click it: rename, type, delete, **Track**; **Teleport** for Interactive pins (operators only) |
 | World map | Close the pin panel | left-click empty ground; a left click on another pin opens that one |
+| World map | Search pins and biomes | **Ctrl+F**, or the field at the top of the pin list; **Enter** opens the first result |
 | World map | Centre on the player | **Space**, the locate button, or the player's edge indicator |
 | World map | Cave layers | the layer button at the right edge (see [Cave layers](#cave-layers)) |
 | World map | Settings / pin list / dimensions | gear and list buttons (bottom left), compass (bottom right) |
@@ -147,6 +148,9 @@ find your way back home.
   while torches, lava and other lights keep their colour.
 * Biome name labels (zoom 1/4 to 4), biome under the cursor, player and cursor coordinates, explored chunk counter,
   zoom slider (1/16 to 16), optional chunk grid.
+* **Search** in the pin list (or **Ctrl+F**): pins of every dimension by name, and the explored biomes by name. A
+  click flies the map to the result, switching the dimension if needed. A biome goes to its nearest explored place,
+  and each further click to the next one ("Place 2 of 5"); the spot is marked with a few rings.
 * Off-screen indicators for the player (green) and the tracked pin (in its kind's colour).
 * Separate maps per world or server and per dimension. The compass opens the list of mapped dimensions: Overworld,
   The Nether, The End, then modded dimensions in alphabetical order. The Nether is mapped below its roof.
@@ -185,7 +189,8 @@ find your way back home.
   pins operators place are shared with every player who has the mod. Operators track, teleport to, rename, retype and
   remove them; other players can only track them. The server keeps them in the world and checks the rights of every
   change; up to 200 per world, apart from each player's own 100. An operator with interactive pins of their own on such
-  a server is asked once whether to move them to the shared ones. Players without the mod can still join.
+  a server is asked once whether to move them to the shared ones; the ones kept say *local* in the pin list. Players
+  without the mod can still join.
 * **Export and import** from the pin list: save every pin of the world to a `.json` file, add the pins of such a file
   (or of another world's `markers.json`); repeats are skipped.
 * **Import from Xaero's Minimap** (its waypoints also show on Xaero's World Map): the waypoints of the current world
@@ -271,6 +276,8 @@ The mod is meant to cost at most 2 to 3% FPS:
   the main thread in slices of at most 1 ms per tick, and only while the path is shown.
 * A chunk whose data did not change triggers no texture upload, no disk write and no minimap refresh. Biome tints are
   sampled on a 4 x 4 block grid and interpolated.
+* The first search in a world reads the explored map once on a background thread (about 1 second per 1000 map
+  regions) and keeps a small biome index; later searches only read what was explored since.
 * On the world map, the fog is one quad, and the grid, the path and the labels are each drawn in a single call. Far
   out the map is drawn from small copies of the regions, so even zoom 1/16 costs only a few textures.
 
@@ -281,6 +288,7 @@ The mod is meant to cost at most 2 to 3% FPS:
 | Settings | `config/teyvatcartographia-client.toml` |
 | Map regions | `teyvatcartographia/<world>/<dimension>/r.<x>.<z>.png` + `.dat` (heights and metadata) + `.lod.png` (64 x 64 thumbnail for far zoom) + `index.txt` |
 | Cave layers | `teyvatcartographia/<world>/<dimension>/caves/b<layer>/` |
+| Biome index for the search | `teyvatcartographia/<world>/<dimension>/biomes.idx` |
 | Pins and the tracked target | `teyvatcartographia/<world>/markers.json` |
 | Exported pins (default folder) | `teyvatcartographia/exports/` |
 | Shared interactive pins (on the server) | `<world save>/data/teyvatcartographia_pins.dat` |
