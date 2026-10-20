@@ -14,6 +14,7 @@ group = mod_group_id
 
 repositories {
     mavenLocal()
+    mavenCentral()
 }
 
 base {
@@ -47,6 +48,12 @@ neoForge {
             sourceSet(sourceSets.main)
         }
     }
+
+    // Unit tests with the game's classes (src/test/java), started without a window.
+    unitTest {
+        enable()
+        testedMod = mods."${mod_id}"
+    }
 }
 
 // Local development runs (tests in the modpack, gallery shots), when present; not in the public repository.
@@ -59,6 +66,18 @@ configurations {
 }
 
 dependencies {
+    // Unit tests of the mod's logic (src/test/java): no game window, run by `gradlew build` and on GitHub.
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+    testLogging {
+        events 'failed'
+        exceptionFormat = 'full'
+    }
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
