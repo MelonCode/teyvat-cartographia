@@ -32,7 +32,8 @@ import java.util.List;
  * The pin panel (reference: fullscreen_custom_markers.png). One panel for everything a pin needs:
  * <ul>
  *   <li>new pin: name, coordinates, type grid, total pins, "Confirm";</li>
- *   <li>existing custom pin (opened by clicking it): the same editor plus "Track", delete in the total-pins bar;
+ *   <li>existing custom pin (opened by clicking it): the same editor plus "Track", delete in the total-pins bar (an interactive
+ *       pin asks first, in a popup left of the panel);
  *       "Teleport" for interaction pins (operators only);</li>
  *   <li>read-only view (automatic points, and interaction pins for players without operator rights): coordinates
  *       and "Track" only.</li>
@@ -309,6 +310,57 @@ public final class PinPanel extends SidePanel {
         }
         if (localOnlyHint) Ui.wrappedTooltip(g, Component.translatable("teyvatcartographia.pin.local_only"),
                 Component.translatable("teyvatcartographia.pin.local_only.hint"), mx, my, screen.width, screen.height);
+        if (deleteLines != null) renderDeleteConfirm(g, mx, my);
+    }
+
+    // ------------------------------------------------------------------ delete confirmation (interactive pins)
+
+    private static final Component DELETE_TITLE = Component.translatable("teyvatcartographia.pin.delete.title");
+    private static final Component DELETE_YES = Component.translatable("teyvatcartographia.pin.delete.yes");
+    private static final Component DELETE_NO = Component.translatable("teyvatcartographia.pin.delete.no");
+
+    /** The lines of the open delete confirmation, or null while it is closed. */
+    private List<Component> deleteLines;
+    /** Where the confirmation and its buttons were drawn last (for the clicks). */
+    private Ui.Box deleteBox;
+    private float deleteButtonW;
+
+    /** Deleting an interactive pin asks first: a shared one disappears for every player. */
+    private void askDelete() {
+        deleteLines = List.of(Component.translatable(editing.shared ? "teyvatcartographia.pin.delete.shared" : "teyvatcartographia.pin.delete.local"));
+    }
+
+    /** A popup left of the panel pointing at the delete button, with "Delete" and "Cancel" under its text. */
+    private void renderDeleteConfirm(GuiGraphics g, int mx, int my) {
+        int bw = Math.max(Ui.actionButtonWidth(DELETE_YES), Ui.actionButtonWidth(DELETE_NO));
+        deleteBox = Ui.popupLeftOf(g, DELETE_TITLE, deleteLines, 2 * bw + Grid.GAP, Grid.PAD + Grid.ACTION_H,
+                x - 1, totalY() + Grid.CHIP_H / 2f, y + h - Grid.MARGIN);
+        // The buttons share the width inside the padding, which is wider than they need when the text is long.
+        deleteButtonW = (deleteBox.w() - 2 * Grid.PAD - Grid.GAP) / 2f;
+        float by = deleteButtonY();
+        Ui.actionButton(g, deleteBox.x() + Grid.PAD, by, deleteButtonW, DELETE_YES, Icon.TRASH, true, mx, my);
+        Ui.actionButton(g, deleteNoX(), by, deleteButtonW, DELETE_NO, Icon.CLOSE, true, mx, my);
+    }
+
+    private float deleteButtonY() {
+        return deleteBox.y() + deleteBox.h() - Grid.PAD - Grid.ACTION_H;
+    }
+
+    private float deleteNoX() {
+        return deleteBox.x() + Grid.PAD + deleteButtonW + Grid.GAP;
+    }
+
+    /** A click while the confirmation is open: its buttons act, any other click only closes it. */
+    private void deleteConfirmClicked(double mx, double my) {
+        boolean yes = deleteBox != null && Ui.actionHit(deleteBox.x() + Grid.PAD, deleteButtonY(), deleteButtonW, mx, my);
+        deleteLines = null;
+        deleteBox = null;
+        if (yes) delete();
+    }
+
+    private void delete() {
+        MarkerStore.remove(editing);
+        screen.closePanel();
     }
 
     /** The mouse is over the total bar while it says the pin is the player's own only (its tooltip explains why). */
@@ -316,6 +368,11 @@ public final class PinPanel extends SidePanel {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        if (deleteLines != null) {
+            // Like the map's pick list: any click closes the confirmation, only "Delete" deletes.
+            deleteConfirmClicked(mx, my);
+            return true;
+        }
         if (closeClicked(mx, my)) return true;
         if (!contains(mx, my)) {
             name.blur();
@@ -345,8 +402,8 @@ public final class PinPanel extends SidePanel {
             }
         }
         if (editing != null && Draw.inRect(mx, my, trashX(), totalY(), Grid.TOOL, Grid.TOOL)) {
-            MarkerStore.remove(editing);
-            screen.closePanel();
+            if (editing.type.operatorOnly()) askDelete();
+            else delete();
             return true;
         }
         return true;
@@ -388,6 +445,11 @@ public final class PinPanel extends SidePanel {
 
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
+        if (deleteLines != null && key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            deleteLines = null; // Esc closes the confirmation first, then the panel
+            deleteBox = null;
+            return true;
+        }
         return name.keyPressed(key, scan, mods, null);
     }
 

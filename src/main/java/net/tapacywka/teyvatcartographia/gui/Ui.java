@@ -328,11 +328,22 @@ public final class Ui {
      * box and pointer as one shape with one outline.
      */
     public static void popupLeftOf(GuiGraphics g, Component title, java.util.List<Component> lines, float tipX, float cy, float bottom) {
-        int w = DrawText.width(title);
+        popupLeftOf(g, title, lines, 0, 0, tipX, cy, bottom);
+    }
+
+    /** The box of a popup: where to put what goes under its lines. */
+    public record Box(float x, float y, float w, float h) {}
+
+    /**
+     * {@link #popupLeftOf} at least {@code minW} wide inside its padding, with {@code extraH} more room under the lines
+     * (for buttons); returns its box.
+     */
+    public static Box popupLeftOf(GuiGraphics g, Component title, java.util.List<Component> lines, int minW, int extraH, float tipX, float cy, float bottom) {
+        int w = Math.max(minW, DrawText.width(title));
         for (Component l : lines) w = Math.max(w, DrawText.width(l));
         w += 2 * Grid.PAD;
         int lineStep = DrawText.LINE + 2;
-        int h = 2 * Grid.PAD + DrawText.LINE + Grid.GAP + lines.size() * lineStep - 2;
+        int h = 2 * Grid.PAD + DrawText.LINE + Grid.GAP + lines.size() * lineStep - 2 + extraH;
         float right = Draw.snap(tipX - POINTER_L);
         float x = right - w, y = Draw.snap(Math.min(cy - h / 2f, bottom - h));
         DrawText.room(title, right - Grid.MARGIN - 2 * Grid.PAD);
@@ -359,6 +370,12 @@ public final class Ui {
             DrawText.text(g, l, x + Grid.PAD, ty, Theme.CREAM, false);
             ty += lineStep;
         }
+        return new Box(x, y, w, h);
+    }
+
+    /** Width of an {@link #actionButton} with an icon whose label just fits. */
+    public static int actionButtonWidth(Component label) {
+        return DrawText.width(label) + 2 * Grid.GAP + Grid.ACTION_H;
     }
 
 

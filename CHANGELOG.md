@@ -2,7 +2,7 @@
 
 All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>-<loader>`.
 
-## Unreleased
+## 0.1.2-dev+mc1.21.1-neoforge (in development)
 
 ### Map search
 * The pin list has a search field (click it, or press Ctrl+F on the world map). It finds pins of every dimension by
@@ -16,6 +16,9 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * Rows of the pin list: the name uses the whole first line; the coordinates and the distance share the second.
 * An interactive pin only you have (on a server without the mod, or one not moved to the shared pins) says
   "local" in the list.
+* Deleting an interactive pin asks first, in a popup beside the pin panel ("Delete" or "Cancel"; Esc or a click
+  elsewhere cancels). For a shared pin it says the pin disappears for every player. Custom pins are deleted at once,
+  as before.
 * The pin panel leaves the dimension out of the coordinates line when it does not fit.
 * Side panels are never narrower than 176 units, so the buttons and Russian labels fit on small GUI scales (2K at
   GUI 6 to 8).
