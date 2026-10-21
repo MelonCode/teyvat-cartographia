@@ -8,7 +8,7 @@
   <a href="https://github.com/Tapacywka/teyvat-cartographia/releases"><img src="https://img.shields.io/github/downloads/Tapacywka/teyvat-cartographia/total?style=flat&logo=github&label=downloads&color=4C9F70" alt="GitHub downloads"></a>
   <img src="https://img.shields.io/badge/Minecraft-1.21.1-62B47A?style=flat" alt="Minecraft 1.21.1">
   <img src="https://img.shields.io/badge/NeoForge-21.1-D7742F?style=flat" alt="NeoForge 21.1">
-  <img src="https://img.shields.io/badge/side-client-5B8DEF?style=flat" alt="Client side">
+  <img src="https://img.shields.io/badge/side-client%20%2B%20optional%20server-5B8DEF?style=flat" alt="Client side, optional server side">
   <a href="https://github.com/Tapacywka/teyvat-cartographia/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-8A8F98?style=flat" alt="MIT license"></a>
 </p>
 
@@ -54,10 +54,10 @@
 
 <h2 id="about">📖 About</h2>
 
-**Teyvat Cartographia** is a client-side Minecraft mod that brings a **Genshin Impact inspired world map and minimap**
-to Minecraft. The chunks you load are drawn as a painted map with a soft palette, relief shading, water depth and
-contour lines, while fog of war covers everything you have not seen yet. Place pins, track them, follow the path and
-find your way back home.
+**Teyvat Cartographia** is a client-side Minecraft mod (with an optional server side for shared pins) that brings a
+**Genshin Impact inspired world map and minimap** to Minecraft. The chunks you load are drawn as a painted map with a
+soft palette, relief shading, water depth and contour lines, while fog of war covers everything you have not seen yet.
+Place pins, search for them and for biomes, track them, follow the path and find your way back home.
 
 | | |
 |---|---|
@@ -91,9 +91,17 @@ find your way back home.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/pin-list.jpg" alt="Pin list sorted by distance" width="49%">
-  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/settings.jpg" alt="Settings with foldable sections" width="49%">
+  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/search.jpg" alt="Map search: pins and explored biomes by name" width="49%">
   <br>
   <sub><b>Left:</b> Pin list sorted by distance.<br>
+  <b>Right:</b> Map search (Ctrl+F): pins and explored biomes by name.</sub>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/world-map-path.jpg" alt="The walking path goes round the water" width="49%">
+  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/settings.jpg" alt="Settings with foldable sections" width="49%">
+  <br>
+  <sub><b>Left:</b> The walking path goes round the water.<br>
   <b>Right:</b> Settings with foldable sections.</sub>
 </p>
 
