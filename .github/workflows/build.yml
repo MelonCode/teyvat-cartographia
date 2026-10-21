@@ -1,4 +1,4 @@
-name: Build and test
+name: Build
 
 on:
   push:
@@ -22,16 +22,9 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and run the unit tests
-        run: ./gradlew build --no-daemon
-
-      - name: Test report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-report
-          path: build/reports/tests/test/
-          if-no-files-found: ignore
+      # The JAR only; the unit tests run in test.yml.
+      - name: Build the mod
+        run: ./gradlew assemble --no-daemon
 
       - name: Mod JAR
         uses: actions/upload-artifact@v4
