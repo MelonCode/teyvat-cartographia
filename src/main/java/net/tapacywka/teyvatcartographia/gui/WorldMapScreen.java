@@ -677,8 +677,9 @@ public final class WorldMapScreen extends Screen {
         boolean hover = Draw.inCircle(mx, my, ix, iy, INDICATOR_R + 2);
         int glow = Theme.withAlpha(accent, 0.25f);
         Draw.ring(g, ix, iy, INDICATOR_R - 1, INDICATOR_R + 6, glow, Theme.withAlpha(glow, 0f));
-        if (Theme.Style.square) {
-            Draw.bevel(g, ix - INDICATOR_R, iy - INDICATOR_R, 2 * INDICATOR_R, 2 * INDICATOR_R, Theme.INDICATOR, hover ? Theme.WHITE : accent, false);
+        if (Theme.Style.squareUi) {
+            Draw.rect(g, ix - INDICATOR_R, iy - INDICATOR_R, ix + INDICATOR_R, iy + INDICATOR_R, Theme.INDICATOR);
+            Draw.frame(g, ix - INDICATOR_R, iy - INDICATOR_R, 2 * INDICATOR_R, 2 * INDICATOR_R, hover ? 2 : 1, accent);
         } else {
             Draw.circle(g, ix, iy, INDICATOR_R, Theme.INDICATOR);
             Draw.circleOutline(g, ix, iy, INDICATOR_R - 0.75f, hover ? 2f : 1.5f, accent);
@@ -982,8 +983,9 @@ public final class WorldMapScreen extends Screen {
     }
 
     private void sliderEnd(GuiGraphics g, float x, float y, Icon icon, boolean hover) {
-        if (Theme.Style.square) {
-            Draw.bevel(g, x - 8, y - 8, 16, 16, Theme.ZOOM_BUTTON, hover ? Theme.ZOOM_BUTTON_OUTLINE_HOVER : Theme.ZOOM_BUTTON_OUTLINE, false);
+        if (Theme.Style.squareUi) {
+            Draw.rect(g, x - 8, y - 8, x + 8, y + 8, Theme.ZOOM_BUTTON);
+            Draw.frame(g, x - 8, y - 8, 16, 16, 1, hover ? Theme.ZOOM_BUTTON_OUTLINE_HOVER : Theme.ZOOM_BUTTON_OUTLINE);
         } else {
             Draw.diamond(g, x, y, 8, Theme.ZOOM_BUTTON);
             Draw.diamondOutline(g, x, y, 8, 1, hover ? Theme.ZOOM_BUTTON_OUTLINE_HOVER : Theme.ZOOM_BUTTON_OUTLINE);
@@ -991,17 +993,25 @@ public final class WorldMapScreen extends Screen {
         Draw.icon(g, icon, x, y, 8, Theme.ZOOM_BUTTON_ICON);
     }
 
+    /** Half the thumb along the zoom track: the square handle, or the diamond (the larger one while hovered). */
+    private static float thumbHalf() {
+        return Theme.Style.squareUi ? 4 : 8;
+    }
+
     private void drawZoomSlider(GuiGraphics g, int mx, int my) {
         float x = leftColumnX(), top = sliderTop(), bottom = sliderBottom();
         sliderEnd(g, x, sliderPlusY(), Icon.PLUS, Draw.inCircle(mx, my, x, sliderPlusY(), 9));
         sliderEnd(g, x, sliderMinusY(), Icon.MINUS, Draw.inCircle(mx, my, x, sliderMinusY(), 9));
-        float ty = (float) (bottom - scaleToT(scale) * (bottom - top));
+        // The thumb stays inside the track: its edge, not its centre, meets the track ends at 1/16 and 16.
+        float ty = (float) (bottom - thumbHalf() - scaleToT(scale) * (bottom - top - 2 * thumbHalf()));
         boolean thumbHover = sliderDrag || Draw.inCircle(mx, my, x, ty, 9);
-        if (Theme.Style.square) {
-            // Sunken track and a vanilla slider handle.
-            Draw.bevel(g, x - 3, top, 6, bottom - top, Theme.ZOOM_TRACK, Theme.ZOOM_TRACK_OUTLINE, true);
-            Draw.bevel(g, x - 8, ty - 4, 16, 8, thumbHover ? Theme.ZOOM_THUMB : Theme.lerp(Theme.ZOOM_THUMB, Theme.ZOOM_THUMB_CORE, 0.25f),
-                    thumbHover ? Theme.ZOOM_BUTTON_OUTLINE_HOVER : Theme.BEVEL_BORDER, false);
+        if (Theme.Style.squareUi) {
+            // As the rounded slider with square shapes: a framed track, a thumb with its core.
+            Draw.rect(g, x - 3, top, x + 3, bottom, Theme.ZOOM_TRACK);
+            Draw.frame(g, x - 3, top, 6, bottom - top, 1, Theme.ZOOM_TRACK_OUTLINE);
+            float tw = thumbHover ? 9 : 8;
+            Draw.rect(g, x - tw, ty - 4, x + tw, ty + 4, Theme.ZOOM_THUMB);
+            Draw.rect(g, x - 4, ty - 2, x + 4, ty + 2, Theme.ZOOM_THUMB_CORE);
         } else {
             Draw.capsule(g, x - 3, top, 6, bottom - top, Theme.ZOOM_TRACK);
             Draw.capsuleOutline(g, x - 3, top, 6, bottom - top, 1f, Theme.ZOOM_TRACK_OUTLINE);
@@ -1357,7 +1367,7 @@ public final class WorldMapScreen extends Screen {
         return Math.hypot(mx - view.screenX(m.centerX(), m.centerZ()), my - view.screenY(m.centerX(), m.centerZ()));
     }
     private void setSliderFrom(double my) {
-        double t = (sliderBottom() - my) / (sliderBottom() - sliderTop());
+        double t = (sliderBottom() - thumbHalf() - my) / (sliderBottom() - sliderTop() - 2 * thumbHalf());
         t = Math.max(0, Math.min(1, t));
         double s = tToScale(t);
         // keep the screen centre fixed

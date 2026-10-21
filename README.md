@@ -106,11 +106,11 @@ Place pins, search for them and for biomes, track them, follow the path and find
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/world-map-genshin.jpg" alt="Genshin Impact theme: round widgets" width="49%">
-  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/hud-genshin.jpg" alt="Genshin Impact theme: round minimap" width="49%">
+  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/world-map-genshin.jpg" alt="Rounded interface" width="49%">
+  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/hud-genshin.jpg" alt="Round minimap" width="49%">
   <br>
-  <sub><b>Left:</b> Genshin Impact theme: round widgets.<br>
-  <b>Right:</b> Genshin Impact theme: round minimap.</sub>
+  <sub><b>Left:</b> Rounded interface (Settings > Appearance > Interface style).<br>
+  <b>Right:</b> Round minimap (Settings > Appearance > Minimap shape).</sub>
 </p>
 
 <h2 id="installation">📥 Installation</h2>
@@ -121,8 +121,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
    [latest GitHub release](https://github.com/Tapacywka/teyvat-cartographia/releases/latest) and put it into your
    `mods/` folder.
 3. Launch the game and press **M** in a world.
-4. Optional: enable the built-in **Genshin Impact** resource pack in **Options > Resource Packs**, then pick the
-   Genshin Impact theme in the mod settings.
+4. Optional: make the minimap round or the interface rounded in **Settings > Appearance**.
 
 <h2 id="controls">🎮 Controls</h2>
 
@@ -176,7 +175,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 
 <h3 id="minimap">Minimap</h3>
 
-* Square in the Minecraft theme, round in the Genshin Impact theme, with "N" on the rim, the player arrow and view
+* Square or round (**Settings > Appearance > Minimap shape**), with "N" on the rim, the player arrow and view
   cone, pins, the walking path and the tracked pin held on the rim when it is far.
 * North up or rotating with the view; size, corner, offsets, opacity, zoom and update rate (30 redraws a second while
   you move by default).
@@ -235,17 +234,18 @@ Place pins, search for them and for biomes, track them, follow the path and find
 
 <h2 id="themes">🎨 Themes</h2>
 
-The theme is picked in **Settings > Appearance > Theme**. The list shows only themes whose resource pack is enabled:
+**Settings > Appearance** has three choices, each on its own:
 
-* **Minecraft** (`minecraft`), the default and always available: square widgets with a soft vanilla-style bevel, a
-  square framed minimap, smooth icons and a night-sky fog. Other themes fall back to its assets.
-* **Genshin Impact** (`genshin`) ships inside the mod JAR as a built-in resource pack, off by default: soft round
-  shapes with the same colours, icons and fog. Enable the **Genshin Impact** pack in **Options > Resource Packs**,
-  then pick the theme in the settings. If the pack is disabled again, the map switches back to Minecraft and returns
-  to Genshin Impact once the pack is back.
+* **Theme**: colours, icons and the fog of war. **Default** (`default`) is built in and always available; a resource
+  pack may add more, and the list shows only themes whose pack is enabled. Other themes fall back to its assets.
+* **Minimap shape**: **Square** (the default) or **Round**.
+* **Interface style**: **Rectangular** (the default), with a soft vanilla-style bevel on panels, buttons and tiles, or
+  **Rounded**, with circles, capsules and rounded corners.
 
-A custom theme works the same way: put the resource pack into `resourcepacks/`, enable it in the game, and its theme
-appears in the setting.
+So the minimap can be round while the menus stay rectangular, or the other way round, with any theme.
+
+A custom theme comes as a resource pack: put it into `resourcepacks/`, enable it in the game, and its theme appears in
+the setting.
 
 <details>
 <summary><b>Making your own theme</b></summary>
@@ -256,22 +256,15 @@ Every theme follows the same layout, `assets/teyvatcartographia/themes/<id>/`:
 
 | File | Required | Content |
 |---|---|---|
-| `theme.json` | yes | Name (translation key `teyvatcartographia.theme.<id>` or plain text) and `style`, see below. Makes the theme selectable. |
-| `colors.json` | no | Colours as `"key": "#AARRGGBB"` or `"#RRGGBB"`. Keys are the colour fields of `render/Theme.java`; `themes/minecraft/colors.json` lists them all. Missing keys keep the built-in defaults. |
-| `icons/64/<name>.png` | no (64 x 64) | Icons. Missing ones (or the whole folder) fall back to the `minecraft` icons. |
-| `fog.png` | no | Seamless background for unexplored space (512 x 512 in `minecraft`). Falls back to the `minecraft` fog. |
+| `theme.json` | yes | `{ "name": "..." }`: a translation key (`teyvatcartographia.theme.<id>`) or plain text. Makes the theme selectable. |
+| `colors.json` | no | Colours as `"key": "#AARRGGBB"` or `"#RRGGBB"`. Keys are the colour fields of `render/Theme.java`; `themes/default/colors.json` lists them all. Missing keys keep the built-in defaults. |
+| `icons/64/<name>.png` | no (64 x 64) | Icons. Missing ones (or the whole folder) fall back to the `default` icons. |
+| `fog.png` | no | Seamless background for unexplored space (512 x 512 in `default`), shown at 440 GUI units per repeat whatever its resolution. Falls back to the `default` fog. |
 
-The `style` keys in `theme.json`:
-
-* `"shape"`: `"round"` or `"square"`;
-* `"fog_tile"`: GUI units per repeat of the fog.
-
-Colour keys are named by their role, not their shape. For example, `icon_button_*` is a round button in `genshin` and
-a square one in `minecraft`, and `info_box_*` is a capsule or a rectangle. Resource packs are merged, so a pack can
-change a few keys of any theme or add a new theme. Changes apply when the theme is picked, or on F3+T.
-
-The Genshin Impact pack lives in `src/main/resources/resourcepacks/genshin` and is registered as a built-in pack in
-the main class.
+A theme does not set any shapes: the minimap shape and the interface style are the player's settings. Colour keys
+are named by their role, not their shape: `icon_button_*` is a round or a square button, `info_box_*` a capsule or a
+rectangle. Resource packs are merged, so a pack can change a few keys of any theme or add a new theme. Changes apply
+when the theme is picked, or on F3+T.
 
 </details>
 

@@ -56,7 +56,7 @@ final class MapPicture {
             layer.bind(g, w.getWidth(), w.getHeight(), false);
             Draw.beginLayer();
             try {
-                FogTexture.draw(g, 0, 0, width, height, (float) fogOffsetX, (float) fogOffsetZ, Theme.Style.fogTile, Theme.WHITE);
+                FogTexture.draw(g, 0, 0, width, height, (float) fogOffsetX, (float) fogOffsetZ, Theme.Style.FOG_TILE, Theme.WHITE);
                 complete = MapLayerRenderer.drawRect(g, store, view, 0, 0, width, height, tint, night);
                 g.flush();
             } finally {

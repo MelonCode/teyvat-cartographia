@@ -30,6 +30,23 @@ class MinimapFitTest {
     }
 
     @Test
+    void autoTextIsAStepBelowTheGuiScale() {
+        // Pixels per font pixel = scale x GUI scale.
+        assertEquals(2, MinimapFit.textScale(0, 3) * 3, 1e-6);
+        assertEquals(3, MinimapFit.textScale(0, 4) * 4, 1e-6);
+        assertEquals(5, MinimapFit.textScale(0, 6) * 6, 1e-6);
+        assertEquals(2, MinimapFit.textScale(0, 2) * 2, 1e-6, "GUI 2 keeps 2");
+        assertEquals(1, MinimapFit.textScale(0, 1), 1e-6);
+    }
+
+    @Test
+    void aChosenTextSizeIsWholePixelsAtMostTheGuiScale() {
+        assertEquals(1, MinimapFit.textScale(1, 3) * 3, 1e-6);
+        assertEquals(3, MinimapFit.textScale(3, 3) * 3, 1e-6);
+        assertEquals(3, MinimapFit.textScale(6, 3) * 3, 1e-6, "never larger than the menus");
+    }
+
+    @Test
     void aPillThatFitsStaysCentred() {
         assertEquals(100 - 20, MinimapFit.pillLeft(40, 100, 640));
     }

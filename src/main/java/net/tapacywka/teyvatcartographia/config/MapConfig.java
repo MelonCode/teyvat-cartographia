@@ -11,6 +11,12 @@ public final class MapConfig {
 
     public enum Orientation { NORTH_UP, PLAYER_UP }
 
+    /** Shape of the minimap, apart from the rest of the interface. */
+    public enum MinimapShape { SQUARE, ROUND }
+
+    /** Look of the panels, buttons, tiles and pills: bevelled rectangles or circles, capsules and rounded corners. */
+    public enum InterfaceStyle { RECTANGULAR, ROUNDED }
+
     /** How often the minimap is redrawn while the player moves or turns. */
     public enum UpdateRate {
         RATE_10(10), RATE_20(20), RATE_30(30), RATE_60(60), UNLIMITED(0);
@@ -27,6 +33,8 @@ public final class MapConfig {
 
     // Appearance
     public static final ModConfigSpec.ConfigValue<String> THEME;
+    public static final ModConfigSpec.EnumValue<MinimapShape> MINIMAP_SHAPE;
+    public static final ModConfigSpec.EnumValue<InterfaceStyle> INTERFACE_STYLE;
 
     // Minimap
     public static final ModConfigSpec.BooleanValue MINIMAP_ENABLED;
@@ -35,6 +43,15 @@ public final class MapConfig {
     public static final ModConfigSpec.IntValue MINIMAP_OFFSET_X;
     public static final ModConfigSpec.IntValue MINIMAP_OFFSET_Y;
     public static final ModConfigSpec.DoubleValue MINIMAP_OPACITY;
+    /** Gap between the frame and the map inside it (GUI units). */
+    public static final ModConfigSpec.IntValue MINIMAP_PADDING;
+    /** The faded edge of the map: its width (percent of the radius) and how transparent the very edge gets (percent). */
+    public static final ModConfigSpec.IntValue MINIMAP_FADE_WIDTH;
+    public static final ModConfigSpec.IntValue MINIMAP_FADE_STRENGTH;
+    /** Gap between the map and the info pills under or over it (GUI units). */
+    public static final ModConfigSpec.IntValue MINIMAP_INFO_GAP;
+    /** Size of the text under the minimap: 0 "Auto", else screen pixels per font pixel. */
+    public static final ModConfigSpec.IntValue MINIMAP_TEXT_SIZE;
     public static final ModConfigSpec.DoubleValue MINIMAP_ZOOM;
     public static final ModConfigSpec.EnumValue<Orientation> MINIMAP_ORIENTATION;
     public static final ModConfigSpec.EnumValue<UpdateRate> MINIMAP_UPDATE_RATE;
@@ -128,14 +145,16 @@ public final class MapConfig {
     public enum Detail { LOW, MEDIUM, HIGH }
 
     /** Clock under the minimap: the time of day in the game world, or the real time of the player's computer. */
-    public enum TimeSource { GAME_TIME, REAL_TIME }
+    public enum TimeSource { GAME_TIME, REAL_TIME, BOTH }
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
 
         b.push("appearance");
-        THEME = b.comment("Interface theme: the id of a folder in assets/teyvatcartographia/themes/ (built in: minecraft; genshin comes with the mod's built-in resource pack; enabled resource packs may add more)")
-                .translation("teyvatcartographia.config.theme").define("theme", "minecraft", o -> o instanceof String s && s.matches("[a-z0-9_.-]+"));
+        THEME = b.comment("Theme (colours, icons, fog of war): the id of a folder in assets/teyvatcartographia/themes/ (built in: default; enabled resource packs may add more)")
+                .translation("teyvatcartographia.config.theme").define("theme", "default", o -> o instanceof String s && s.matches("[a-z0-9_.-]+"));
+        MINIMAP_SHAPE = b.comment("Shape of the minimap: SQUARE or ROUND").translation("teyvatcartographia.config.minimap_shape").defineEnum("minimapShape", MinimapShape.SQUARE);
+        INTERFACE_STYLE = b.comment("Look of the panels, buttons and tiles: RECTANGULAR (bevelled, like vanilla Minecraft) or ROUNDED (circles, capsules, rounded corners)").translation("teyvatcartographia.config.interface_style").defineEnum("interfaceStyle", InterfaceStyle.RECTANGULAR);
         b.pop();
 
         b.push("minimap");
@@ -145,13 +164,18 @@ public final class MapConfig {
         MINIMAP_OFFSET_X = b.comment("Horizontal distance from the anchored corner").translation("teyvatcartographia.config.minimap_offset_x").defineInRange("offsetX", 8, 0, 1000);
         MINIMAP_OFFSET_Y = b.comment("Vertical distance from the anchored corner").translation("teyvatcartographia.config.minimap_offset_y").defineInRange("offsetY", 8, 0, 1000);
         MINIMAP_OPACITY = b.comment("Minimap opacity").translation("teyvatcartographia.config.minimap_opacity").defineInRange("opacity", 0.95, 0.2, 1.0);
+        MINIMAP_PADDING = b.comment("Gap between the frame and the map inside it, in GUI pixels").translation("teyvatcartographia.config.minimap_padding").defineInRange("padding", 0, 0, 16);
+        MINIMAP_FADE_WIDTH = b.comment("Width of the faded edge of the map, in percent of its radius (0: a sharp edge)").translation("teyvatcartographia.config.minimap_fade_width").defineInRange("fadeWidth", 20, 0, 50);
+        MINIMAP_FADE_STRENGTH = b.comment("How transparent the very edge of the map gets, in percent (0: no fading)").translation("teyvatcartographia.config.minimap_fade_strength").defineInRange("fadeStrength", 100, 0, 100);
+        MINIMAP_INFO_GAP = b.comment("Gap between the minimap and the lines under it (coordinates, biome, clock) and between those lines, in GUI pixels").translation("teyvatcartographia.config.minimap_info_gap").defineInRange("infoGap", 4, 0, 16);
+        MINIMAP_TEXT_SIZE = b.comment("Size of the text under the minimap: 0 = Auto (a step below the GUI scale), else screen pixels per font pixel, at most the GUI scale").translation("teyvatcartographia.config.minimap_text_size").defineInRange("textSize", 0, 0, 6);
         MINIMAP_ZOOM = b.comment("Minimap scale in GUI pixels per block: 1/16, 1/8, 1/4, 1/3, 1/2, 1, 2, 3, 4, 8 or 16 (other values snap to the nearest). Below 1 only the tracked target keeps its pin").translation("teyvatcartographia.config.minimap_zoom").defineInRange("zoom", 1.0, 1 / 16.0, 16.0);
         MINIMAP_ORIENTATION = b.comment("NORTH_UP: north is always up. PLAYER_UP: the map rotates with the view direction").translation("teyvatcartographia.config.minimap_orientation").defineEnum("orientation", Orientation.NORTH_UP);
         MINIMAP_UPDATE_RATE = b.comment("How many times per second the minimap is redrawn while you move or turn: RATE_10, RATE_20, RATE_30, RATE_60 or UNLIMITED (every frame). Lower gives more FPS").translation("teyvatcartographia.config.minimap_rate").defineEnum("updateRate", UpdateRate.RATE_30);
         MINIMAP_SHOW_COORDS = b.comment("Show player coordinates under the minimap").translation("teyvatcartographia.config.minimap_coords").define("showCoordinates", true);
         MINIMAP_SHOW_BIOME = b.comment("Show the biome you are in under the minimap").translation("teyvatcartographia.config.minimap_biome").define("showBiome", true);
         MINIMAP_SHOW_TIME = b.comment("Show a clock under the minimap").translation("teyvatcartographia.config.minimap_time").define("showTime", true);
-        MINIMAP_TIME_SOURCE = b.comment("Clock under the minimap: GAME_TIME = time of day in the world, REAL_TIME = your computer's clock").translation("teyvatcartographia.config.minimap_time_source").defineEnum("timeSource", TimeSource.GAME_TIME);
+        MINIMAP_TIME_SOURCE = b.comment("Clock under the minimap: GAME_TIME = time of day in the world, REAL_TIME = your computer's clock, BOTH = both side by side (game on the left)").translation("teyvatcartographia.config.minimap_time_source").defineEnum("timeSource", TimeSource.GAME_TIME);
         b.pop();
 
         // Below scale 1 the maps show only the tracked target; the tracked target is always shown on them.
@@ -185,8 +209,10 @@ public final class MapConfig {
 
     /** Resets every value to its default and saves. */
     public static void resetAll() {
-        resetValue(THEME); resetValue(MINIMAP_ENABLED); resetValue(MINIMAP_RADIUS); resetValue(MINIMAP_CORNER);
+        resetValue(THEME); resetValue(MINIMAP_SHAPE); resetValue(INTERFACE_STYLE);
+        resetValue(MINIMAP_ENABLED); resetValue(MINIMAP_RADIUS); resetValue(MINIMAP_CORNER);
         resetValue(MINIMAP_OFFSET_X); resetValue(MINIMAP_OFFSET_Y); resetValue(MINIMAP_OPACITY);
+        resetValue(MINIMAP_PADDING); resetValue(MINIMAP_FADE_WIDTH); resetValue(MINIMAP_FADE_STRENGTH); resetValue(MINIMAP_INFO_GAP); resetValue(MINIMAP_TEXT_SIZE);
         resetValue(MINIMAP_ZOOM); resetValue(MINIMAP_ORIENTATION); resetValue(MINIMAP_UPDATE_RATE); resetValue(MINIMAP_SHOW_COORDS);
         resetValue(MINIMAP_SHOW_BIOME); resetValue(MINIMAP_SHOW_TIME); resetValue(MINIMAP_TIME_SOURCE);
         for (PinOptions o : PINS) o.reset();

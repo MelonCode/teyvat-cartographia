@@ -127,7 +127,7 @@ public final class MarkerRenderer {
 
     private static void ringShape(GuiGraphics g, float cx, float cy, float r, float width, int argb) {
         if ((argb >>> 24) == 0) return;
-        if (Theme.Style.square) Draw.frame(g, cx - r - width / 2f, cy - r - width / 2f, 2 * r + width, 2 * r + width, width, argb);
+        if (Theme.Style.squareUi) Draw.frame(g, cx - r - width / 2f, cy - r - width / 2f, 2 * r + width, 2 * r + width, width, argb);
         else Draw.circleOutline(g, cx, cy, r, width, argb);
     }
 
@@ -137,9 +137,10 @@ public final class MarkerRenderer {
         float radius = 2.5f * k, frame = Math.max(1f, (selected ? 1.5f : 1f) * k);
         int fill = Theme.withAlpha(hovered ? Theme.MARKER_TILE_HOVER : Theme.MARKER_TILE, alpha);
         int edge = Theme.withAlpha(selected ? Theme.MARKER_TILE_FRAME_SELECTED : Theme.MARKER_TILE_FRAME, alpha);
-        if (Theme.Style.square) {
-            float s = Math.round(size);
-            Draw.bevel(g, Math.round(cx - s / 2f), Math.round(cy - s / 2f), s, s, fill, edge, false);
+        if (Theme.Style.squareUi) {
+            float s = Math.round(size), x0 = Math.round(cx - s / 2f), y0 = Math.round(cy - s / 2f);
+            Draw.rect(g, x0, y0, x0 + s, y0 + s, fill);
+            Draw.frame(g, x0, y0, s, s, frame, edge);
         } else {
             Draw.roundRect(g, cx - h, cy - h, size, size, radius, fill);
             Draw.roundRectOutline(g, cx - h, cy - h, size, size, radius, frame, edge);

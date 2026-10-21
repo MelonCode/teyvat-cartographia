@@ -404,7 +404,7 @@ public final class MarkerListPanel extends SidePanel {
         } else {
             // The biome's colour on the map: a square in square themes, a disc in round ones.
             int c = r.biome().color == 0 ? Theme.TEXT_MUTED : r.biome().color;
-            if (Theme.Style.square) Draw.rect(g, cx - SWATCH / 2f, cy - SWATCH / 2f, cx + SWATCH / 2f, cy + SWATCH / 2f, c);
+            if (Theme.Style.squareUi) Draw.rect(g, cx - SWATCH / 2f, cy - SWATCH / 2f, cx + SWATCH / 2f, cy + SWATCH / 2f, c);
             else Draw.circle(g, cx, cy, SWATCH / 2f, c);
         }
         float tx = bx + ROW_H;

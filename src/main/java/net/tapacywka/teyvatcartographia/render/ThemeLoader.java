@@ -28,22 +28,22 @@ import java.util.Map;
  * <p>
  * A theme is a folder {@code assets/teyvatcartographia/themes/<id>/} with
  * <ul>
- *   <li>{@code theme.json}: {@code { "name": "<translation key or text>", "style": { "shape": "round" | "square",
- *       "fog_tile": int } }}; its presence makes the theme selectable;</li>
+ *   <li>{@code theme.json}: {@code { "name": "<translation key or text>" }}; its presence makes the theme selectable;</li>
  *   <li>{@code colors.json}: {@code { "colors": { "panel_dark": "#F2272F3A", ... } }} ({@code #AARRGGBB} or
  *       {@code #RRGGBB}; keys are the colour fields of {@link Theme} in lower case);</li>
  *   <li>{@code icons/64/<name>.png} (64 x 64 each, see {@link IconAtlas}) and optionally {@code fog.png}.</li>
  * </ul>
  * Colours not given by the theme keep the built-in defaults; missing icons and fog fall back to the built-in
- * {@code minecraft} theme ({@link Theme#DEFAULT}). Every resource pack providing a theme's {@code colors.json} is
+ * {@code default} theme ({@link Theme#DEFAULT}). Every resource pack providing a theme's {@code colors.json} is
  * merged (lowest priority first), so a pack may change a single colour of any theme.
  * <p>
- * Only enabled resource packs are seen, so a pack's theme becomes selectable once the pack is enabled (the Genshin
- * Impact theme is the mod's built-in pack, off by default). A selected theme whose pack was disabled falls back to
- * the default theme.
+ * Only enabled resource packs are seen, so a pack's theme becomes selectable once the pack is enabled. A selected theme
+ * whose pack was disabled falls back to the default theme. The shapes of the minimap and the interface are not part of
+ * a theme: they are settings of their own ({@link Theme.Style}), applied here too.
  */
 public final class ThemeLoader extends SimplePreparableReloadListener<ThemeLoader.Prepared> {
-    record Prepared(List<String> ids, Map<String, Component> names, String id, Map<String, Integer> colors, JsonObject style) {}
+    /** {@code legacy}: the setting named a theme of 0.1.x (see {@link Theme#LEGACY}), replaced by the default one. */
+    record Prepared(List<String> ids, Map<String, Component> names, String id, Map<String, Integer> colors, boolean legacy) {}
 
     private static List<String> available = List.of(Theme.DEFAULT);
     private static Map<String, Component> names = Map.of();
@@ -69,7 +69,6 @@ public final class ThemeLoader extends SimplePreparableReloadListener<ThemeLoade
     protected Prepared prepare(ResourceManager rm, ProfilerFiller profiler) {
         List<String> ids = new ArrayList<>();
         Map<String, Component> titles = new HashMap<>();
-        Map<String, JsonObject> styles = new HashMap<>();
         Map<ResourceLocation, Resource> found = rm.listResources("themes", l -> l.getPath().endsWith("/theme.json"));
         for (Map.Entry<ResourceLocation, Resource> e : found.entrySet()) {
             ResourceLocation loc = e.getKey();
@@ -81,7 +80,6 @@ public final class ThemeLoader extends SimplePreparableReloadListener<ThemeLoade
                 JsonObject root = JsonParser.parseReader(r).getAsJsonObject();
                 String name = root.has("name") ? root.get("name").getAsString() : id;
                 titles.put(id, Component.translatableWithFallback(name, name));
-                styles.put(id, root.has("style") ? root.getAsJsonObject("style") : new JsonObject());
                 ids.add(id);
             } catch (Exception ex) {
                 TeyvatCartographia.LOGGER.warn("Could not read theme {}", loc, ex);
@@ -92,11 +90,13 @@ public final class ThemeLoader extends SimplePreparableReloadListener<ThemeLoade
         ids.add(0, Theme.DEFAULT);
 
         String id = MapConfig.get(MapConfig.THEME);
+        // The Minecraft theme and the Genshin Impact pack of 0.1.x are the default theme now (their shapes are settings).
+        boolean legacy = Theme.LEGACY.contains(id) && !ids.contains(id);
         if (!ids.contains(id)) {
-            if (!id.equals(Theme.DEFAULT)) TeyvatCartographia.LOGGER.warn("Theme '{}' not found, using the default theme", id);
+            if (!id.equals(Theme.DEFAULT) && !legacy) TeyvatCartographia.LOGGER.warn("Theme '{}' not found, using the default theme", id);
             id = Theme.DEFAULT;
         }
-        return new Prepared(List.copyOf(ids), titles, id, readColors(rm, id), styles.getOrDefault(id, new JsonObject()));
+        return new Prepared(List.copyOf(ids), titles, id, readColors(rm, id), legacy);
     }
 
     private static Map<String, Integer> readColors(ResourceManager rm, String themeId) {
@@ -131,14 +131,12 @@ public final class ThemeLoader extends SimplePreparableReloadListener<ThemeLoade
         available = p.ids();
         names = p.names();
         Theme.id = p.id();
-        Theme.Style.reset();
-        JsonObject s = p.style();
-        try {
-            if (s.has("shape")) Theme.Style.square = "square".equals(s.get("shape").getAsString());
-            if (s.has("fog_tile")) Theme.Style.fogTile = Math.max(16, s.get("fog_tile").getAsInt());
-        } catch (RuntimeException ex) {
-            TeyvatCartographia.LOGGER.warn("Bad style in theme '{}'", p.id(), ex);
+        if (p.legacy()) {
+            // Saved once, so the old id is gone from the settings file (the shapes keep their defaults).
+            MapConfig.THEME.set(Theme.DEFAULT);
+            MapConfig.save();
         }
+        Theme.Style.update();
         Theme.apply(p.colors());
         IconAtlas.invalidate();
         FogTexture.invalidate();

@@ -2,6 +2,35 @@
 
 All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>-<loader>`.
 
+## 0.1.3-dev+mc1.21.1-neoforge (in development)
+
+### Shapes as settings, one built-in theme
+* **Settings > Appearance** has two new choices: **Minimap shape** (Square or Round) and **Interface style**
+  (Rectangular or Rounded). They are independent: a round minimap with rectangular menus works, and so does the other
+  way round. Both start square, as before.
+* The built-in theme is now called **Default** (it was Minecraft). A theme sets only colours, icons and the fog of
+  war; `theme.json` has just a name (no `style` block, no `fog_tile`).
+* The built-in **Genshin Impact** resource pack is removed: its theme was the same as the default one but for the
+  round shapes, which are now the settings above. Players who had it selected get the Default theme with the square
+  shapes; pick Round and Rounded to get the old look back.
+* The Rectangular style is flat now: the vanilla-style frame and bevel are gone from panels, buttons, fields,
+  switches, sliders and tiles; it is the Rounded style with square corners.
+
+### Minimap
+* New sliders in **Settings > Minimap > Size and position**: **Inner padding** (a gap between the frame and the map),
+  **Edge fade width** (how much of the radius fades out, 0% for a sharp edge) and **Edge fade strength** (how
+  transparent the very edge gets); and in **Extra information**: **Line spacing**, the gap from the map to the lines
+  under it and between them. The defaults keep the look of 0.1.2.
+* **Text size** of the lines under the minimap (Extra information): Auto (one step smaller than the interface, so 2
+  screen pixels per font pixel at GUI scale 3, about the size of other minimaps) or a whole number of pixels, so the
+  pixel font stays sharp. The lines shrink with their text.
+* The clock can show **Both** game and real time: two pills side by side, game time on the left.
+* Settings that were a switch with sub-settings are one slider in steps now: the **Clock** (Off, Game, Real, Both),
+  each kind of **pins** (Off, Map, Both maps, Everywhere with the beam) and the **path** to each kind (Off, Map, Both
+  maps, Everywhere with the stars). Older settings files keep working.
+* Right after joining a world the biome line could stay on Plains while the player stood still; it is checked again
+  every second and on a change of world or dimension.
+
 ## 0.1.2+mc1.21.1-neoforge
 
 ### Map search

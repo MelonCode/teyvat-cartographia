@@ -83,6 +83,11 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         Vec3 pos = player.getPosition(pt);
         float yaw = player.getViewYRot(pt);
         int r = MapConfig.get(MapConfig.MINIMAP_RADIUS);
+        // Inner padding, faded edge and the gap to the pills: read every frame (a few config reads), in the layer key.
+        padding = MapConfig.get(MapConfig.MINIMAP_PADDING);
+        fadeStart = 1 - MapConfig.get(MapConfig.MINIMAP_FADE_WIDTH) / 100f;
+        fadeEdge = 1 - MapConfig.get(MapConfig.MINIMAP_FADE_STRENGTH) / 100f;
+        infoGap = MapConfig.get(MapConfig.MINIMAP_INFO_GAP);
         float alpha = MapConfig.get(MapConfig.MINIMAP_OPACITY).floatValue();
         double zoom = MapView.snapZoom(MapConfig.get(MapConfig.MINIMAP_ZOOM));
         boolean rotate = MapConfig.get(MapConfig.MINIMAP_ORIENTATION) == MapConfig.Orientation.PLAYER_UP;
@@ -90,15 +95,21 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         // show changes, so their identity tells when the layer must be redrawn.
         Component coordsLine = MapConfig.get(MapConfig.MINIMAP_SHOW_COORDS) ? coordsText(player) : null;
         Component biomeLine = MapConfig.get(MapConfig.MINIMAP_SHOW_BIOME) ? biomeText(player) : null;
-        Component timeLine = MapConfig.get(MapConfig.MINIMAP_SHOW_TIME) ? timeText(mc) : null;
-        int textBlock = layoutPills(coordsLine, biomeLine, timeLine, r);
+        // The clock: game or real time, or both side by side (game on the left).
+        MapConfig.TimeSource source = MapConfig.get(MapConfig.MINIMAP_TIME_SOURCE);
+        boolean clockOn = MapConfig.get(MapConfig.MINIMAP_SHOW_TIME);
+        Component timeLine = !clockOn ? null : source == MapConfig.TimeSource.REAL_TIME ? realTimeText() : gameTimeText(mc);
+        Component time2Line = clockOn && source == MapConfig.TimeSource.BOTH ? realTimeText() : null;
+        // Text size: whole screen pixels per font pixel (always sharp), "Auto" a step below the GUI scale.
+        pillScale = MinimapFit.textScale(MapConfig.get(MapConfig.MINIMAP_TEXT_SIZE), mc.getWindow().getGuiScale());
+        int textBlock = layoutPills(coordsLine, biomeLine, timeLine, time2Line, r);
         // A minimap larger than the screen allows (with its pills, at a large GUI scale) is drawn smaller to fit; the
         // setting keeps its value. A smaller map may wrap the biome to more lines, so the fit is checked once more.
         for (int i = 0; i < 2; i++) {
             int fit = MinimapFit.radius(r, g.guiWidth(), g.guiHeight(), textBlock, MIN_RADIUS);
             if (fit == r) break;
             r = fit;
-            textBlock = layoutPills(coordsLine, biomeLine, timeLine, r);
+            textBlock = layoutPills(coordsLine, biomeLine, timeLine, time2Line, r);
         }
         screenW = g.guiWidth();
         boolean textBelow;
@@ -174,9 +185,11 @@ public final class MinimapLayer implements LayeredDraw.Layer {
                 || MarkerStore.version() != kMarkers || AutoMarkers.version() != kAuto
                 || target != kTarget || pinState != kPinState
                 || dim != kDim || textBelow != kTextBelow || Theme.generation() != kTheme
-                || (coordsLine == null) != (kCoords == null) || (biomeLine == null) != (kBiome == null) || (timeLine == null) != (kTime == null);
+                || padding != kPadding || fadeStart != kFadeStart || fadeEdge != kFadeEdge || infoGap != kInfoGap
+                || (coordsLine == null) != (kCoords == null) || (biomeLine == null) != (kBiome == null) || (timeLine == null) != (kTime == null)
+                || (time2Line == null) != (kTime2 == null) || pillScale != kPillScale;
         boolean moved = pos.x != kX || pos.z != kZ || heading != kHeading || view.rotation != kRotation
-                || cacheGeneration != kGeneration || coordsLine != kCoords || biomeLine != kBiome || timeLine != kTime
+                || cacheGeneration != kGeneration || coordsLine != kCoords || biomeLine != kBiome || timeLine != kTime || time2Line != kTime2
                 || bx0 != kBx0 || by0 != kBy0 || bx1 != kBx1 || by1 != kBy1 || route != kRoute;
         long now = Util.getNanos();
         if (changed || moved && now - kDrawnNs >= MapConfig.get(MapConfig.MINIMAP_UPDATE_RATE).intervalNs) {
@@ -203,7 +216,8 @@ public final class MinimapLayer implements LayeredDraw.Layer {
             kX = pos.x; kZ = pos.z; kHeading = heading; kRotation = view.rotation;
             kCx = cx; kCy = cy; kR = r; kAlpha = alpha; kBx0 = bx0; kBy0 = by0; kBx1 = bx1; kBy1 = by1;
             kGeneration = cacheGeneration; kMarkers = MarkerStore.version(); kAuto = AutoMarkers.version();
-            kTarget = target; kPinState = pinState; kRoute = route; kCoords = coordsLine; kBiome = biomeLine; kTime = timeLine; kDim = dim; kTextBelow = textBelow; kTheme = Theme.generation();
+            kTarget = target; kPinState = pinState; kRoute = route; kCoords = coordsLine; kBiome = biomeLine; kTime = timeLine; kTime2 = time2Line; kPillScale = pillScale; kDim = dim; kTextBelow = textBelow; kTheme = Theme.generation();
+            kPadding = padding; kFadeStart = fadeStart; kFadeEdge = fadeEdge; kInfoGap = infoGap;
         }
         Draw.texturedQuadPremultiplied(g, layer.textureId(), kBx0, kBy0, kBx1, kBy1, 0f, 1f, 1f, 0f);
     }
@@ -213,39 +227,55 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     private boolean layerValid, kTextBelow;
     private double kX, kZ, kRotation;
     private float kHeading, kCx, kCy, kAlpha;
-    private int kR, kBx0, kBy0, kBx1, kBy1, kGeneration, kMarkers, kAuto, kTheme, kPinState, kRoute;
+    private int kR, kBx0, kBy0, kBx1, kBy1, kGeneration, kMarkers, kAuto, kTheme, kPinState, kRoute, kPadding, kInfoGap;
+    private float kFadeStart, kFadeEdge;
     private long kDrawnNs;
-    // The pill texts and minimap radius they were laid out for, their lines; the GUI width the pills keep inside.
-    private Component pillCoords, pillBiome, pillTime;
-    private Component[] coordsLines, biomeLines, timeLines;
-    private int pillR, screenW;
-    private float coordsW, biomeW, timeW;
+    // The pill texts, minimap radius, text scale and gap they were laid out for, their lines; the GUI width the pills
+    // keep inside. The clock row may hold two pills (game and real time): timeW is the whole row.
+    private Component pillCoords, pillBiome, pillTime, pillTime2;
+    private Component[] coordsLines, biomeLines, timeLines, time2Lines;
+    private int pillR, pillGap = -1, screenW;
+    private float coordsW, biomeW, timeW, time1W, time2W, pillScale = 1, laidScale;
 
-    /** Width of one of the three laid-out pills (measured in {@link #layoutPills}). */
+    /** Width of one of the laid-out pill rows (measured in {@link #layoutPills}), in GUI units. */
     private float widthOf(Component[] lines) {
         return lines == coordsLines ? coordsW : lines == biomeLines ? biomeW : timeW;
     }
 
+    /** Height of a pill with {@code lines} text lines at the text scale (0 for none), in GUI units. */
+    private float heightOf(Component[] lines) {
+        return pillHeight(lines) * pillScale;
+    }
+
     /**
-     * Lays out the pills for a minimap of radius {@code r} (the biome name wrapped to its width), only when a text or
-     * the radius changed; returns the height of the text block under or over the map.
+     * Lays out the pills for a minimap of radius {@code r} (the biome name wrapped to its width), only when a text, the
+     * radius, the text scale or the gap changed; returns the height of the text block under or over the map. The gap
+     * ({@code infoGap}) is the same from the map to the first pill, between the pills and between the two clocks.
      */
-    private int layoutPills(Component coordsLine, Component biomeLine, Component timeLine, int r) {
-        if (coordsLine != pillCoords || biomeLine != pillBiome || timeLine != pillTime || r != pillR) {
+    private int layoutPills(Component coordsLine, Component biomeLine, Component timeLine, Component time2Line, int r) {
+        if (coordsLine != pillCoords || biomeLine != pillBiome || timeLine != pillTime || time2Line != pillTime2 || r != pillR
+                || pillScale != laidScale || infoGap != pillGap) {
             pillCoords = coordsLine;
             pillBiome = biomeLine;
             pillTime = timeLine;
+            pillTime2 = time2Line;
             pillR = r;
-            coordsLines = pillLines(coordsLine, 2 * r, false);
-            biomeLines = pillLines(biomeLine, 2 * r, true);
-            timeLines = pillLines(timeLine, 2 * r, false);
+            laidScale = pillScale;
+            pillGap = infoGap;
+            int room = (int) (2 * r / pillScale); // the minimap's width in font units
+            coordsLines = pillLines(coordsLine, room, false);
+            biomeLines = pillLines(biomeLine, room, true);
+            timeLines = pillLines(timeLine, room, false);
+            time2Lines = pillLines(time2Line, room, false);
             // Measured here, once per layout: the pills' positions are worked out every frame.
-            coordsW = pillWidth(coordsLines);
-            biomeW = pillWidth(biomeLines);
-            timeW = pillWidth(timeLines);
+            coordsW = pillWidth(coordsLines) * pillScale;
+            biomeW = pillWidth(biomeLines) * pillScale;
+            time1W = pillWidth(timeLines) * pillScale;
+            time2W = pillWidth(time2Lines) * pillScale;
+            timeW = time2Lines == null ? time1W : time1W + infoGap + time2W;
         }
         int pills = (coordsLine != null ? 1 : 0) + (biomeLine != null ? 1 : 0) + (timeLine != null ? 1 : 0);
-        return pills == 0 ? 0 : Grid.GAP + pillHeight(coordsLines) + pillHeight(biomeLines) + pillHeight(timeLines) + (pills - 1) * Grid.GAP;
+        return pills == 0 ? 0 : (int) Math.ceil(infoGap + heightOf(coordsLines) + heightOf(biomeLines) + heightOf(timeLines) + (pills - 1) * infoGap);
     }
 
     /** Left edge of a pill: centred under the map, shifted inward at the screen edge; on the pixel grid. */
@@ -268,26 +298,29 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     static boolean shown;
     static int shownX0, shownY0, shownX1, shownY1;
     private Navigation.Target kTarget;
-    private Component kCoords, kBiome, kTime;
+    private Component kCoords, kBiome, kTime, kTime2;
+    private float kPillScale;
     private ResourceKey<Level> kDim;
 
     private void drawContents(GuiGraphics g, LocalPlayer player, float cx, float cy, int r, float alpha, float heading, ResourceKey<Level> dim,
                               Navigation.Target target, double zoom, boolean path, Component coordsLine, Component biomeLine, Component timeLine,
                               boolean textBelow, int textBlock) {
-        if (Theme.Style.square) {
+        // The map inside the frame, the padding away from it (the frame and its glow stay at r).
+        float mapR = Math.max(8, r - padding);
+        if (Theme.Style.squareMap) {
             // Square map with the same frame as the round one: a thin, soft line on the edge and a faint glow inside.
-            drawSquareMap(g, cx, cy, r, alpha);
+            drawSquareMap(g, cx, cy, mapR, alpha);
             Draw.frame(g, cx - r - 0.5f, cy - r - 0.5f, 2 * r + 1, 2 * r + 1, 1, Theme.withAlpha(Theme.MINIMAP_FRAME, alpha));
             Draw.squareRing(g, cx, cy, r - 5, r, Theme.withAlpha(Theme.MINIMAP_FRAME_GLOW, 0f), Theme.withAlpha(Theme.MINIMAP_FRAME_GLOW, alpha));
         } else {
-            drawFadedDisc(g, cx, cy, r, alpha);
+            drawFadedDisc(g, cx, cy, mapR, alpha);
             // Thin, soft, semi-transparent frame
             Draw.circleOutline(g, cx, cy, r, 1.5f, Theme.withAlpha(Theme.MINIMAP_FRAME, alpha));
             Draw.ring(g, cx, cy, r - 5, r, Theme.withAlpha(Theme.MINIMAP_FRAME_GLOW, 0f), Theme.withAlpha(Theme.MINIMAP_FRAME_GLOW, alpha));
         }
 
         // Markers: kept inside the circle on which the "N" sits (never on or beyond the frame).
-        float inner = innerRadius(r);
+        float inner = innerRadius(mapR);
         // The path to the target under them, inside the same circle (or square).
         if (path) drawRoute(g, cx, cy, inner, alpha);
         // Pins by MarkerVisibility (none but the target below scale 1); the target itself is drawn just after. The map
@@ -314,7 +347,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         double northAngle = view.rotation; // screen angle of world north, clockwise from up
         float ns = (float) Math.sin(northAngle), nc = (float) Math.cos(northAngle);
         // On the inner circle, or (square map) on the inner square's edge.
-        float nk = Theme.Style.square ? inner / Math.max(Math.abs(ns), Math.abs(nc)) : inner;
+        float nk = Theme.Style.squareMap ? inner / Math.max(Math.abs(ns), Math.abs(nc)) : inner;
         float nx = cx + ns * nk, ny = cy - nc * nk;
         // Vanilla-font letter in the frame's colour, with a faint dark outline so it stays readable on light ground
         // and stands apart from the (dark) pin tiles. Drawn last, above the markers. Left batched: the layer is flushed
@@ -322,7 +355,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         DrawText.textOutlined(g, NORTH, nx, ny, Theme.withAlpha(Theme.MINIMAP_NORTH, alpha), Theme.withAlpha(Theme.MINIMAP_NORTH_OUTLINE, alpha), false);
 
         // Pills: coordinates, biome, clock
-        float ty = textBelow ? cy + r + 3 + Grid.GAP : cy - r - 3 - textBlock + Grid.GAP;
+        float ty = textBelow ? cy + r + 3 + infoGap : cy - r - 3 - textBlock + infoGap;
         ty = pill(g, cx, ty, coordsLine == null ? null : coordsLines, Theme.WHITE, alpha);
         ty = pill(g, cx, ty, biomeLine == null ? null : biomeLines, Theme.WHITE, alpha);
         pill(g, cx, ty, timeLine == null ? null : timeLines, Theme.WHITE, alpha);
@@ -347,7 +380,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
                 float wx = i == first ? Route.cutX() : Route.x(i), wz = i == first ? Route.cutZ() : Route.z(i);
                 sx = view.screenX(wx, wz);
                 sy = view.screenY(wx, wz);
-                in = Theme.Style.square ? Math.abs(sx - cx) <= inner && Math.abs(sy - cy) <= inner : Draw.inCircle(sx, sy, cx, cy, inner);
+                in = Theme.Style.squareMap ? Math.abs(sx - cx) <= inner && Math.abs(sy - cy) <= inner : Draw.inCircle(sx, sy, cx, cy, inner);
                 if (in && k == 0) phase = (float) ((i == first ? Route.cutAlong() : Route.along(i)) * view.scale);
             }
             if (in) {
@@ -371,7 +404,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     private void drawMarker(GuiGraphics g, Marker m, float cx, float cy, float inner, float alpha) {
         if (Navigation.isTracking(m)) return;
         float sx = view.screenX(m.centerX(), m.centerZ()), sy = view.screenY(m.centerX(), m.centerZ());
-        if (Theme.Style.square ? Math.abs(sx - cx) <= inner && Math.abs(sy - cy) <= inner : Draw.inCircle(sx, sy, cx, cy, inner)) {
+        if (Theme.Style.squareMap ? Math.abs(sx - cx) <= inner && Math.abs(sy - cy) <= inner : Draw.inCircle(sx, sy, cx, cy, inner)) {
             // Pins on another layer than the one shown (the cave band the player is in, or the surface) get an arrow.
             MarkerRenderer.draw(g, m.type, sx, sy, MarkerRenderer.SIZE_SMALL, false, false, alpha,
                     MarkerVisibility.layerRelation(m, MapDataManager.get().undergroundBand()));
@@ -393,17 +426,26 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         return coords;
     }
 
-    // The biome is looked up again only when the player enters another block, or while the chunk under the player was
-    // not loaded yet at the last look-up (after a teleport an empty chunk answers plains until the real one arrives).
+    // The biome is looked up again when the player enters another block or another world or dimension, while the chunk
+    // under the player was not loaded yet at the last look-up (after a teleport an empty chunk answers plains until the
+    // real one arrives), and once a second in any case: right after joining a world the first look-up can still read
+    // plains from a chunk that counts as loaded, and a player standing still would keep it (seen 21.10.2026).
     private final BlockPos.MutableBlockPos biomePos = new BlockPos.MutableBlockPos(Integer.MIN_VALUE, 0, 0);
     private Holder<Biome> biomeHolder;
     private Component biome;
     private boolean biomeUnloaded;
+    private Level biomeLevel;
+    private long biomeCheckedNs;
+    private static final long BIOME_RECHECK_NS = 1_000_000_000L;
 
     private Component biomeText(LocalPlayer p) {
         int x = p.getBlockX(), y = p.getBlockY(), z = p.getBlockZ();
-        if (biome == null || biomeUnloaded || x != biomePos.getX() || y != biomePos.getY() || z != biomePos.getZ()) {
+        long now = Util.getNanos();
+        if (biome == null || biomeUnloaded || p.level() != biomeLevel || now - biomeCheckedNs > BIOME_RECHECK_NS
+                || x != biomePos.getX() || y != biomePos.getY() || z != biomePos.getZ()) {
             biomePos.set(x, y, z);
+            biomeLevel = p.level();
+            biomeCheckedNs = now;
             biomeUnloaded = !p.level().hasChunkAt(biomePos);
             Holder<Biome> h = p.level().getBiome(biomePos);
             if (h != biomeHolder || biome == null) {
@@ -414,29 +456,31 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         return biome;
     }
 
-    // The clock text changes once a minute (of game or real time).
-    private int clockMinute = -1;
-    private MapConfig.TimeSource clockSource;
-    private Component clock;
+    // The clock texts change once a minute (of game and of real time), each kept apart.
+    private int gameMinute = -1, realMinute = -1;
+    private Component gameClock, realClock;
     private static final TimeZone ZONE = TimeZone.getDefault();
 
-    /** "HH:MM": the time of day in the world (tick 0 is 06:00) or the computer's local time. */
-    private Component timeText(Minecraft mc) {
-        MapConfig.TimeSource source = MapConfig.get(MapConfig.MINIMAP_TIME_SOURCE);
-        int minute;
-        if (source == MapConfig.TimeSource.REAL_TIME) {
-            long now = System.currentTimeMillis();
-            minute = (int) (Math.floorDiv(now + ZONE.getOffset(now), 60_000L) % 1440);
-        } else {
-            long ticks = Math.floorMod(mc.level.getDayTime() + 6000, 24000L);
-            minute = (int) (ticks * 1440 / 24000);
+    /** "HH:MM": the time of day in the world (tick 0 is 06:00). */
+    private Component gameTimeText(Minecraft mc) {
+        long ticks = Math.floorMod(mc.level.getDayTime() + 6000, 24000L);
+        int minute = (int) (ticks * 1440 / 24000);
+        if (gameClock == null || minute != gameMinute) {
+            gameMinute = minute;
+            gameClock = Component.literal(String.format(Locale.ROOT, "%02d:%02d", minute / 60, minute % 60));
         }
-        if (clock == null || minute != clockMinute || source != clockSource) {
-            clockMinute = minute;
-            clockSource = source;
-            clock = Component.literal(String.format(Locale.ROOT, "%02d:%02d", minute / 60, minute % 60));
+        return gameClock;
+    }
+
+    /** "HH:MM": the computer's local time. */
+    private Component realTimeText() {
+        long now = System.currentTimeMillis();
+        int minute = (int) (Math.floorDiv(now + ZONE.getOffset(now), 60_000L) % 1440);
+        if (realClock == null || minute != realMinute) {
+            realMinute = minute;
+            realClock = Component.literal(String.format(Locale.ROOT, "%02d:%02d", minute / 60, minute % 60));
         }
-        return clock;
+        return realClock;
     }
 
     private static float pillWidth(Component[] lines) {
@@ -470,22 +514,39 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     /** A wrapped biome pill keeps at least this much room for its text (a tiny minimap would split every word). */
     private static final int MIN_WRAP = 60;
 
-    /** Pill centred on cx at y, if there are lines (each centred in it); returns the y of the next pill. */
+    /**
+     * Pill row centred on cx at y, if there are lines; returns the y of the next row. The clock row holds the game
+     * time and, when both are shown, the real time to its right.
+     */
     private float pill(GuiGraphics g, float cx, float y, Component[] lines, int color, float alpha) {
         if (lines == null) return y;
-        float w = widthOf(lines);
-        int h = pillHeight(lines);
         float x = pillX(lines, cx);
+        if (lines == timeLines && time2Lines != null) {
+            pillAt(g, x, y, lines, time1W, color, alpha);
+            pillAt(g, Draw.snap(x + time1W + infoGap), y, time2Lines, time2W, color, alpha);
+        } else {
+            pillAt(g, x, y, lines, widthOf(lines), color, alpha);
+        }
+        return y + heightOf(lines) + infoGap;
+    }
+
+    /** One pill {@code w} GUI units wide at (x, y), its text (each line centred) drawn at the text scale. */
+    private void pillAt(GuiGraphics g, float x, float y, Component[] lines, float w, int color, float alpha) {
+        float s = pillScale, w0 = w / s;
+        int h0 = pillHeight(lines);
+        g.pose().pushPose();
+        g.pose().translate(x, y, 0);
+        g.pose().scale(s, s, 1f);
         int fill = Theme.withAlpha(Theme.INFO_BOX, alpha);
         // Several lines: rounded like the one-line capsule, not a taller capsule.
-        if (lines.length > 1 && !Theme.Style.square) Draw.roundRect(g, x, y, w, h, PILL_H / 2f, fill);
-        else Ui.pillShape(g, x, y, w, h, fill, 0);
-        float ty = DrawText.textY(y, PILL_H);
+        if (lines.length > 1 && !Theme.Style.squareUi) Draw.roundRect(g, 0, 0, w0, h0, PILL_H / 2f, fill);
+        else Ui.pillShape(g, 0, 0, w0, h0, fill, 0);
+        float ty = DrawText.textY(0, PILL_H);
         for (Component line : lines) {
-            DrawText.text(g, line, x + (w - DrawText.width(line)) / 2f, ty, Theme.withAlpha(color, alpha), false);
+            DrawText.text(g, line, (w0 - DrawText.width(line)) / 2f, ty, Theme.withAlpha(color, alpha), false);
             ty += DrawText.LINE;
         }
-        return y + h + Grid.GAP;
+        g.pose().popPose();
     }
     private void drawTarget(GuiGraphics g, Navigation.Target t, float cx, float cy, float r, float alpha) {
         float sx = view.screenX(t.x(), t.z()), sy = view.screenY(t.x(), t.z());
@@ -497,7 +558,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         float size = MarkerRenderer.SIZE_SMALL;
         float dx = sx - cx, dy = sy - cy;
         // Distance in the shape's own metric: Euclidean for the round map, Chebyshev for the square one.
-        float d = Theme.Style.square ? Math.max(Math.abs(dx), Math.abs(dy)) : (float) Math.sqrt(dx * dx + dy * dy);
+        float d = Theme.Style.squareMap ? Math.max(Math.abs(dx), Math.abs(dy)) : (float) Math.sqrt(dx * dx + dy * dy);
         if (d > r) {
             // Out of range: held on the inner circle (same radius as the "N") in the target's direction.
             sx = cx + dx / d * r;
@@ -545,7 +606,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     private void refreshCache(GuiGraphics g, Minecraft mc, TileStore store, double px, double pz, double zoom, int r, int tint, float night) {
         Window w = mc.getWindow();
         // The rotated view must stay inside the cache: a square map reaches r * sqrt(2) at its corners.
-        int cR = (Theme.Style.square ? (int) Math.ceil(r * 1.4143f) : r) + MARGIN;
+        int cR = (Theme.Style.squareMap ? (int) Math.ceil(r * 1.4143f) : r) + MARGIN;
         int size = Math.min(4096, (int) Math.ceil(2 * cR * w.getGuiScale() * SUPERSAMPLE));
         int nightQ = Math.round(night * 32);
         long now = Util.getMillis();
@@ -606,16 +667,20 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         }
     }
 
-    /** Fraction of the radius that stays fully opaque; beyond it the map fades to transparent at the frame. */
-    private static final float FADE_START = 0.80f;
+    /**
+     * The faded edge (settings): the fraction of the map's radius that stays fully opaque, and the share of the alpha
+     * left at the very edge (0: fades out completely). Also the frame-to-map padding and the gap to the pills.
+     */
+    private float fadeStart = 0.8f, fadeEdge;
+    private int padding, infoGap = Grid.GAP;
 
     /** Draws the cache as a disc: opaque centre, then an annulus whose alpha falls smoothly to 0 at radius r. */
     private void drawFadedDisc(GuiGraphics g, float cx, float cy, float r, float alpha) {
         if (!cache.exists()) return;
         Matrix4f m = g.pose().last().pose();
         int[] colors = bandColors;
-        for (int k = 0; k <= BANDS; k++) colors[k] = Theme.withAlpha(Theme.WHITE, alpha * fade((float) k / BANDS));
-        float r0 = r * FADE_START;
+        for (int k = 0; k <= BANDS; k++) colors[k] = Theme.withAlpha(Theme.WHITE, alpha * (fadeEdge + (1 - fadeEdge) * fade((float) k / BANDS)));
+        float r0 = r * fadeStart;
         // Every grid point (ring k at segment i) is projected once; the triangles below only pick them up.
         for (int k = 0; k <= BANDS; k++) {
             float rk = r0 + (r - r0) * k / BANDS;
@@ -669,8 +734,8 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         if (!cache.exists()) return;
         Matrix4f m = g.pose().last().pose();
         int[] colors = bandColors;
-        for (int k = 0; k <= BANDS; k++) colors[k] = Theme.withAlpha(Theme.WHITE, alpha * fade((float) k / BANDS));
-        float r0 = r * FADE_START;
+        for (int k = 0; k <= BANDS; k++) colors[k] = Theme.withAlpha(Theme.WHITE, alpha * (fadeEdge + (1 - fadeEdge) * fade((float) k / BANDS)));
+        float r0 = r * fadeStart;
         BufferBuilder b = Draw.beginTex();
         int c = colors[0];
         discVertex(b, m, cx - r0, cy - r0, c); discVertex(b, m, cx - r0, cy + r0, c); discVertex(b, m, cx + r0, cy + r0, c);

@@ -26,10 +26,13 @@ public final class Theme {
     private Theme() {}
 
     /**
-     * The built-in Minecraft styled theme, always available; also the fallback for anything another theme does not
-     * provide. The Genshin Impact theme comes with the mod's built-in resource pack.
+     * The built-in theme (colours, icons, fog of war), always available; also the fallback for anything another
+     * theme does not provide. The shapes of the minimap and the interface are settings of their own ({@link Style}).
      */
-    public static final String DEFAULT = "minecraft";
+    public static final String DEFAULT = "default";
+
+    /** Theme ids of earlier versions (the Minecraft theme and the Genshin Impact pack): now the default theme. */
+    static final java.util.Set<String> LEGACY = java.util.Set.of("minecraft", "genshin");
 
     /** The active theme (chosen in the settings, see {@link ThemeLoader}). */
     static String id = DEFAULT;
@@ -51,20 +54,29 @@ public final class Theme {
      * Geometry of the active theme, from the {@code "style"} object of its {@code theme.json}. Not colours, so it
      * lives outside the reflected colour fields.
      */
+    /**
+     * The shapes the player picked in the settings, apart from the theme: the minimap square or round
+     * ({@link MapConfig#MINIMAP_SHAPE}), and the interface rectangular (bevelled widgets in the vanilla Minecraft
+     * manner) or rounded (circles, capsules and rounded corners, {@link MapConfig#INTERFACE_STYLE}).
+     */
     public static final class Style {
         private Style() {}
 
-        /**
-         * {@code "shape": "square"}: rectangular, bevelled widgets in the vanilla Minecraft manner and a square
-         * minimap; {@code "round"} (default): circles, capsules and rounded corners.
-         */
-        public static boolean square;
-        /** On-screen size (GUI units) of one repeat of the fog texture. */
-        public static int fogTile = 220;
+        /** A square minimap (else round). */
+        public static boolean squareMap = true;
+        /** Rectangular widgets: panels, buttons, tiles, pills, rings (else rounded). */
+        public static boolean squareUi = true;
+        /** On-screen size (GUI units) of one repeat of the fog texture, whatever its resolution. */
+        public static final int FOG_TILE = 440;
 
-        static void reset() {
-            square = false;
-            fogTile = 220;
+        /** Reads both from the settings; a change counts as a new theme {@link #generation()}, so caches redraw. */
+        public static void update() {
+            boolean map = MapConfig.get(MapConfig.MINIMAP_SHAPE) == MapConfig.MinimapShape.SQUARE;
+            boolean ui = MapConfig.get(MapConfig.INTERFACE_STYLE) == MapConfig.InterfaceStyle.RECTANGULAR;
+            if (map == squareMap && ui == squareUi) return;
+            squareMap = map;
+            squareUi = ui;
+            generation++;
         }
     }
 
@@ -214,10 +226,6 @@ public final class Theme {
     public static int WORLD_MARKER_BEAM_SYSTEM = 0x99B464FF;
     public static int WORLD_MARKER_BEAM_CORE_SYSTEM = 0xA6E8D2FF;
 
-    // Bevels of square (Minecraft style) widgets: translucent highlight/shade over the fill, and the outline
-    public static int BEVEL_LIGHT = 0x1AFFFFFF;
-    public static int BEVEL_DARK = 0x40000000;
-    public static int BEVEL_BORDER = 0x90101820;
 
     // Minimap
     /** Minimap background on a cave layer, where nothing is explored yet. */

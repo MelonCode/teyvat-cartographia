@@ -19,6 +19,17 @@ final class MinimapFit {
         return Math.max(min, Math.min(r, fit));
     }
 
+    /**
+     * Scale of the pill text in GUI units: whole screen pixels per font pixel, so the pixel font stays sharp.
+     * {@code size} 0 is "Auto": a step below the GUI scale (GUI 3 gives 2, GUI 4 gives 3), but never below 2 unless
+     * the GUI scale is 1; any other size is that many pixels, at most the GUI scale (the menus' own size).
+     */
+    static float textScale(int size, double guiScale) {
+        int gui = Math.max(1, (int) Math.round(guiScale));
+        int px = size <= 0 ? (gui <= 2 ? gui : gui - 1) : Math.min(size, gui);
+        return (float) (px / guiScale);
+    }
+
     /** Left edge of a pill {@code w} wide: centred on {@code cx}, shifted inward to keep {@code EDGE} from the screen sides. */
     static float pillLeft(float w, float cx, int guiW) {
         return Math.max(EDGE, Math.min(guiW - EDGE - w, cx - w / 2f));

@@ -12,8 +12,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ConfigDefaultsTest {
     @Test
     void appearanceAndMap() {
-        assertEquals(Theme.DEFAULT, MapConfig.THEME.getDefault(), "the Minecraft theme by default");
-        assertEquals("minecraft", Theme.DEFAULT);
+        assertEquals(Theme.DEFAULT, MapConfig.THEME.getDefault(), "the built-in theme by default");
+        assertEquals("default", Theme.DEFAULT);
+        // Square minimap and rectangular interface, as the Minecraft theme of 0.1.x; the shapes start that way too.
+        assertEquals(MapConfig.MinimapShape.SQUARE, MapConfig.MINIMAP_SHAPE.getDefault());
+        assertEquals(MapConfig.InterfaceStyle.RECTANGULAR, MapConfig.INTERFACE_STYLE.getDefault());
+        assertTrue(Theme.Style.squareMap);
+        assertTrue(Theme.Style.squareUi);
         assertEquals(1.0, MapConfig.MAP_DEFAULT_ZOOM.getDefault());
         assertFalse(MapConfig.MAP_SHOW_LABELS.getDefault());
         assertFalse(MapConfig.MAP_SHOW_GRID.getDefault());
@@ -33,6 +38,12 @@ class ConfigDefaultsTest {
         assertTrue(MapConfig.MINIMAP_SHOW_BIOME.getDefault());
         assertTrue(MapConfig.MINIMAP_SHOW_TIME.getDefault());
         assertEquals(MapConfig.TimeSource.GAME_TIME, MapConfig.MINIMAP_TIME_SOURCE.getDefault());
+        // The look of 0.1.2: no inner padding, the outer 20% of the radius fading out completely, pills 4 units away.
+        assertEquals(0, MapConfig.MINIMAP_PADDING.getDefault());
+        assertEquals(20, MapConfig.MINIMAP_FADE_WIDTH.getDefault());
+        assertEquals(100, MapConfig.MINIMAP_FADE_STRENGTH.getDefault());
+        assertEquals(4, MapConfig.MINIMAP_INFO_GAP.getDefault());
+        assertEquals(0, MapConfig.MINIMAP_TEXT_SIZE.getDefault(), "Auto");
     }
 
     @Test

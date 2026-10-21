@@ -104,7 +104,7 @@ final class MarkerPickList {
     private void row(GuiGraphics g, float ry, boolean hot, float phase) {
         int fill = hot ? Theme.PICK_ROW_HOVER : Theme.PICK_ROW;
         float h = ROW_H, r = h / 2f, x0 = x;
-        if (!Theme.Style.square) { // rounded left end
+        if (!Theme.Style.squareUi) { // rounded left end
             Draw.sector(g, x + r, ry + r, r, (float) (-Math.PI / 2), (float) (Math.PI / 2), fill, fill);
             x0 = x + r;
         }
@@ -114,7 +114,7 @@ final class MarkerPickList {
         Draw.gradientRectH(g, fadeFrom, ry, x + w, ry + h, fill, fill & 0x00FFFFFF);
 
         int line = hot ? Theme.lerp(Theme.PICK_OUTLINE, Theme.PICK_OUTLINE_HOVER, phase) : Theme.PICK_OUTLINE;
-        if (Theme.Style.square) Draw.rect(g, x, ry, x + 1, ry + h, line);
+        if (Theme.Style.squareUi) Draw.rect(g, x, ry, x + 1, ry + h, line);
         else Draw.arc(g, x + r, ry + r, r - 0.5f, 1f, (float) Math.PI, (float) (2 * Math.PI), line);
         edgeLine(g, x0, ry, line);
         edgeLine(g, x0, ry + h - 1, line);

@@ -332,7 +332,7 @@ public final class PinPanel extends SidePanel {
             // Total pins bar (delete button when editing)
             float ty = totalY();
             Ui.chip(g, bx, ty, bw, Grid.CHIP_H, Theme.PANEL_LIGHT_FIELD);
-            float inset = Theme.Style.square ? Grid.PAD : Grid.CHIP_H / 2f; // text clear of the rounded cap
+            float inset = Theme.Style.squareUi ? Grid.PAD : Grid.CHIP_H / 2f; // text clear of the rounded cap
             int textW = (int) (bw - inset - (editing != null ? Grid.TOOL + Grid.GAP : 0) - (compactTeleport() ? Grid.TOOL + Grid.GAP : 0));
             DrawText.text(g, DrawText.fit(totalText().getString(), textW), bx + inset, DrawText.textY(ty, Grid.CHIP_H), Theme.PANEL_LIGHT_BAR, false);
             if (localOnly() && Draw.inRect(mx, my, bx, ty, bw, Grid.CHIP_H)) localOnlyHint = true;

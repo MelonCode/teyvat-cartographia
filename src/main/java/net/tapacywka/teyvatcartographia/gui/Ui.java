@@ -49,15 +49,11 @@ public final class Ui {
     public static void panel(GuiGraphics g, float x, float y, float w, float h, boolean dark, Component title, Icon titleIcon, int mx, int my) {
         // Translucent body over the blurred backdrop (vanilla "Menu Background Blur"), if the screen captured one.
         Backdrop.draw(g, x, y, x + w, y + h);
-        if (Theme.Style.square) {
-            Draw.bevel(g, x, y, w, h, dark ? Theme.PANEL_DARK : Theme.PANEL_LIGHT);
-            Draw.rect(g, x + 2, y + 2, x + w - 2, y + Grid.HEADER_H - 1, Theme.PANEL_DARK_HEADER);
-        } else {
-            Draw.rect(g, x, y, x + w, y + h, dark ? Theme.PANEL_DARK : Theme.PANEL_LIGHT);
-            if (!dark) Draw.gradientRectV(g, x, y + h * 0.55f, x + w, y + h, Theme.PANEL_LIGHT_GRADIENT_TOP, Theme.PANEL_LIGHT_GRADIENT_BOTTOM);
-            Draw.rect(g, x, y, x + w, y + Grid.HEADER_H, Theme.PANEL_DARK_HEADER);
-        }
-        Draw.rect(g, x + (Theme.Style.square ? 2 : 0), y + Grid.HEADER_H - 1, x + w - (Theme.Style.square ? 2 : 0), y + Grid.HEADER_H, Theme.PANEL_HEADER_LINE);
+        // The same in both styles: a panel is a plain rectangle (no frame or bevel).
+        Draw.rect(g, x, y, x + w, y + h, dark ? Theme.PANEL_DARK : Theme.PANEL_LIGHT);
+        if (!dark) Draw.gradientRectV(g, x, y + h * 0.55f, x + w, y + h, Theme.PANEL_LIGHT_GRADIENT_TOP, Theme.PANEL_LIGHT_GRADIENT_BOTTOM);
+        Draw.rect(g, x, y, x + w, y + Grid.HEADER_H, Theme.PANEL_DARK_HEADER);
+        Draw.rect(g, x, y + Grid.HEADER_H - 1, x + w, y + Grid.HEADER_H, Theme.PANEL_HEADER_LINE);
         float cy = y + Grid.HEADER_H / 2f;
         float tx = x + Grid.PAD;
         if (titleIcon != null) {
@@ -88,19 +84,19 @@ public final class Ui {
         boolean hover = enabled && Draw.inRect(mx, my, x, y, w, h);
         int fill = !enabled ? Theme.BUTTON_DISABLED : hover ? Theme.BUTTON_HOVER : Theme.BUTTON;
         float cx = x + h / 2f, cy = y + h / 2f, r = h / 2f - 2;
-        if (Theme.Style.square) {
-            Draw.bevel(g, x, y, w, h, fill, hover ? Theme.BUTTON_HOVER_OUTLINE : Theme.BEVEL_BORDER, false);
-            if (icon != null) Draw.bevel(g, cx - r, cy - r, 2 * r, 2 * r, Theme.BUTTON_ICON_BADGE, Theme.BEVEL_BORDER, true);
+        if (Theme.Style.squareUi) {
+            Draw.rect(g, x, y, x + w, y + h, fill);
+            if (hover) Draw.frame(g, x, y, w, h, 1, Theme.BUTTON_HOVER_OUTLINE);
+            if (icon != null) Draw.rect(g, cx - r, cy - r, cx + r, cy + r, Theme.BUTTON_ICON_BADGE);
         } else {
             Draw.capsule(g, x, y, w, h, fill);
             if (hover) Draw.capsuleOutline(g, x, y, w, h, 1f, Theme.BUTTON_HOVER_OUTLINE);
             if (icon != null) Draw.circle(g, cx, cy, r, Theme.BUTTON_ICON_BADGE);
         }
         if (icon != null) Draw.icon(g, icon, cx, cy, Grid.ICON, enabled ? Theme.YELLOW : Theme.BUTTON_ICON_DISABLED);
-        // Equal gaps: from the icon badge's right edge to the text, and from the text to the button's visible right edge.
-        // In square themes the bevel's frame and shade take the last two units (measured on screenshots: without them
-        // the label sat one unit right of the face's centre). Without an icon there is no badge: centred on the face.
-        float labelLeft = icon != null ? cx + r : x, labelRight = x + w - (Theme.Style.square ? 2 : 0);
+        // Equal gaps: from the icon badge's right edge to the text, and from the text to the button's right edge.
+        // Without an icon there is no badge: centred on the face.
+        float labelLeft = icon != null ? cx + r : x, labelRight = x + w;
         DrawText.room(label, labelRight - labelLeft - 2 * Grid.GAP);
         DrawText.textCentered(g, label, (labelLeft + labelRight) / 2f, DrawText.textY(y, h), enabled ? Theme.CREAM : Theme.BUTTON_TEXT_DISABLED, false);
     }
@@ -111,13 +107,14 @@ public final class Ui {
 
     /**
      * Small icon button ({@link Grid#TOOL} square, e.g. "delete pin" at the end of a field), styled like the icon
-     * badge of the action buttons (dark fill, yellow icon): a circle in round themes, a bevelled square in square ones.
+     * badge of the action buttons (dark fill, yellow icon): a circle in the rounded style, a square in the rectangular one.
      */
     public static void toolButton(GuiGraphics g, float x, float y, Icon icon, int mx, int my) {
         float s = Grid.TOOL, cx = x + s / 2f, cy = y + s / 2f;
         boolean hover = Draw.inRect(mx, my, x, y, s, s);
-        if (Theme.Style.square) {
-            Draw.bevel(g, x, y, s, s, Theme.BUTTON_ICON_BADGE, hover ? Theme.BUTTON_HOVER_OUTLINE : Theme.BEVEL_BORDER, true); // sunken, like the action badges
+        if (Theme.Style.squareUi) {
+            Draw.rect(g, x, y, x + s, y + s, Theme.BUTTON_ICON_BADGE);
+            if (hover) Draw.frame(g, x, y, s, s, 1, Theme.BUTTON_HOVER_OUTLINE);
         } else {
             float r = s / 2f;
             Draw.circle(g, cx, cy, r, Theme.BUTTON_ICON_BADGE);
@@ -153,17 +150,18 @@ public final class Ui {
             dot = inactive(dot);
             cross = inactive(cross);
         }
-        if (Theme.Style.square) {
-            // Sunken track, raised square knob (like a vanilla slider handle).
-            Draw.bevel(g, x, y, w, h, track, outline, true);
-            Draw.bevel(g, kx - r + 1, y + 1, h - 2, h - 2, knob);
+        if (Theme.Style.squareUi) {
+            // As the rounded switch with square shapes: a framed track and a square knob.
+            Draw.rect(g, x, y, x + w, y + h, track);
+            Draw.frame(g, x, y, w, h, 1, outline);
+            Draw.rect(g, kx - r + 3, ky - r + 3, kx + r - 3, ky + r - 3, knob);
         } else {
             Draw.capsule(g, x, y, w, h, track);
             Draw.capsuleOutline(g, x, y, w, h, 1f, outline);
             Draw.circle(g, kx, ky, r - 3, knob);
         }
         if (on) {
-            if (Theme.Style.square) Draw.rect(g, kx - 1, ky - 1, kx + 1, ky + 1, dot);
+            if (Theme.Style.squareUi) Draw.rect(g, kx - 1, ky - 1, kx + 1, ky + 1, dot);
             else Draw.circle(g, kx, ky, 2f, dot);
         } else {
             Draw.icon(g, Icon.CLOSE, kx, ky, 6, cross);
@@ -178,14 +176,10 @@ public final class Ui {
     public static void gridTile(GuiGraphics g, float x, float y, float w, Component label, boolean active, int mx, int my) {
         float h = Grid.TILE_H;
         boolean hover = Draw.inRect(mx, my, x, y, w, h);
-        if (Theme.Style.square) {
-            Draw.bevel(g, x, y, w, h, hover ? Theme.PANEL_DARK_TILE_HOVER : Theme.PANEL_DARK_TILE, Theme.TILE_OUTLINE, false);
-            if (active) Draw.rect(g, x + 1, y + 1, x + 4, y + h - 1, Theme.ORANGE_ACCENT);
-        } else {
-            Draw.rect(g, x, y, x + w, y + h, hover ? Theme.PANEL_DARK_TILE_HOVER : Theme.PANEL_DARK_TILE);
-            Draw.roundRectOutline(g, x, y, w, h, 0, 1, Theme.TILE_OUTLINE);
-            if (active) Draw.rect(g, x, y, x + 3, y + h, Theme.ORANGE_ACCENT);
-        }
+        // The same in both styles (the tile is square anyway).
+        Draw.rect(g, x, y, x + w, y + h, hover ? Theme.PANEL_DARK_TILE_HOVER : Theme.PANEL_DARK_TILE);
+        Draw.roundRectOutline(g, x, y, w, h, 0, 1, Theme.TILE_OUTLINE);
+        if (active) Draw.rect(g, x, y, x + 3, y + h, Theme.ORANGE_ACCENT);
         // Accent bar (3) + small inset on both sides. The label is centred in the visible face: with the accent bar it moves
         // one unit right (measured on screenshots: centred on the whole tile it sat one unit left of the face's centre).
         String text = DrawText.fit(label.getString(), (int) w - 2 * (3 + Grid.GAP));
@@ -223,9 +217,9 @@ public final class Ui {
         float r = diameter / 2f;
         boolean hover = buttonHit(cx, cy, diameter, mx, my);
         int fill = light ? (hover ? Theme.ICON_BUTTON_LIGHT_HOVER : Theme.ICON_BUTTON_LIGHT) : (hover ? Theme.ICON_BUTTON_HOVER : Theme.ICON_BUTTON);
-        if (Theme.Style.square) {
+        if (Theme.Style.squareUi) {
             Draw.rect(g, cx - r + 1, cy - r + 1, cx + r + 1, cy + r + 1, Theme.ICON_BUTTON_SHADOW);
-            Draw.bevel(g, cx - r, cy - r, diameter, diameter, fill);
+            Draw.rect(g, cx - r, cy - r, cx + r, cy + r, fill);
             Draw.frame(g, cx - r + 2, cy - r + 2, diameter - 4, diameter - 4, 1, light ? Theme.ICON_BUTTON_LIGHT_RING : Theme.ICON_BUTTON_RING);
         } else {
             Draw.circle(g, cx, cy, r + 1, Theme.ICON_BUTTON_SHADOW);
@@ -242,7 +236,7 @@ public final class Ui {
     /** Hit test of a round (or, in square themes, square) button of the given diameter centred at (cx, cy). */
     public static boolean buttonHit(float cx, float cy, float diameter, double mx, double my) {
         float r = diameter / 2f + 1;
-        return Theme.Style.square ? Draw.inRect(mx, my, cx - r, cy - r, 2 * r, 2 * r) : Draw.inCircle(mx, my, cx, cy, r);
+        return Theme.Style.squareUi ? Draw.inRect(mx, my, cx - r, cy - r, 2 * r, 2 * r) : Draw.inCircle(mx, my, cx, cy, r);
     }
 
     /**
@@ -250,13 +244,13 @@ public final class Ui {
      * carries), a sunken rectangular slot in square ones.
      */
     public static void chip(GuiGraphics g, float x, float y, float w, float h, int fill) {
-        if (Theme.Style.square) Draw.bevel(g, x, y, w, h, fill, Theme.BEVEL_BORDER, true);
+        if (Theme.Style.squareUi) Draw.rect(g, x, y, x + w, y + h, fill);
         else Draw.capsule(g, x, y, w, h, fill);
     }
 
     /** Pill shape: a capsule in round themes, a bordered rectangle in square ones. */
     public static void pillShape(GuiGraphics g, float x, float y, float w, float h, int fill, int outline) {
-        if (Theme.Style.square) {
+        if (Theme.Style.squareUi) {
             Draw.rect(g, x, y, x + w, y + h, fill);
             if ((outline >>> 24) != 0) Draw.frame(g, x, y, w, h, 1, outline);
         } else {
@@ -267,7 +261,7 @@ public final class Ui {
 
     /** Tooltip box: rounded in round themes; in square ones a vanilla tooltip (fill with an inset outline). */
     private static void tooltipBox(GuiGraphics g, float x, float y, float w, float h) {
-        if (Theme.Style.square) {
+        if (Theme.Style.squareUi) {
             Draw.rect(g, x, y, x + w, y + h, Theme.TOOLTIP);
             Draw.frame(g, x + 1, y + 1, w - 2, h - 2, 1, Theme.TOOLTIP_OUTLINE);
         } else {
@@ -349,7 +343,7 @@ public final class Ui {
         DrawText.room(title, right - Grid.MARGIN - 2 * Grid.PAD);
         for (Component l : lines) DrawText.room(l, right - Grid.MARGIN - 2 * Grid.PAD);
         float py = Math.max(y + POINTER_H + 3, Math.min(y + h - POINTER_H - 3, Draw.snap(cy)));
-        float tip = right + POINTER_L, r = Theme.Style.square ? 0 : POPUP_R;
+        float tip = right + POINTER_L, r = Theme.Style.squareUi ? 0 : POPUP_R;
         // Blur: the box (in round themes without its corners, which the rounded fill covers) and the pointer.
         if (r == 0) Backdrop.draw(g, x, y, right, y + h);
         else {

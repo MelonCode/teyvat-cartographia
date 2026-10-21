@@ -1,6 +1,7 @@
 package net.tapacywka.teyvatcartographia.gui;
 
 import net.tapacywka.teyvatcartographia.config.MapConfig;
+import net.tapacywka.teyvatcartographia.config.StepChoice;
 import net.tapacywka.teyvatcartographia.gui.Ui.Grid;
 import net.tapacywka.teyvatcartographia.map.MapView;
 import net.tapacywka.teyvatcartographia.map.data.MapDataManager;
@@ -47,8 +48,6 @@ public final class TeyvatConfigScreen extends Screen {
         /** Longer explanation shown when hovering the label; null for section headers. */
         final Component tooltip;
         float y;
-        /** A nested setting: a step to the right, inactive (darker, not clickable) while this one is off. */
-        ModConfigSpec.BooleanValue parent;
         /** The sub-heading the row belongs to: hidden (no height) while it is folded. */
         SubSection owner;
 
@@ -59,19 +58,6 @@ public final class TeyvatConfigScreen extends Screen {
         /** Height in the list: 0 while folded away. */
         float listHeight() {
             return shown() ? height() : 0;
-        }
-
-        Row under(ModConfigSpec.BooleanValue parent) {
-            this.parent = parent;
-            return this;
-        }
-
-        boolean active() {
-            return parent == null || MapConfig.get(parent);
-        }
-
-        float indent() {
-            return parent == null ? 0 : 2 * Grid.GAP;
         }
 
         Row(String key, boolean hasTooltip) {
@@ -88,9 +74,7 @@ public final class TeyvatConfigScreen extends Screen {
         }
 
         void renderLabel(GuiGraphics g, float x, float w) {
-            float in = indent();
-            DrawText.text(g, DrawText.fit(label.getString(), (int) (w / 2 - Grid.GAP - in)), x + in, DrawText.textY(y, Grid.ROW),
-                    active() ? Theme.WHITE : Ui.inactive(Theme.WHITE), false);
+            DrawText.text(g, DrawText.fit(label.getString(), (int) (w / 2 - Grid.GAP)), x, DrawText.textY(y, Grid.ROW), Theme.WHITE, false);
         }
 
         abstract void render(GuiGraphics g, float x, float w, int mx, int my);
@@ -179,7 +163,7 @@ public final class TeyvatConfigScreen extends Screen {
         @Override
         void render(GuiGraphics g, float x, float w, int mx, int my) {
             renderLabel(g, x, w);
-            Ui.toggle(g, tx(x, w), ty(), MapConfig.get(value), mx, my, active());
+            Ui.toggle(g, tx(x, w), ty(), MapConfig.get(value), mx, my, true);
         }
 
         @Override
@@ -201,6 +185,10 @@ public final class TeyvatConfigScreen extends Screen {
         double[] steps;
         /** Optional text for a value (instead of {@link #format}). */
         java.util.function.DoubleFunction<String> labeler;
+        /** A choice slider: the translation keys of its steps (0 is "off"); the value column fits the longest one. */
+        String[] stepKeys;
+        /** Width of the value column right of the track. */
+        float valueW = VALUE_W;
 
         SliderRow(String key, double min, double max, boolean log, boolean integer, String format, DoubleSupplier getter, DoubleConsumer setter) {
             super(key);
@@ -215,6 +203,30 @@ public final class TeyvatConfigScreen extends Screen {
 
         static SliderRow ofInt(String key, ModConfigSpec.IntValue v, int min, int max) {
             return new SliderRow(key, min, max, false, true, "%d", () -> MapConfig.get(v), d -> v.set((int) Math.round(d)));
+        }
+
+        /** A whole number whose 0 means "Auto" (shown as the word). */
+        static SliderRow ofAuto(String key, ModConfigSpec.IntValue v, int max) {
+            SliderRow r = new SliderRow(key, 0, max, false, true, "%d", () -> MapConfig.get(v), d -> v.set((int) Math.round(d)));
+            r.labeler = d -> Math.round(d) == 0 ? Component.translatable("teyvatcartographia.config.value.auto").getString()
+                    : Integer.toString((int) Math.round(d));
+            return r;
+        }
+
+        /**
+         * A choice in steps, shown by name ("Off", "Map", ...): an on/off setting with its sub-settings folded into one
+         * slider. {@code get} and {@code set} turn the step into the settings behind it.
+         */
+        static SliderRow ofSteps(String key, String[] stepKeys, java.util.function.IntSupplier get, java.util.function.IntConsumer set) {
+            SliderRow r = new SliderRow(key, 0, stepKeys.length - 1, false, true, "%d", get::getAsInt, d -> set.accept((int) Math.round(d)));
+            r.stepKeys = stepKeys;
+            r.labeler = d -> Component.translatable(stepKeys[(int) Math.max(0, Math.min(stepKeys.length - 1, Math.round(d)))]).getString();
+            return r;
+        }
+
+        /** A whole number shown as a percentage ("20%"). */
+        static SliderRow ofPercent(String key, ModConfigSpec.IntValue v, int min, int max) {
+            return new SliderRow(key, min, max, false, true, "%d%%", () -> MapConfig.get(v), d -> v.set((int) Math.round(d)));
         }
 
         static SliderRow ofDouble(String key, ModConfigSpec.DoubleValue v, double min, double max, boolean log, String format) {
@@ -246,36 +258,57 @@ public final class TeyvatConfigScreen extends Screen {
             return integer ? Math.round(v) : Math.round(v * 100) / 100.0;
         }
 
-        /** Track spans the right half minus the value column; 8 units of inset so the knob never overhangs. */
+        /**
+         * The track starts where the choice buttons and switches of the other rows start (the middle of the row) and
+         * ends a padding before the value column; the knob is centred on its ends at the lowest and highest value.
+         */
         float trackX(float x, float w) {
-            return x + w / 2 + Grid.PAD;
+            return x + w / 2;
         }
 
         float trackW(float w) {
-            return w / 2 - VALUE_W - 2 * Grid.PAD;
+            return w / 2 - valueW - Grid.PAD;
         }
 
         @Override
         void render(GuiGraphics g, float x, float w, int mx, int my) {
             renderLabel(g, x, w);
-            float tx = trackX(x, w), tw = trackW(w), cy = y + Grid.ROW / 2f;
+            if (stepKeys != null) {
+                // The value column fits the longest step name (in the current language).
+                int widest = 0;
+                for (String k : stepKeys) widest = Math.max(widest, DrawText.width(Component.translatable(k)));
+                valueW = Math.max(VALUE_W, widest + Grid.GAP); // a gap between the knob at the end and the word
+            }
+            float tx0 = trackX(x, w), tw0 = trackW(w), cy = y + Grid.ROW / 2f;
+            // The knob moves inside the track: at the ends its edge, not its centre, meets the track's ends.
+            float half = knobHalf(), tx = tx0 + half, tw = tw0 - 2 * half;
+            if (stepKeys != null) {
+                // A small mark at every step, under the knob.
+                for (int i = 0; i < stepKeys.length; i++) {
+                    float sx = Math.round(tx + tw * i / (stepKeys.length - 1f));
+                    Draw.rect(g, sx - 0.5f, cy - 4, sx + 0.5f, cy + 4, Theme.SLIDER_TICK);
+                }
+            }
             double v = getter.getAsDouble();
             float t = (float) Math.max(0, Math.min(1, toT(v)));
-            boolean hover = Draw.inRect(mx, my, tx - Grid.PAD, y, tw + 2 * Grid.PAD, Grid.ROW);
-            if (Theme.Style.square) {
-                Draw.bevel(g, tx, cy - 3, tw, 6, Theme.TOGGLE_TRACK_OFF, Theme.BEVEL_BORDER, true);
-                Draw.rect(g, tx + 1, cy - 2, tx + 1 + Math.max(0, (tw - 2) * t), cy + 2, Theme.GOLD);
-                Draw.bevel(g, Math.round(tx + tw * t) - 4, cy - 7, 8, 14, Theme.TOGGLE_KNOB, hover ? Theme.WHITE : Theme.SLIDER_TICK, false);
+            boolean hover = Draw.inRect(mx, my, tx0 - Grid.PAD, y, tw0 + 2 * Grid.PAD, Grid.ROW);
+            if (Theme.Style.squareUi) {
+                // As the rounded slider with square shapes: a flat track, its filled part, a framed square-cornered knob.
+                Draw.rect(g, tx0, cy - 2, tx0 + tw0, cy + 2, Theme.TOGGLE_TRACK_OFF);
+                Draw.rect(g, tx0, cy - 2, tx + tw * t, cy + 2, Theme.GOLD);
+                float kx = Math.round(tx + tw * t), kh = hover ? 7 : 6;
+                Draw.rect(g, kx - 4, cy - kh, kx + 4, cy + kh, Theme.TOGGLE_KNOB);
+                Draw.frame(g, kx - 4, cy - kh, 8, 2 * kh, 1, Theme.SLIDER_TICK);
             } else {
-                Draw.capsule(g, tx, cy - 2, tw, 4, Theme.TOGGLE_TRACK_OFF);
-                Draw.capsule(g, tx, cy - 2, Math.max(4, tw * t), 4, Theme.GOLD);
+                Draw.capsule(g, tx0, cy - 2, tw0, 4, Theme.TOGGLE_TRACK_OFF);
+                Draw.capsule(g, tx0, cy - 2, Math.max(4, half + tw * t), 4, Theme.GOLD);
                 float k = hover ? 7 : 6;
                 Draw.diamond(g, tx + tw * t, cy, k, Theme.TOGGLE_KNOB);
                 Draw.diamondOutline(g, tx + tw * t, cy, k, 1, Theme.SLIDER_TICK);
             }
             String text = labeler != null ? labeler.apply(v)
                     : integer ? String.format(Locale.ROOT, format, (int) Math.round(v)) : String.format(Locale.ROOT, format, v);
-            DrawText.room(text, VALUE_W + Grid.GAP); // right of the track and its knob
+            DrawText.room(text, valueW + Grid.GAP); // right of the track and its knob
             DrawText.textRight(g, Component.literal(text), x + w, DrawText.textY(y, Grid.ROW), Theme.CREAM, false);
         }
 
@@ -288,8 +321,14 @@ public final class TeyvatConfigScreen extends Screen {
 
         @Override
         void drag(double mx, float x, float w) {
-            setter.accept(fromT((mx - trackX(x, w)) / trackW(w)));
+            float half = knobHalf();
+            setter.accept(fromT((mx - trackX(x, w) - half) / (trackW(w) - 2 * half)));
             MapConfig.save();
+        }
+
+        /** Half the knob along the track: the square handle, or the diamond (the larger one while hovered). */
+        static float knobHalf() {
+            return Theme.Style.squareUi ? 4 : 7;
         }
     }
 
@@ -320,7 +359,7 @@ public final class TeyvatConfigScreen extends Screen {
             float bx = bx(x, w), bw = w / 2, by = by();
             boolean hover = Draw.inRect(mx, my, bx, by, bw, H);
             Component c = Component.translatable("teyvatcartographia.config.value." + MapConfig.get(value).name().toLowerCase(Locale.ROOT));
-            cycler(g, bx, by, bw, H, c, hover, active());
+            cycler(g, bx, by, bw, H, c, hover, true);
         }
 
         @Override
@@ -345,7 +384,7 @@ public final class TeyvatConfigScreen extends Screen {
     static void cycler(GuiGraphics g, float bx, float by, float bw, float h, Component value, boolean hover, boolean active) {
         hover &= active;
         int fill = active ? hover ? Theme.BUTTON_HOVER : Theme.BUTTON : Ui.inactive(Theme.BUTTON);
-        if (Theme.Style.square) Draw.bevel(g, bx, by, bw, h, fill, hover ? Theme.BUTTON_HOVER_OUTLINE : Theme.BEVEL_BORDER, false);
+        if (Theme.Style.squareUi) Draw.rect(g, bx, by, bx + bw, by + h, fill);
         else Draw.capsule(g, bx, by, bw, h, fill);
         DrawText.room(value, bw - 2 * h); // between the arrows in the caps
         DrawText.textCentered(g, value, bx + bw / 2, DrawText.textY(by, h), active ? Theme.CREAM : Ui.inactive(Theme.CREAM), false);
@@ -387,12 +426,30 @@ public final class TeyvatConfigScreen extends Screen {
         }
     }
 
+    private static final String[] CLOCK_STEPS = {"teyvatcartographia.config.step.off", "teyvatcartographia.config.step.game",
+            "teyvatcartographia.config.step.real", "teyvatcartographia.config.step.both"};
+    private static final String[] PIN_STEPS = {"teyvatcartographia.config.step.off", "teyvatcartographia.config.step.map",
+            "teyvatcartographia.config.step.maps", "teyvatcartographia.config.step.everywhere"};
+    private static final String[] PATH_STEPS = PIN_STEPS;
+
+    /** Sets an on/off setting and its three parts from a step (see {@link StepChoice}); off leaves the parts as they are. */
+    private static void setSteps(int step, ModConfigSpec.BooleanValue on, ModConfigSpec.BooleanValue map,
+                                 ModConfigSpec.BooleanValue minimap, ModConfigSpec.BooleanValue world) {
+        on.set(StepChoice.on(step));
+        if (!StepChoice.on(step)) return;
+        map.set(StepChoice.map(step));
+        minimap.set(StepChoice.minimap(step));
+        world.set(StepChoice.world(step));
+    }
+
     public TeyvatConfigScreen(Screen parent) {
         super(Component.translatable("teyvatcartographia.config.title"));
         this.parent = parent;
         // Appearance
         rows.add(new Section("teyvatcartographia.config.section.appearance"));
         rows.add(new ThemeRow());
+        rows.add(new EnumRow<>("teyvatcartographia.config.minimap_shape", MapConfig.MINIMAP_SHAPE, MapConfig.MinimapShape.values(), Theme.Style::update));
+        rows.add(new EnumRow<>("teyvatcartographia.config.interface_style", MapConfig.INTERFACE_STYLE, MapConfig.InterfaceStyle.values(), Theme.Style::update));
         // World map
         rows.add(new Section("teyvatcartographia.config.section.worldmap"));
         rows.add(SliderRow.ofZoom("teyvatcartographia.config.map_zoom", MapConfig.MAP_DEFAULT_ZOOM));
@@ -411,28 +468,37 @@ public final class TeyvatConfigScreen extends Screen {
         rows.add(SliderRow.ofInt("teyvatcartographia.config.minimap_offset_x", MapConfig.MINIMAP_OFFSET_X, 0, 300));
         rows.add(SliderRow.ofInt("teyvatcartographia.config.minimap_offset_y", MapConfig.MINIMAP_OFFSET_Y, 0, 300));
         rows.add(SliderRow.ofDouble("teyvatcartographia.config.minimap_opacity", MapConfig.MINIMAP_OPACITY, 0.2, 1.0, false, "%.2f"));
+        rows.add(SliderRow.ofInt("teyvatcartographia.config.minimap_padding", MapConfig.MINIMAP_PADDING, 0, 16));
+        rows.add(SliderRow.ofPercent("teyvatcartographia.config.minimap_fade_width", MapConfig.MINIMAP_FADE_WIDTH, 0, 50));
+        rows.add(SliderRow.ofPercent("teyvatcartographia.config.minimap_fade_strength", MapConfig.MINIMAP_FADE_STRENGTH, 0, 100));
         rows.add(new SubSection("teyvatcartographia.config.subsection.minimap_info"));
+        rows.add(SliderRow.ofInt("teyvatcartographia.config.minimap_info_gap", MapConfig.MINIMAP_INFO_GAP, 0, 16));
+        rows.add(SliderRow.ofAuto("teyvatcartographia.config.minimap_text_size", MapConfig.MINIMAP_TEXT_SIZE, 6));
         rows.add(new BoolRow("teyvatcartographia.config.minimap_coords", MapConfig.MINIMAP_SHOW_COORDS));
         rows.add(new BoolRow("teyvatcartographia.config.minimap_biome", MapConfig.MINIMAP_SHOW_BIOME));
-        rows.add(new BoolRow("teyvatcartographia.config.minimap_time", MapConfig.MINIMAP_SHOW_TIME));
-        rows.add(new EnumRow<>("teyvatcartographia.config.minimap_time_source", MapConfig.MINIMAP_TIME_SOURCE, MapConfig.TimeSource.values(), null).under(MapConfig.MINIMAP_SHOW_TIME));
-        // Pins: each kind on or off as a whole, with where it is shown; then the path to a tracked pin of each kind
+        // The clock as one choice: off, game time, real time, both.
+        rows.add(SliderRow.ofSteps("teyvatcartographia.config.minimap_time", CLOCK_STEPS,
+                () -> StepChoice.clock(MapConfig.get(MapConfig.MINIMAP_SHOW_TIME), MapConfig.get(MapConfig.MINIMAP_TIME_SOURCE)),
+                s -> {
+                    MapConfig.MINIMAP_SHOW_TIME.set(s > 0);
+                    if (s > 0) MapConfig.MINIMAP_TIME_SOURCE.set(StepChoice.clockSource(s));
+                }));
+        // Pins: each kind as one choice (off, the map, both maps, everywhere with the beam); then the path to a tracked
+        // pin of each kind the same way (everywhere with the stars).
         rows.add(new Section("teyvatcartographia.config.section.pins"));
         rows.add(new SubSection("teyvatcartographia.config.subsection.pins_display"));
         for (MapConfig.PinKind kind : MapConfig.PinKind.values()) {
             MapConfig.PinOptions o = MapConfig.pins(kind);
-            rows.add(new BoolRow("teyvatcartographia.config.pins." + kind.id, o.enabled));
-            rows.add(new BoolRow("teyvatcartographia.config.pins.map", o.map).under(o.enabled));
-            rows.add(new BoolRow("teyvatcartographia.config.pins.minimap", o.minimap).under(o.enabled));
-            rows.add(new BoolRow("teyvatcartographia.config.pins.beam", o.beam).under(o.enabled));
+            rows.add(SliderRow.ofSteps("teyvatcartographia.config.pins." + kind.id, PIN_STEPS,
+                    () -> StepChoice.level(MapConfig.get(o.enabled), MapConfig.get(o.map), MapConfig.get(o.minimap), MapConfig.get(o.beam)),
+                    s -> setSteps(s, o.enabled, o.map, o.minimap, o.beam)));
         }
         rows.add(new SubSection("teyvatcartographia.config.subsection.pins_path"));
         for (MapConfig.PinKind kind : MapConfig.PinKind.values()) {
             MapConfig.PinOptions o = MapConfig.pins(kind);
-            rows.add(new BoolRow("teyvatcartographia.config.path." + kind.id, o.path));
-            rows.add(new BoolRow("teyvatcartographia.config.path.map", o.pathMap).under(o.path));
-            rows.add(new BoolRow("teyvatcartographia.config.path.minimap", o.pathMinimap).under(o.path));
-            rows.add(new BoolRow("teyvatcartographia.config.path.world", o.pathWorld).under(o.path));
+            rows.add(SliderRow.ofSteps("teyvatcartographia.config.path." + kind.id, PATH_STEPS,
+                    () -> StepChoice.level(MapConfig.get(o.path), MapConfig.get(o.pathMap), MapConfig.get(o.pathMinimap), MapConfig.get(o.pathWorld)),
+                    s -> setSteps(s, o.path, o.pathMap, o.pathMinimap, o.pathWorld)));
         }
         // Cartography: how the map is drawn and how much work it may take
         rows.add(new Section("teyvatcartographia.config.section.cartography"));
@@ -452,7 +518,7 @@ public final class TeyvatConfigScreen extends Screen {
 
     @Override
     public void renderBackground(GuiGraphics g, int mx, int my, float pt) {
-        FogTexture.draw(g, 0, 0, width, height, 0, 0, Theme.Style.fogTile, Theme.WHITE);
+        FogTexture.draw(g, 0, 0, width, height, 0, 0, Theme.Style.FOG_TILE, Theme.WHITE);
     }
 
     private void layout() {
@@ -553,7 +619,7 @@ public final class TeyvatConfigScreen extends Screen {
         }
         if (my >= listTop && my < listBottom) {
             for (Row r : rows) {
-                if (r.shown() && r.active() && r.click(mx, my, contentX(), contentW())) {
+                if (r.shown() && r.click(mx, my, contentX(), contentW())) {
                     if (r instanceof SliderRow) draggingRow = r;
                     return true;
                 }

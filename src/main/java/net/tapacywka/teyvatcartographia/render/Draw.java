@@ -254,36 +254,6 @@ public final class Draw {
         endColor(b);
     }
 
-    /**
-     * Vanilla Minecraft style box: {@code fill}, a 1-unit {@link Theme#BEVEL_BORDER} outline and a 1-unit bevel inside
-     * it (light top/left, dark bottom/right), all on whole GUI units like vanilla widgets. One draw call.
-     */
-    public static void bevel(GuiGraphics g, float x, float y, float w, float h, int fill) {
-        bevel(g, x, y, w, h, fill, Theme.BEVEL_BORDER, false);
-    }
-
-    /** As above with a custom outline; {@code pressed} swaps light and dark (sunken look, e.g. slots and tracks). */
-    public static void bevel(GuiGraphics g, float x, float y, float w, float h, int fill, int border, boolean pressed) {
-        float x0 = snap(x), y0 = snap(y), x1 = snap(x + w), y1 = snap(y + h);
-        int light = pressed ? Theme.BEVEL_DARK : Theme.BEVEL_LIGHT, dark = pressed ? Theme.BEVEL_LIGHT : Theme.BEVEL_DARK;
-        Matrix4f m = mat(g);
-        BufferBuilder b = beginColor();
-        // outline
-        quad(b, m, x0, y0, x1, y0 + 1, border);
-        quad(b, m, x0, y1 - 1, x1, y1, border);
-        quad(b, m, x0, y0 + 1, x0 + 1, y1 - 1, border);
-        quad(b, m, x1 - 1, y0 + 1, x1, y1 - 1, border);
-        // fill, then the bevel over it
-        quad(b, m, x0 + 1, y0 + 1, x1 - 1, y1 - 1, fill);
-        if (x1 - x0 > 4 && y1 - y0 > 4) {
-            quad(b, m, x0 + 1, y0 + 1, x1 - 1, y0 + 2, light);
-            quad(b, m, x0 + 1, y0 + 2, x0 + 2, y1 - 2, light);
-            quad(b, m, x0 + 1, y1 - 2, x1 - 1, y1 - 1, dark);
-            quad(b, m, x1 - 2, y0 + 2, x1 - 1, y1 - 2, dark);
-        }
-        endColor(b);
-    }
-
     public static void gradientRectV(GuiGraphics g, float x0, float y0, float x1, float y1, int top, int bottom) {
         Matrix4f m = mat(g);
         x0 = snap(x0); y0 = snap(y0); x1 = snap(x1); y1 = snap(y1);
