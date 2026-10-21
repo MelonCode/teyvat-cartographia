@@ -219,6 +219,12 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     private Component pillCoords, pillBiome, pillTime;
     private Component[] coordsLines, biomeLines, timeLines;
     private int pillR, screenW;
+    private float coordsW, biomeW, timeW;
+
+    /** Width of one of the three laid-out pills (measured in {@link #layoutPills}). */
+    private float widthOf(Component[] lines) {
+        return lines == coordsLines ? coordsW : lines == biomeLines ? biomeW : timeW;
+    }
 
     /**
      * Lays out the pills for a minimap of radius {@code r} (the biome name wrapped to its width), only when a text or
@@ -233,6 +239,10 @@ public final class MinimapLayer implements LayeredDraw.Layer {
             coordsLines = pillLines(coordsLine, 2 * r, false);
             biomeLines = pillLines(biomeLine, 2 * r, true);
             timeLines = pillLines(timeLine, 2 * r, false);
+            // Measured here, once per layout: the pills' positions are worked out every frame.
+            coordsW = pillWidth(coordsLines);
+            biomeW = pillWidth(biomeLines);
+            timeW = pillWidth(timeLines);
         }
         int pills = (coordsLine != null ? 1 : 0) + (biomeLine != null ? 1 : 0) + (timeLine != null ? 1 : 0);
         return pills == 0 ? 0 : Grid.GAP + pillHeight(coordsLines) + pillHeight(biomeLines) + pillHeight(timeLines) + (pills - 1) * Grid.GAP;
@@ -240,7 +250,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
 
     /** Left edge of a pill: centred under the map, shifted inward at the screen edge; on the pixel grid. */
     private float pillX(Component[] lines, float cx) {
-        return Draw.snap(MinimapFit.pillLeft(pillWidth(lines), cx, screenW));
+        return Draw.snap(MinimapFit.pillLeft(widthOf(lines), cx, screenW));
     }
 
     private float pillLeft(Component[] lines, float cx) {
@@ -248,7 +258,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     }
 
     private float pillRight(Component[] lines, float cx) {
-        return lines == null ? -Float.MAX_VALUE : pillX(lines, cx) + pillWidth(lines) + 2;
+        return lines == null ? -Float.MAX_VALUE : pillX(lines, cx) + widthOf(lines) + 2;
     }
 
     /**
@@ -463,7 +473,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     /** Pill centred on cx at y, if there are lines (each centred in it); returns the y of the next pill. */
     private float pill(GuiGraphics g, float cx, float y, Component[] lines, int color, float alpha) {
         if (lines == null) return y;
-        float w = pillWidth(lines);
+        float w = widthOf(lines);
         int h = pillHeight(lines);
         float x = pillX(lines, cx);
         int fill = Theme.withAlpha(Theme.INFO_BOX, alpha);
