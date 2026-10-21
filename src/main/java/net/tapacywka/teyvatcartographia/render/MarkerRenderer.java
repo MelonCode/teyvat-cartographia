@@ -11,7 +11,7 @@ import net.minecraft.client.gui.GuiGraphics;
  *       sends out a ring every 2.5 seconds on the world map ({@link #pulse});</li>
  *   <li><b>in menus</b> (pin type grid, pin list): the glyph on a tile ({@link #badge}).</li>
  * </ul>
- * Round themes draw circles and rounded tiles, square themes squares and bevelled tiles.
+ * The rounded interface style draws circles and rounded tiles, the rectangular one squares and square tiles.
  */
 public final class MarkerRenderer {
     private MarkerRenderer() {}

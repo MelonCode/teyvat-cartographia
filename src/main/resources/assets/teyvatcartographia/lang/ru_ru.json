@@ -101,7 +101,7 @@
   "teyvatcartographia.config.minimap_shape": "Форма мини-карты",
   "teyvatcartographia.config.minimap_shape.tooltip": "Квадратная или круглая мини-карта, независимо от вида остального интерфейса.",
   "teyvatcartographia.config.interface_style": "Вид интерфейса",
-  "teyvatcartographia.config.interface_style.tooltip": "Прямоугольный: панели, кнопки и плитки с фаской, как в обычном Minecraft. Скруглённый: круги, капсулы и скруглённые углы.",
+  "teyvatcartographia.config.interface_style.tooltip": "Прямоугольный: плоские панели, кнопки и плитки с прямыми углами. Скруглённый: круги, капсулы и скруглённые углы.",
   "teyvatcartographia.theme.default": "Стандартная",
 
   "teyvatcartographia.config.section.worldmap": "Карта мира",

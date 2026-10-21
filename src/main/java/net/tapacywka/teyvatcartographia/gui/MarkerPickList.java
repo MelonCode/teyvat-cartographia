@@ -14,7 +14,7 @@ import java.util.List;
  * of rows (icon + name) at the right edge of the screen; clicking a row selects that pin.
  * <ul>
  *   <li>At most {@link #MAX_ROWS} rows at a time; longer lists scroll (mouse wheel) and show a thin scroll bar.</li>
- *   <li>Rows are dark bands with a rounded (round themes) or straight left end that fade out to the right.</li>
+ *   <li>Rows are dark bands with a rounded (rounded style) or straight left end that fade out to the right.</li>
  *   <li>The list sits in the lower right corner, with the off-screen indicators' gap to the right and bottom edges.</li>
  * </ul>
  */

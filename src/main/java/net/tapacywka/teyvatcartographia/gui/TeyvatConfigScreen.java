@@ -163,7 +163,7 @@ public final class TeyvatConfigScreen extends Screen {
         @Override
         void render(GuiGraphics g, float x, float w, int mx, int my) {
             renderLabel(g, x, w);
-            Ui.toggle(g, tx(x, w), ty(), MapConfig.get(value), mx, my, true);
+            Ui.toggle(g, tx(x, w), ty(), MapConfig.get(value), mx, my);
         }
 
         @Override
@@ -359,7 +359,7 @@ public final class TeyvatConfigScreen extends Screen {
             float bx = bx(x, w), bw = w / 2, by = by();
             boolean hover = Draw.inRect(mx, my, bx, by, bw, H);
             Component c = Component.translatable("teyvatcartographia.config.value." + MapConfig.get(value).name().toLowerCase(Locale.ROOT));
-            cycler(g, bx, by, bw, H, c, hover, true);
+            cycler(g, bx, by, bw, H, c, hover);
         }
 
         @Override

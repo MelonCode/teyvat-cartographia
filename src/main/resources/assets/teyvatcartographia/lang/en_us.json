@@ -101,7 +101,7 @@
   "teyvatcartographia.config.minimap_shape": "Minimap shape",
   "teyvatcartographia.config.minimap_shape.tooltip": "Square or round minimap, whatever the look of the rest of the interface.",
   "teyvatcartographia.config.interface_style": "Interface style",
-  "teyvatcartographia.config.interface_style.tooltip": "Rectangular: bevelled panels, buttons and tiles, like vanilla Minecraft. Rounded: circles, capsules and rounded corners.",
+  "teyvatcartographia.config.interface_style.tooltip": "Rectangular: flat panels, buttons and tiles with square corners. Rounded: circles, capsules and rounded corners.",
   "teyvatcartographia.theme.default": "Default",
 
   "teyvatcartographia.config.section.worldmap": "World map",

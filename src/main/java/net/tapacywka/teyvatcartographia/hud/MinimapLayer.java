@@ -45,8 +45,8 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 /**
- * The HUD minimap (reference: minimap.png): the map fading out towards a thin frame (a circle, or a square in square
- * themes), "N" inside the frame, player arrow with a view cone, pins inside the frame and the navigation target held
+ * The HUD minimap (reference: minimap.png): the map fading out towards a thin frame (a circle, or a square with
+ * the square minimap shape), "N" inside the frame, player arrow with a view cone, pins inside the frame and the navigation target held
  * at the edge when outside. Uses the same {@link MapView} transform and {@link TileStore} as the world map.
  */
 public final class MinimapLayer implements LayeredDraw.Layer {
@@ -727,7 +727,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     private final int[] bandColors = new int[BANDS + 1];
 
     /**
-     * Square themes: the cache as a square whose alpha fades out towards the frame, like the round minimap: an opaque
+     * Square minimap shape: the cache as a square whose alpha fades out towards the frame, like the round minimap: an opaque
      * centre square, then {@link #BANDS} square rings (4 trapezoids each) with the same smoothstep falloff.
      */
     private void drawSquareMap(GuiGraphics g, float cx, float cy, float r, float alpha) {

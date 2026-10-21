@@ -14,7 +14,7 @@ public final class MapConfig {
     /** Shape of the minimap, apart from the rest of the interface. */
     public enum MinimapShape { SQUARE, ROUND }
 
-    /** Look of the panels, buttons, tiles and pills: bevelled rectangles or circles, capsules and rounded corners. */
+    /** Look of the panels, buttons, tiles and pills: flat rectangles, or circles, capsules and rounded corners. */
     public enum InterfaceStyle { RECTANGULAR, ROUNDED }
 
     /** How often the minimap is redrawn while the player moves or turns. */
@@ -154,7 +154,7 @@ public final class MapConfig {
         THEME = b.comment("Theme (colours, icons, fog of war): the id of a folder in assets/teyvatcartographia/themes/ (built in: default; enabled resource packs may add more)")
                 .translation("teyvatcartographia.config.theme").define("theme", "default", o -> o instanceof String s && s.matches("[a-z0-9_.-]+"));
         MINIMAP_SHAPE = b.comment("Shape of the minimap: SQUARE or ROUND").translation("teyvatcartographia.config.minimap_shape").defineEnum("minimapShape", MinimapShape.SQUARE);
-        INTERFACE_STYLE = b.comment("Look of the panels, buttons and tiles: RECTANGULAR (bevelled, like vanilla Minecraft) or ROUNDED (circles, capsules, rounded corners)").translation("teyvatcartographia.config.interface_style").defineEnum("interfaceStyle", InterfaceStyle.RECTANGULAR);
+        INTERFACE_STYLE = b.comment("Look of the panels, buttons and tiles: RECTANGULAR (square corners) or ROUNDED (circles, capsules, rounded corners)").translation("teyvatcartographia.config.interface_style").defineEnum("interfaceStyle", InterfaceStyle.RECTANGULAR);
         b.pop();
 
         b.push("minimap");

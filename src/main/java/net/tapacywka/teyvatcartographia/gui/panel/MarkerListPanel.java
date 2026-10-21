@@ -402,7 +402,7 @@ public final class MarkerListPanel extends SidePanel {
             // Symbol centred in the row's leading 28 x 28 square; text starts right after it.
             MarkerRenderer.drawCentered(g, m.type, cx, cy, SYMBOL, 1f);
         } else {
-            // The biome's colour on the map: a square in square themes, a disc in round ones.
+            // The biome's colour on the map: a square in the rectangular style, a disc in the rounded one.
             int c = r.biome().color == 0 ? Theme.TEXT_MUTED : r.biome().color;
             if (Theme.Style.squareUi) Draw.rect(g, cx - SWATCH / 2f, cy - SWATCH / 2f, cx + SWATCH / 2f, cy + SWATCH / 2f, c);
             else Draw.circle(g, cx, cy, SWATCH / 2f, c);

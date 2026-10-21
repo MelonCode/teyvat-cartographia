@@ -123,12 +123,7 @@ public final class Ui {
         Draw.icon(g, icon, cx, cy, Grid.ICON, Theme.YELLOW);
     }
 
-    /** Toggle switch ({@link Grid#TOGGLE_W} x {@link Grid#TOGGLE_H}) in the style of the "Map Settings" switches. */
-    public static void toggle(GuiGraphics g, float x, float y, boolean on, int mx, int my) {
-        toggle(g, x, y, on, mx, my, true);
-    }
-
-    /** How much darker an inactive control is (a setting under one that is off, a choice with one option). */
+    /** How much darker an inactive control is (a choice with one option). */
     public static final float INACTIVE = 0.4f;
 
     /** {@code c} darkened for an inactive control. */
@@ -136,20 +131,13 @@ public final class Ui {
         return Theme.lerp(c, c & 0xFF000000, INACTIVE);
     }
 
-    /** A switch; inactive ({@code active} false): darker, no hover. */
-    public static void toggle(GuiGraphics g, float x, float y, boolean on, int mx, int my, boolean active) {
+    /** Toggle switch ({@link Grid#TOGGLE_W} x {@link Grid#TOGGLE_H}) in the style of the "Map Settings" switches. */
+    public static void toggle(GuiGraphics g, float x, float y, boolean on, int mx, int my) {
         float w = Grid.TOGGLE_W, h = Grid.TOGGLE_H, r = h / 2f;
-        boolean hover = active && Draw.inRect(mx, my, x, y, w, h);
+        boolean hover = Draw.inRect(mx, my, x, y, w, h);
         float kx = on ? x + w - r : x + r, ky = y + r;
         int track = on ? Theme.TOGGLE_TRACK_ON : Theme.TOGGLE_TRACK_OFF, outline = hover ? Theme.TOGGLE_OUTLINE_HOVER : Theme.TOGGLE_OUTLINE;
         int knob = Theme.TOGGLE_KNOB, dot = Theme.TOGGLE_TRACK_ON, cross = Theme.TOGGLE_OFF_CROSS;
-        if (!active) {
-            track = inactive(track);
-            outline = inactive(outline);
-            knob = inactive(knob);
-            dot = inactive(dot);
-            cross = inactive(cross);
-        }
         if (Theme.Style.squareUi) {
             // As the rounded switch with square shapes: a framed track and a square knob.
             Draw.rect(g, x, y, x + w, y + h, track);
@@ -233,22 +221,22 @@ public final class Ui {
         return buttonHit(cx, cy, Grid.BUTTON, mx, my);
     }
 
-    /** Hit test of a round (or, in square themes, square) button of the given diameter centred at (cx, cy). */
+    /** Hit test of a round (or, in the rectangular style, square) button of the given diameter centred at (cx, cy). */
     public static boolean buttonHit(float cx, float cy, float diameter, double mx, double my) {
         float r = diameter / 2f + 1;
         return Theme.Style.squareUi ? Draw.inRect(mx, my, cx - r, cy - r, 2 * r, 2 * r) : Draw.inCircle(mx, my, cx, cy, r);
     }
 
     /**
-     * Input/value field on the light panel: a capsule in round themes (matching the round buttons and icons it
-     * carries), a sunken rectangular slot in square ones.
+     * Input/value field on the light panel: a capsule in the rounded style (matching the round buttons and icons it
+     * carries), a plain rectangle in the rectangular one.
      */
     public static void chip(GuiGraphics g, float x, float y, float w, float h, int fill) {
         if (Theme.Style.squareUi) Draw.rect(g, x, y, x + w, y + h, fill);
         else Draw.capsule(g, x, y, w, h, fill);
     }
 
-    /** Pill shape: a capsule in round themes, a bordered rectangle in square ones. */
+    /** Pill shape: a capsule in the rounded style, a rectangle (with its outline, if any) in the rectangular one. */
     public static void pillShape(GuiGraphics g, float x, float y, float w, float h, int fill, int outline) {
         if (Theme.Style.squareUi) {
             Draw.rect(g, x, y, x + w, y + h, fill);
@@ -259,7 +247,7 @@ public final class Ui {
         }
     }
 
-    /** Tooltip box: rounded in round themes; in square ones a vanilla tooltip (fill with an inset outline). */
+    /** Tooltip box: rounded in the rounded style; in the rectangular one a vanilla tooltip (fill with an inset outline). */
     private static void tooltipBox(GuiGraphics g, float x, float y, float w, float h) {
         if (Theme.Style.squareUi) {
             Draw.rect(g, x, y, x + w, y + h, Theme.TOOLTIP);
@@ -312,7 +300,7 @@ public final class Ui {
     /** Length and half height of the pointer of {@link #popupLeftOf} (the size of the pick list's pointer). */
     private static final float POINTER_L = 5, POINTER_H = 4;
 
-    /** Corner radius of {@link #popupLeftOf} in round themes (as the tooltips). */
+    /** Corner radius of {@link #popupLeftOf} in the rounded style (as the tooltips). */
     private static final float POPUP_R = 3;
 
     /**
@@ -344,7 +332,7 @@ public final class Ui {
         for (Component l : lines) DrawText.room(l, right - Grid.MARGIN - 2 * Grid.PAD);
         float py = Math.max(y + POINTER_H + 3, Math.min(y + h - POINTER_H - 3, Draw.snap(cy)));
         float tip = right + POINTER_L, r = Theme.Style.squareUi ? 0 : POPUP_R;
-        // Blur: the box (in round themes without its corners, which the rounded fill covers) and the pointer.
+        // Blur: the box (in the rounded style without its corners, which the rounded fill covers) and the pointer.
         if (r == 0) Backdrop.draw(g, x, y, right, y + h);
         else {
             Backdrop.draw(g, x + r, y, right - r, y + h);
@@ -353,7 +341,7 @@ public final class Ui {
         }
         Backdrop.drawTriangle(g, right, py - POINTER_H, right, py + POINTER_H, tip, py);
         // Fill: box and pointer side by side (they must not overlap, the colour is translucent), then one outline
-        // around both; in square themes one unit inside the edge, as the vanilla tooltip.
+        // around both; in the rectangular style one unit inside the edge, as the vanilla tooltip.
         if (r == 0) Draw.rect(g, x, y, right, y + h, Theme.PANEL_DARK);
         else Draw.roundRect(g, x, y, w, h, r, Theme.PANEL_DARK);
         Draw.triangle(g, right, py - POINTER_H, right, py + POINTER_H, tip, py, Theme.PANEL_DARK);

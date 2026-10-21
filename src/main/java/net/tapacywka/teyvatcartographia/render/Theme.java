@@ -56,8 +56,8 @@ public final class Theme {
      */
     /**
      * The shapes the player picked in the settings, apart from the theme: the minimap square or round
-     * ({@link MapConfig#MINIMAP_SHAPE}), and the interface rectangular (bevelled widgets in the vanilla Minecraft
-     * manner) or rounded (circles, capsules and rounded corners, {@link MapConfig#INTERFACE_STYLE}).
+     * ({@link MapConfig#MINIMAP_SHAPE}), and the interface rectangular (flat, square corners) or rounded (circles,
+     * capsules and rounded corners, {@link MapConfig#INTERFACE_STYLE}).
      */
     public static final class Style {
         private Style() {}
@@ -132,7 +132,7 @@ public final class Theme {
     public static int BUTTON_ICON_DISABLED = 0xFFB0B0B0;
     public static int BUTTON_TEXT_DISABLED = 0xFFDDDDDD;
 
-    // Icon buttons (round in round themes, square in square ones)
+    // Icon buttons (round in the rounded style, square in the rectangular one)
     public static int ICON_BUTTON = 0xFF3B4255;
     public static int ICON_BUTTON_HOVER = 0xFF4A5368;
     public static int ICON_BUTTON_RING = 0x90ECE5D8;
@@ -143,7 +143,7 @@ public final class Theme {
     public static int ICON_BUTTON_LIGHT_ICON = 0xFF3B4255;
     public static int ICON_BUTTON_SHADOW = 0x50000000;
 
-    // Info boxes (capsules in round themes, rectangles in square ones)
+    // Info boxes (capsules in the rounded style, rectangles in the rectangular one)
     public static int INFO_BOX = 0xB3232833;
     public static int INFO_BOX_OUTLINE = 0x30FFFFFF;
 
@@ -231,7 +231,7 @@ public final class Theme {
     /** Minimap background on a cave layer, where nothing is explored yet. */
     public static int MINIMAP_CAVE_BACKDROP = 0xFF1C1F26;
     public static int MINIMAP_BACKDROP = 0xFF1C3442;
-    /** Outline of the square minimap frame (square themes only). */
+    /** Outline of the square minimap frame (square minimap shape only). */
     public static int MINIMAP_FRAME = 0x8CDCE6EE;
     public static int MINIMAP_FRAME_GLOW = 0x26DCE6EE;
     public static int MINIMAP_VIEW_CONE = 0x75FFFFFF;

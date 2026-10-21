@@ -178,8 +178,9 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * Square or round (**Settings > Appearance > Minimap shape**), with "N" on the rim, the player arrow and view
   cone, pins, the walking path and the tracked pin held on the rim when it is far.
 * North up or rotating with the view; size, corner, offsets, opacity, zoom and update rate (30 redraws a second while
-  you move by default).
-* Coordinates, biome (long names wrap onto two lines) and a clock (game time or your computer's time) under it.
+  you move by default). An inner padding between the frame and the map, and how wide and how strong its edge fades.
+* Coordinates, biome (long names wrap onto two lines) and a clock (game time, your computer's time, or both side by
+  side) under it, with their own spacing and text size (Auto: a step smaller than the interface, always sharp).
 
 <h3 id="pins-and-tracking">Pins and tracking</h3>
 
@@ -228,8 +229,10 @@ Place pins, search for them and for biomes, track them, follow the path and find
 
 * The gear on the map holds quick switches: the three pin kinds, biome names, chunk grid.
 * The full settings screen (also from the NeoForge mod list) has *Appearance*, *World map*, *Minimap* (display, size
-  and position, extra information), *Pins* (display and path to the target for each kind, with the beam, the lines
-  and the stars) and *Cartography*. Sub-sections fold and unfold with a click.
+  and position, extra information), *Pins* (display and path to the target for each kind) and *Cartography*.
+  Sub-sections fold and unfold with a click.
+* A setting with parts is one slider in steps: each pin kind and its path go Off, Map, Both maps, Everywhere (the
+  beam, or the stars, in the world too), and the clock Off, Game, Real, Both.
 * Reset to defaults and a shortcut to key binds. Stored in `config/teyvatcartographia-client.toml`.
 
 <h2 id="themes">🎨 Themes</h2>
