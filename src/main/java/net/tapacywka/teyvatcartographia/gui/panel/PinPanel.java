@@ -148,7 +148,7 @@ public final class PinPanel extends SidePanel {
     private boolean compactTeleport() {
         if (!canTeleport() || readOnly()) return false;
         float totalWithThree = actionY(2) - Grid.GAP - Grid.CHIP_H;
-        return gridBottom() + Grid.PAD > totalWithThree;
+        return gridY() + gridHeight() + Grid.PAD > totalWithThree;
     }
 
     private float teleportToolX() {
@@ -216,9 +216,9 @@ public final class PinPanel extends SidePanel {
         return contentX() + (contentW() - (cols * CELL - Grid.GAP)) / 2f;
     }
 
-    /** Top of section {@code k} (its header line); sections are stacked with PAD between them. */
+    /** Top of section {@code k} (its header line), scrolled; sections are stacked with PAD between them. */
     private float sectionY(int k) {
-        float y = gridY();
+        float y = gridY() - gridScroll;
         int cols = columns();
         for (int j = 0; j < k; j++) {
             int rows = (types(j).size() + cols - 1) / cols;
@@ -243,12 +243,34 @@ public final class PinPanel extends SidePanel {
         return contentX() + contentW() - Grid.TOOL;
     }
 
-    /** Bottom of the type grid (all visible sections). */
-    private float gridBottom() {
+    /** Height of the type grid (all visible sections, headers included). */
+    private float gridHeight() {
         int last = sections().size() - 1, cols = columns();
         int rows = (types(last).size() + cols - 1) / cols;
-        return sectionY(last) + SECTION_HEAD + rows * CELL - Grid.GAP;
+        return sectionY(last) + gridScroll - gridY() + SECTION_HEAD + rows * CELL - Grid.GAP;
     }
+
+    // ------------------------------------------------------------------ grid scrolling (short screens, B20)
+
+    /** How far the type grid is scrolled down; whether it was drawn yet (its first scroll shows the selected type). */
+    private float gridScroll;
+    private boolean gridShown;
+
+    /** Bottom of the room for the type grid: above the total bar. */
+    private float gridViewBottom() {
+        return totalY() - Grid.PAD;
+    }
+
+    /** On short screens (large GUI scale, small window) the grid does not fit above the total bar and scrolls. */
+    private float maxGridScroll() {
+        return Math.max(0, gridHeight() - (gridViewBottom() - gridY()));
+    }
+
+    private boolean inGridView(double my) {
+        return my >= gridY() && my < gridViewBottom();
+    }
+
+    private static final float BAR_W = 3;
 
     @Override
     protected void renderBody(GuiGraphics g, int mx, int my, float bx, float by, float bw) {
@@ -272,7 +294,21 @@ public final class PinPanel extends SidePanel {
         DrawText.text(g, coords,bx + Grid.CHIP_H, DrawText.textY(cy, Grid.CHIP_H), Theme.TEXT_DARK, false);
 
         if (!readOnly) {
-            // Type grid by section (header line, then tiles): the same tiles as in the pin list.
+            // Type grid by section (header line, then tiles): the same tiles as in the pin list. Where it does not fit
+            // above the total bar it scrolls, clipped to its room, with a thin bar in the panel's right padding.
+            float max = maxGridScroll();
+            if (!gridShown) {
+                // Opened scrolled just enough to show the selected type (an interactive one is in the last section).
+                gridShown = true;
+                for (int k = 0; k < sections().size(); k++) {
+                    int i = types(k).indexOf(type);
+                    if (i >= 0) gridScroll = slotY(k, i) + Grid.SLOT - gridViewBottom();
+                }
+            }
+            gridScroll = Math.max(0, Math.min(max, gridScroll));
+            float viewTop = gridY(), viewBottom = gridViewBottom();
+            if (max > 0) g.enableScissor((int) Math.floor(x), (int) viewTop, (int) Math.ceil(x + w), (int) viewBottom);
+            boolean hoverGrid = max == 0 || inGridView(my);
             List<MarkerType.Category> sections = sections();
             for (int k = 0; k < sections.size(); k++) {
                 Component head = Component.translatable(sections.get(k).langKey());
@@ -282,8 +318,16 @@ public final class PinPanel extends SidePanel {
                 for (int i = 0; i < types.size(); i++) {
                     MarkerType t = types.get(i);
                     float sx = slotX(i), sy = slotY(k, i), s = Grid.SLOT;
-                    MarkerRenderer.badge(g, t.icon, sx + s / 2f, sy + s / 2f, s, t == type, Draw.inRect(mx, my, sx, sy, s, s), 1f);
+                    MarkerRenderer.badge(g, t.icon, sx + s / 2f, sy + s / 2f, s, t == type, hoverGrid && Draw.inRect(mx, my, sx, sy, s, s), 1f);
                 }
+            }
+            if (max > 0) {
+                g.disableScissor();
+                float barX = x + w - Grid.PAD + 2, h = viewBottom - viewTop; // 2 units clear of the tiles
+                float th = Math.max(8, h * h / gridHeight());
+                Draw.rect(g, barX, viewTop, barX + BAR_W, viewBottom, Theme.PANEL_LIGHT_FIELD);
+                float thumbY = viewTop + (h - th) * gridScroll / max;
+                Draw.rect(g, barX, thumbY, barX + BAR_W, thumbY + th, Theme.TEXT_DARK);
             }
             // Total pins bar (delete button when editing)
             float ty = totalY();
@@ -392,7 +436,7 @@ public final class PinPanel extends SidePanel {
             return true;
         }
         if (name.click(mx, my, button)) return true;
-        for (int k = 0; k < sections().size(); k++) {
+        for (int k = 0; k < sections().size() && inGridView(my); k++) {
             List<MarkerType> types = types(k);
             for (int i = 0; i < types.size(); i++) {
                 if (Draw.inRect(mx, my, slotX(i), slotY(k, i), Grid.SLOT, Grid.SLOT)) {
@@ -441,6 +485,14 @@ public final class PinPanel extends SidePanel {
         int ty = teleportHeight();
         p.connection.sendCommand("execute in " + dimension.location() + " run tp @s " + px + ".5 " + ty + " " + pz + ".5");
         Minecraft.getInstance().setScreen(null);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double amount) {
+        if (!contains(mx, my)) return false;
+        // Half a tile per wheel step; only the type grid scrolls, and only where it does not fit.
+        if (!readOnly() && deleteLines == null) gridScroll = Math.max(0, Math.min(maxGridScroll(), gridScroll - (float) Math.signum(amount) * CELL / 2f));
+        return true;
     }
 
     @Override

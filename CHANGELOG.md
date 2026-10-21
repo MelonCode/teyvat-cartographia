@@ -26,6 +26,14 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 ### Fixes
 * Flying or in a boat over deep water, the path to the target was missing; now it leads out across the water to the
   shore, as it does for a swimming player.
+* The pin editor's type grid scrolls with the mouse wheel when it does not fit above the pin count (small windows,
+  large GUI scales), and opens showing the selected type.
+* A small minimap in a right corner no longer pushes its coordinates off the screen: a pill wider than the map is
+  shifted inward at the screen edge.
+* A minimap too large for the screen with its pills (a large size at a large GUI scale) is drawn smaller to fit;
+  the size setting keeps its value.
+* After a teleport the minimap's biome line could show Plains until the player moved; it now shows the biome as
+  soon as the chunk arrives.
 
 ## 0.1.1+mc1.21.1-neoforge
 

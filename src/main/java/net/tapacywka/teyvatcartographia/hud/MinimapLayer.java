@@ -53,6 +53,8 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     /** Info pills under/over the minimap: one text line with 4 units of padding = 16. */
     private static final int PILL_H = 16;
     private static final float ARROW = 16;
+    /** Smallest radius a minimap shrunk to fit the screen gets (the setting's own minimum). */
+    private static final int MIN_RADIUS = 24;
 
     private final MapView view = new MapView();
 
@@ -89,19 +91,16 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         Component coordsLine = MapConfig.get(MapConfig.MINIMAP_SHOW_COORDS) ? coordsText(player) : null;
         Component biomeLine = MapConfig.get(MapConfig.MINIMAP_SHOW_BIOME) ? biomeText(player) : null;
         Component timeLine = MapConfig.get(MapConfig.MINIMAP_SHOW_TIME) ? timeText(mc) : null;
-        if (coordsLine != pillCoords || biomeLine != pillBiome || timeLine != pillTime || r != pillR) {
-            // Laid out (the biome name wrapped to the minimap's width) and measured only when a text or the size changes.
-            pillCoords = coordsLine;
-            pillBiome = biomeLine;
-            pillTime = timeLine;
-            pillR = r;
-            coordsLines = pillLines(coordsLine, 2 * r, false);
-            biomeLines = pillLines(biomeLine, 2 * r, true);
-            timeLines = pillLines(timeLine, 2 * r, false);
-            pillHalf = Math.max(pillWidth(coordsLines), Math.max(pillWidth(biomeLines), pillWidth(timeLines))) / 2f;
+        int textBlock = layoutPills(coordsLine, biomeLine, timeLine, r);
+        // A minimap larger than the screen allows (with its pills, at a large GUI scale) is drawn smaller to fit; the
+        // setting keeps its value. A smaller map may wrap the biome to more lines, so the fit is checked once more.
+        for (int i = 0; i < 2; i++) {
+            int fit = MinimapFit.radius(r, g.guiWidth(), g.guiHeight(), textBlock, MIN_RADIUS);
+            if (fit == r) break;
+            r = fit;
+            textBlock = layoutPills(coordsLine, biomeLine, timeLine, r);
         }
-        int pills = (coordsLine != null ? 1 : 0) + (biomeLine != null ? 1 : 0) + (timeLine != null ? 1 : 0);
-        int textBlock = pills == 0 ? 0 : Grid.GAP + pillHeight(coordsLines) + pillHeight(biomeLines) + pillHeight(timeLines) + (pills - 1) * Grid.GAP;
+        screenW = g.guiWidth();
         boolean textBelow;
 
         int ox = MapConfig.get(MapConfig.MINIMAP_OFFSET_X), oy = MapConfig.get(MapConfig.MINIMAP_OFFSET_Y);
@@ -153,8 +152,11 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         boolean path = targetOptions != null && targetOptions.pathOnMinimap() && Navigation.inPlayerDimension(target, player);
         Navigation.setPathWanted(Navigation.PATH_MINIMAP, path);
         int route = path ? Route.version() : Integer.MIN_VALUE;
-        float half = Math.max(r + 4, pillHalf + 2);
-        int bx0 = (int) Math.floor(cx - half), bx1 = (int) Math.ceil(cx + half);
+        // The layer spans the map and the pills (shifted inward at the screen edge).
+        Component[] cl = coordsLine == null ? null : coordsLines, bl = biomeLine == null ? null : biomeLines, tl = timeLine == null ? null : timeLines;
+        float left = Math.min(cx - r - 4, Math.min(pillLeft(cl, cx), Math.min(pillLeft(bl, cx), pillLeft(tl, cx))));
+        float right = Math.max(cx + r + 4, Math.max(pillRight(cl, cx), Math.max(pillRight(bl, cx), pillRight(tl, cx))));
+        int bx0 = (int) Math.floor(left), bx1 = (int) Math.ceil(right);
         int by0 = (int) Math.floor(textBelow ? cy - r - 4 : cy - r - 4 - textBlock);
         int by1 = (int) Math.ceil(textBelow ? cy + r + 4 + textBlock : cy + r + 4);
         float heading = (float) view.headingOnScreen(yaw);
@@ -213,11 +215,41 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     private float kHeading, kCx, kCy, kAlpha;
     private int kR, kBx0, kBy0, kBx1, kBy1, kGeneration, kMarkers, kAuto, kTheme, kPinState, kRoute;
     private long kDrawnNs;
-    // The pill texts and minimap radius they were laid out for, their lines, and half the width of the widest pill.
+    // The pill texts and minimap radius they were laid out for, their lines; the GUI width the pills keep inside.
     private Component pillCoords, pillBiome, pillTime;
     private Component[] coordsLines, biomeLines, timeLines;
-    private int pillR;
-    private float pillHalf;
+    private int pillR, screenW;
+
+    /**
+     * Lays out the pills for a minimap of radius {@code r} (the biome name wrapped to its width), only when a text or
+     * the radius changed; returns the height of the text block under or over the map.
+     */
+    private int layoutPills(Component coordsLine, Component biomeLine, Component timeLine, int r) {
+        if (coordsLine != pillCoords || biomeLine != pillBiome || timeLine != pillTime || r != pillR) {
+            pillCoords = coordsLine;
+            pillBiome = biomeLine;
+            pillTime = timeLine;
+            pillR = r;
+            coordsLines = pillLines(coordsLine, 2 * r, false);
+            biomeLines = pillLines(biomeLine, 2 * r, true);
+            timeLines = pillLines(timeLine, 2 * r, false);
+        }
+        int pills = (coordsLine != null ? 1 : 0) + (biomeLine != null ? 1 : 0) + (timeLine != null ? 1 : 0);
+        return pills == 0 ? 0 : Grid.GAP + pillHeight(coordsLines) + pillHeight(biomeLines) + pillHeight(timeLines) + (pills - 1) * Grid.GAP;
+    }
+
+    /** Left edge of a pill: centred under the map, shifted inward at the screen edge; on the pixel grid. */
+    private float pillX(Component[] lines, float cx) {
+        return Draw.snap(MinimapFit.pillLeft(pillWidth(lines), cx, screenW));
+    }
+
+    private float pillLeft(Component[] lines, float cx) {
+        return lines == null ? Float.MAX_VALUE : pillX(lines, cx) - 2;
+    }
+
+    private float pillRight(Component[] lines, float cx) {
+        return lines == null ? -Float.MAX_VALUE : pillX(lines, cx) + pillWidth(lines) + 2;
+    }
 
     /**
      * The area the minimap (with its pills) covered when last drawn, for the marker in the world to go around it.
@@ -351,15 +383,18 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         return coords;
     }
 
-    // The biome is looked up again only when the player enters another block.
+    // The biome is looked up again only when the player enters another block, or while the chunk under the player was
+    // not loaded yet at the last look-up (after a teleport an empty chunk answers plains until the real one arrives).
     private final BlockPos.MutableBlockPos biomePos = new BlockPos.MutableBlockPos(Integer.MIN_VALUE, 0, 0);
     private Holder<Biome> biomeHolder;
     private Component biome;
+    private boolean biomeUnloaded;
 
     private Component biomeText(LocalPlayer p) {
         int x = p.getBlockX(), y = p.getBlockY(), z = p.getBlockZ();
-        if (biome == null || x != biomePos.getX() || y != biomePos.getY() || z != biomePos.getZ()) {
+        if (biome == null || biomeUnloaded || x != biomePos.getX() || y != biomePos.getY() || z != biomePos.getZ()) {
             biomePos.set(x, y, z);
+            biomeUnloaded = !p.level().hasChunkAt(biomePos);
             Holder<Biome> h = p.level().getBiome(biomePos);
             if (h != biomeHolder || biome == null) {
                 biomeHolder = h;
@@ -426,11 +461,11 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     private static final int MIN_WRAP = 60;
 
     /** Pill centred on cx at y, if there are lines (each centred in it); returns the y of the next pill. */
-    private static float pill(GuiGraphics g, float cx, float y, Component[] lines, int color, float alpha) {
+    private float pill(GuiGraphics g, float cx, float y, Component[] lines, int color, float alpha) {
         if (lines == null) return y;
         float w = pillWidth(lines);
         int h = pillHeight(lines);
-        float x = Draw.snap(cx - w / 2f);
+        float x = pillX(lines, cx);
         int fill = Theme.withAlpha(Theme.INFO_BOX, alpha);
         // Several lines: rounded like the one-line capsule, not a taller capsule.
         if (lines.length > 1 && !Theme.Style.square) Draw.roundRect(g, x, y, w, h, PILL_H / 2f, fill);
