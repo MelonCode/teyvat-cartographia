@@ -108,7 +108,7 @@ find your way back home.
 <h2 id="installation">📥 Installation</h2>
 
 1. Install [NeoForge](https://neoforged.net) 21.1 for Minecraft 1.21.1.
-2. Download `teyvatcartographia-0.1.1+mc1.21.1-neoforge.jar` from
+2. Download `teyvatcartographia-v0.1.2+mc1.21.1-neoforge.jar` from
    [Modrinth](https://modrinth.com/mod/teyvat-cartographia) or the
    [latest GitHub release](https://github.com/Tapacywka/teyvat-cartographia/releases/latest) and put it into your
    `mods/` folder.
@@ -181,7 +181,8 @@ find your way back home.
   * **Interactive**, created by operators only (permission level 2, or cheats in singleplayer): waypoint, statue and
     domain. Only these offer **Teleport**; other players can see and track them;
   * **System**: automatic points from real data, the world spawn and your last death location.
-* Rename, retype, delete; up to 100 pins per world, a pin list sorted by distance, saved per world and dimension.
+* Rename, retype, delete (an interactive pin asks first); up to 100 pins per world, a pin list sorted by distance,
+  saved per world and dimension.
 * Track a pin or an automatic point. The tracked pin's colour depends on its kind: custom orange, interactive mint,
   system violet. Tracking an automatic point ends on arrival.
 * Distances are in blocks everywhere and in 3D: from your feet to the floor of the point.
@@ -303,7 +304,7 @@ Requirements: JDK 21 (Gradle's toolchain support will use or download one), inte
 ./gradlew build
 ```
 
-On Windows: `gradlew.bat build`. The mod JAR is written to `build/libs/teyvatcartographia-0.1.1+mc1.21.1-neoforge.jar`.
+On Windows: `gradlew.bat build`. The mod JAR is written to `build/libs/teyvatcartographia-v<version>.jar`.
 `./gradlew runClient` starts a development client with the mod.
 
 <h2 id="bug-reports-and-ideas">🐞 Bug reports and ideas</h2>

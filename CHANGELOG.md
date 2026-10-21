@@ -2,7 +2,7 @@
 
 All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>-<loader>`.
 
-## 0.1.2-dev+mc1.21.1-neoforge (in development)
+## 0.1.2+mc1.21.1-neoforge
 
 ### Map search
 * The pin list has a search field (click it, or press Ctrl+F on the world map). It finds pins of every dimension by
@@ -21,7 +21,7 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   as before.
 * The pin panel leaves the dimension out of the coordinates line when it does not fit.
 * Side panels are never narrower than 176 units, so the buttons and Russian labels fit on small GUI scales (2K at
-  GUI 6 to 8).
+  GUI 6).
 
 ### Fixes
 * Flying or in a boat over deep water, the path to the target was missing; now it leads out across the water to the
@@ -34,6 +34,9 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   the size setting keeps its value.
 * After a teleport the minimap's biome line could show Plains until the player moved; it now shows the biome as
   soon as the chunk arrives.
+
+### Other
+* The JAR file name has a "v" before the version: `teyvatcartographia-v0.1.2+mc1.21.1-neoforge.jar`.
 
 ## 0.1.1+mc1.21.1-neoforge
 
