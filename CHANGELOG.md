@@ -38,6 +38,8 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * A pin opened from the pin list goes back to that list when you close it (the cross, Esc, a click on the map, or
   saving or deleting the pin), with your search and scroll as they were. Esc or a click on the map then closes the
   list as before.
+* The zoom slider eases the map to the new scale like the mouse wheel, the + and - keys and the buttons do; its thumb
+  follows the cursor at once.
 
 ## 0.1.2+mc1.21.1-neoforge
 

@@ -80,6 +80,8 @@ public final class WorldMapScreen extends Screen {
     private Marker hovered;
 
     private boolean dragging, dragMoved, sliderDrag;
+    /** The scale was set on the zoom slider: its thumb shows the target until the map has eased there. */
+    private boolean thumbAtTarget;
     private double dragStartX, dragStartY;
     private long lastFrameNs;
     private float time;
@@ -194,7 +196,10 @@ public final class WorldMapScreen extends Screen {
 
     public void focusMarker(Marker m) {
         flyTo(m.centerX(), m.centerZ());
-        if (scale < 1) targetScale = 1;
+        if (scale < 1) {
+            targetScale = 1;
+            thumbAtTarget = false;
+        }
         selectMarker(m);
     }
 
@@ -247,6 +252,7 @@ public final class WorldMapScreen extends Screen {
         targetX = x;
         targetZ = z;
         targetScale = endScale;
+        thumbAtTarget = false;
     }
 
     public void viewDimension(ResourceKey<Level> dim) {
@@ -356,6 +362,7 @@ public final class WorldMapScreen extends Screen {
         flying = false;
         // One step in the direction of the factor (factor > 1 zooms in, < 1 zooms out).
         targetScale = MapView.stepZoom(targetScale, factor > 1 ? 1 : factor < 1 ? -1 : 0);
+        thumbAtTarget = false;
         zoomAnchored = true;
     }
 
@@ -372,7 +379,7 @@ public final class WorldMapScreen extends Screen {
         float dt = Math.min(0.1f, (now - lastFrameNs) / 1e9f);
         lastFrameNs = now;
         time += dt;
-        if (!sliderDrag) animate(dt);
+        animate(dt);
         view.set(centerX, centerZ, scale, 0, width / 2f, height / 2f);
 
         TileStore store = store();
@@ -1013,7 +1020,7 @@ public final class WorldMapScreen extends Screen {
         sliderEnd(g, x, sliderPlusY(), Icon.PLUS, Draw.inCircle(mx, my, x, sliderPlusY(), 9));
         sliderEnd(g, x, sliderMinusY(), Icon.MINUS, Draw.inCircle(mx, my, x, sliderMinusY(), 9));
         // The thumb stays inside the track: its edge, not its centre, meets the track ends at 1/16 and 16.
-        float ty = (float) (bottom - thumbHalf() - scaleToT(scale) * (bottom - top - 2 * thumbHalf()));
+        float ty = (float) (bottom - thumbHalf() - scaleToT(thumbAtTarget ? targetScale : scale) * (bottom - top - 2 * thumbHalf()));
         boolean thumbHover = sliderDrag || Draw.inCircle(mx, my, x, ty, 9);
         if (Theme.Style.squareUi) {
             // As the rounded slider with square shapes: a framed track, a thumb with its core.
@@ -1380,8 +1387,10 @@ public final class WorldMapScreen extends Screen {
         double t = (sliderBottom() - thumbHalf() - my) / (sliderBottom() - sliderTop() - 2 * thumbHalf());
         t = Math.max(0, Math.min(1, t));
         double s = tToScale(t);
-        // keep the screen centre fixed
-        scale = targetScale = clampScale(s);
+        // Keep the screen centre fixed; the map eases to the new scale like the wheel and the buttons (the thumb follows
+        // the cursor at once, drawn at the target).
+        targetScale = clampScale(s);
+        thumbAtTarget = true;
         zoomAnchored = false;
         flying = false;
         targetX = centerX;
