@@ -155,6 +155,8 @@
   "teyvatcartographia.config.minimap_info_gap.tooltip": "Расстояние от мини-карты до строк под ней (координаты, биом, часы и день) и между этими строками.",
   "teyvatcartographia.config.minimap_text_size": "Размер текста",
   "teyvatcartographia.config.minimap_text_size.tooltip": "Размер строк под мини-картой в пикселях экрана на пиксель шрифта, чтобы текст оставался чётким. Авто: на шаг меньше интерфейса (2 при масштабе GUI 3).",
+  "teyvatcartographia.config.minimap_pill_opacity": "Непрозрачность фона",
+  "teyvatcartographia.config.minimap_pill_opacity.tooltip": "Насколько непрозрачен фон строк под мини-картой. 0%: только текст.",
   "teyvatcartographia.config.subsection.minimap_info": "Дополнительная информация",
   "teyvatcartographia.config.minimap_coords": "Координаты",
   "teyvatcartographia.config.minimap_coords.tooltip": "Ваши координаты под мини-картой.",

@@ -184,7 +184,8 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * North up or rotating with the view; size, corner, offsets, opacity, zoom and update rate (30 redraws a second while
   you move by default). An inner padding between the frame and the map, and how wide and how strong its edge fades.
 * Coordinates, biome (long names wrap onto two lines), a clock (game time, your computer's time, or both side by
-  side) and a day counter under it, with their own spacing and text size (Auto: a step smaller than the interface, always sharp).
+  side) and a day counter under it, with their own spacing, text size (Auto: a step smaller than the interface, always
+  sharp) and background opacity.
 
 <h3 id="pins-and-tracking">Pins and tracking</h3>
 

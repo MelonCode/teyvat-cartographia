@@ -477,6 +477,7 @@ public final class TeyvatConfigScreen extends Screen {
         rows.add(new SubSection("teyvatcartographia.config.subsection.minimap_info"));
         rows.add(SliderRow.ofInt("teyvatcartographia.config.minimap_info_gap", MapConfig.MINIMAP_INFO_GAP, 0, 16));
         rows.add(SliderRow.ofAuto("teyvatcartographia.config.minimap_text_size", MapConfig.MINIMAP_TEXT_SIZE, 6));
+        rows.add(SliderRow.ofPercent("teyvatcartographia.config.minimap_pill_opacity", MapConfig.MINIMAP_PILL_OPACITY, 0, 100));
         rows.add(new BoolRow("teyvatcartographia.config.minimap_coords", MapConfig.MINIMAP_SHOW_COORDS));
         rows.add(new BoolRow("teyvatcartographia.config.minimap_biome", MapConfig.MINIMAP_SHOW_BIOME));
         // The clock as one choice: off, game time, real time, both.

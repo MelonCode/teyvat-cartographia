@@ -52,6 +52,7 @@ public final class MapConfig {
     public static final ModConfigSpec.IntValue MINIMAP_INFO_GAP;
     /** Size of the text under the minimap: 0 "Auto", else screen pixels per font pixel. */
     public static final ModConfigSpec.IntValue MINIMAP_TEXT_SIZE;
+    public static final ModConfigSpec.IntValue MINIMAP_PILL_OPACITY;
     public static final ModConfigSpec.DoubleValue MINIMAP_ZOOM;
     public static final ModConfigSpec.EnumValue<Orientation> MINIMAP_ORIENTATION;
     public static final ModConfigSpec.EnumValue<UpdateRate> MINIMAP_UPDATE_RATE;
@@ -170,6 +171,7 @@ public final class MapConfig {
         MINIMAP_FADE_STRENGTH = b.comment("How transparent the very edge of the map gets, in percent (0: no fading)").translation("teyvatcartographia.config.minimap_fade_strength").defineInRange("fadeStrength", 100, 0, 100);
         MINIMAP_INFO_GAP = b.comment("Gap between the minimap and the lines under it (coordinates, biome, clock, day) and between those lines, in GUI pixels").translation("teyvatcartographia.config.minimap_info_gap").defineInRange("infoGap", 2, 0, 16);
         MINIMAP_TEXT_SIZE = b.comment("Size of the text under the minimap: 0 = Auto (a step below the GUI scale), else screen pixels per font pixel, at most the GUI scale").translation("teyvatcartographia.config.minimap_text_size").defineInRange("textSize", 0, 0, 6);
+        MINIMAP_PILL_OPACITY = b.comment("Opacity of the background of the lines under the minimap, in percent (0: text only)").translation("teyvatcartographia.config.minimap_pill_opacity").defineInRange("pillOpacity", 70, 0, 100);
         MINIMAP_ZOOM = b.comment("Minimap scale in GUI pixels per block: 1/16, 1/8, 1/4, 1/3, 1/2, 1, 2, 3, 4, 8 or 16 (other values snap to the nearest). Below 1 only the tracked target keeps its pin").translation("teyvatcartographia.config.minimap_zoom").defineInRange("zoom", 1.0, 1 / 16.0, 16.0);
         MINIMAP_ORIENTATION = b.comment("NORTH_UP: north is always up. PLAYER_UP: the map rotates with the view direction").translation("teyvatcartographia.config.minimap_orientation").defineEnum("orientation", Orientation.NORTH_UP);
         MINIMAP_UPDATE_RATE = b.comment("How many times per second the minimap is redrawn while you move or turn: RATE_10, RATE_20, RATE_30, RATE_60 or UNLIMITED (every frame). Lower gives more FPS").translation("teyvatcartographia.config.minimap_rate").defineEnum("updateRate", UpdateRate.RATE_30);
@@ -214,7 +216,7 @@ public final class MapConfig {
         resetValue(THEME); resetValue(MINIMAP_SHAPE); resetValue(INTERFACE_STYLE);
         resetValue(MINIMAP_ENABLED); resetValue(MINIMAP_RADIUS); resetValue(MINIMAP_CORNER);
         resetValue(MINIMAP_OFFSET_X); resetValue(MINIMAP_OFFSET_Y); resetValue(MINIMAP_OPACITY);
-        resetValue(MINIMAP_PADDING); resetValue(MINIMAP_FADE_WIDTH); resetValue(MINIMAP_FADE_STRENGTH); resetValue(MINIMAP_INFO_GAP); resetValue(MINIMAP_TEXT_SIZE);
+        resetValue(MINIMAP_PADDING); resetValue(MINIMAP_FADE_WIDTH); resetValue(MINIMAP_FADE_STRENGTH); resetValue(MINIMAP_INFO_GAP); resetValue(MINIMAP_TEXT_SIZE); resetValue(MINIMAP_PILL_OPACITY);
         resetValue(MINIMAP_ZOOM); resetValue(MINIMAP_ORIENTATION); resetValue(MINIMAP_UPDATE_RATE); resetValue(MINIMAP_SHOW_COORDS);
         resetValue(MINIMAP_SHOW_BIOME); resetValue(MINIMAP_SHOW_TIME); resetValue(MINIMAP_TIME_SOURCE); resetValue(MINIMAP_SHOW_DAY);
         for (PinOptions o : PINS) o.reset();

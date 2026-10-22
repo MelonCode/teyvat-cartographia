@@ -93,6 +93,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         fadeStart = 1 - MapConfig.get(MapConfig.MINIMAP_FADE_WIDTH) / 100f;
         fadeEdge = 1 - MapConfig.get(MapConfig.MINIMAP_FADE_STRENGTH) / 100f;
         infoGap = MapConfig.get(MapConfig.MINIMAP_INFO_GAP);
+        pillOpacity = MapConfig.get(MapConfig.MINIMAP_PILL_OPACITY) / 100f;
         float alpha = MapConfig.get(MapConfig.MINIMAP_OPACITY).floatValue();
         double zoom = MapView.snapZoom(MapConfig.get(MapConfig.MINIMAP_ZOOM));
         boolean rotate = MapConfig.get(MapConfig.MINIMAP_ORIENTATION) == MapConfig.Orientation.PLAYER_UP;
@@ -201,6 +202,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
                 || target != kTarget || pinState != kPinState
                 || dim != kDim || textBelow != kTextBelow || Theme.generation() != kTheme
                 || padding != kPadding || rotating != kRotating || fadeStart != kFadeStart || fadeEdge != kFadeEdge || infoGap != kInfoGap
+                || pillOpacity != kPillOpacity
                 || (coordsLine == null) != (kCoords == null) || (biomeLine == null) != (kBiome == null) || (timeLine == null) != (kTime == null)
                 || (time2Line == null) != (kTime2 == null) || pillScale != kPillScale;
         boolean moved = pos.x != kX || pos.z != kZ || heading != kHeading || view.rotation != kRotation
@@ -233,6 +235,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
             kGeneration = cacheGeneration; kMarkers = MarkerStore.version(); kAuto = AutoMarkers.version();
             kTarget = target; kPinState = pinState; kRoute = route; kCoords = coordsLine; kBiome = biomeLine; kTime = timeLine; kTime2 = time2Line; kPillScale = pillScale; kDim = dim; kTextBelow = textBelow; kTheme = Theme.generation();
             kPadding = padding; kRotating = rotating; kFadeStart = fadeStart; kFadeEdge = fadeEdge; kInfoGap = infoGap;
+            kPillOpacity = pillOpacity;
         }
         Draw.texturedQuadPremultiplied(g, layer.textureId(), kBx0, kBy0, kBx1, kBy1, 0f, 1f, 1f, 0f);
     }
@@ -581,7 +584,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         g.pose().pushPose();
         g.pose().translate(x, y, 0);
         g.pose().scale(s, s, 1f);
-        int fill = Theme.withAlpha(Theme.INFO_BOX, alpha);
+        int fill = Theme.withAlpha(Theme.INFO_BOX | 0xFF000000, alpha * pillOpacity);
         // Several lines: rounded like the one-line capsule, not a taller capsule.
         if (lines.length > 1 && !Theme.Style.squareUi) Draw.roundRect(g, 0, 0, w0, h0, PILL_H / 2f, fill);
         else Ui.pillShape(g, 0, 0, w0, h0, fill, 0);
@@ -717,6 +720,8 @@ public final class MinimapLayer implements LayeredDraw.Layer {
      */
     private float fadeStart = 0.8f, fadeEdge;
     private int padding, infoGap = Grid.GAP;
+    // Opacity of the pills' background (the setting; the theme gives its colour), in the layer key.
+    private float pillOpacity = 0.7f, kPillOpacity = -1;
 
     /** Draws the cache as a disc: opaque centre, then an annulus whose alpha falls smoothly to 0 at radius r. */
     private void drawFadedDisc(GuiGraphics g, float cx, float cy, float r, float alpha) {

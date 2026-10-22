@@ -27,6 +27,8 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * The clock can show **Both** game and real time: two pills side by side, game time on the left.
 * When the minimap turns with the camera, it shows **E**, **S** and **W** too, fainter than **N** so north still stands
   out; with north up it shows only **N**, as before.
+* **Background opacity** of the lines under the minimap (Extra information): 0% leaves the text only; the default
+  70% looks as before.
 * **Day counter** (Extra information, on by default): the day of the world, in one pill
   with the game time ("Day 12 · 14:35") or in a pill of its own when the clock shows no game time. When the row is
   wider than the minimap, the real time moves to a line of its own.

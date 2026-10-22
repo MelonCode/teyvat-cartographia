@@ -155,6 +155,8 @@
   "teyvatcartographia.config.minimap_info_gap.tooltip": "Distance from the minimap to the lines under it (coordinates, biome, clock and day) and between those lines.",
   "teyvatcartographia.config.minimap_text_size": "Text size",
   "teyvatcartographia.config.minimap_text_size.tooltip": "Size of the lines under the minimap, in screen pixels per pixel of the font, so it stays sharp. Auto: one step smaller than the interface (2 at GUI scale 3).",
+  "teyvatcartographia.config.minimap_pill_opacity": "Background opacity",
+  "teyvatcartographia.config.minimap_pill_opacity.tooltip": "How opaque the background of the lines under the minimap is. 0%: text only.",
   "teyvatcartographia.config.subsection.minimap_info": "Extra information",
   "teyvatcartographia.config.minimap_coords": "Coordinates",
   "teyvatcartographia.config.minimap_coords.tooltip": "Your coordinates under the minimap.",

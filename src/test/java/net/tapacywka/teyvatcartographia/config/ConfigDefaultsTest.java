@@ -46,6 +46,7 @@ class ConfigDefaultsTest {
         assertEquals(100, MapConfig.MINIMAP_FADE_STRENGTH.getDefault());
         assertEquals(2, MapConfig.MINIMAP_INFO_GAP.getDefault());
         assertEquals(0, MapConfig.MINIMAP_TEXT_SIZE.getDefault(), "Auto");
+        assertEquals(70, MapConfig.MINIMAP_PILL_OPACITY.getDefault(), "the background of the lines as before (the theme's 0xB3)");
     }
 
     @Test
