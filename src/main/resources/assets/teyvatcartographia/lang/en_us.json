@@ -167,7 +167,7 @@
   "teyvatcartographia.config.minimap_time_source": "Clock type",
   "teyvatcartographia.config.minimap_time_source.tooltip": "Game time, your computer's time, or both side by side (game time on the left).",
   "teyvatcartographia.config.minimap_time_format": "Time format",
-  "teyvatcartographia.config.minimap_time_format.tooltip": "How the clock writes the time, game and real: 24-hour (14:35), 12-hour (2:35) or 12-hour with AM/PM (2:35 PM).",
+  "teyvatcartographia.config.minimap_time_format.tooltip": "How the clock writes the time, game and real: 24-hour (14:35), 12-hour (2:35) or 12-hour with AM/PM (2:35 PM). Available while the clock is on.",
   "teyvatcartographia.config.minimap_day": "Day counter",
   "teyvatcartographia.config.minimap_day.tooltip": "The day of the world under the minimap, together with the game time when the clock shows it.",
   "teyvatcartographia.minimap.day": "Day %s",

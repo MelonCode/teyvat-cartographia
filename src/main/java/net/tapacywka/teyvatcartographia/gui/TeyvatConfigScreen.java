@@ -23,6 +23,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.BooleanSupplier;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleSupplier;
 
@@ -339,12 +340,23 @@ public final class TeyvatConfigScreen extends Screen {
         final ModConfigSpec.EnumValue<E> value;
         final E[] values;
         final Runnable onChange;
+        /** Whether the choice does anything now (the time format only with the clock on); null: always. */
+        final BooleanSupplier activeWhen;
 
         EnumRow(String key, ModConfigSpec.EnumValue<E> value, E[] values, Runnable onChange) {
+            this(key, value, values, onChange, null);
+        }
+
+        EnumRow(String key, ModConfigSpec.EnumValue<E> value, E[] values, Runnable onChange, BooleanSupplier activeWhen) {
             super(key);
             this.value = value;
             this.values = values;
             this.onChange = onChange;
+            this.activeWhen = activeWhen;
+        }
+
+        boolean active() {
+            return activeWhen == null || activeWhen.getAsBoolean();
         }
 
         float bx(float x, float w) {
@@ -361,13 +373,14 @@ public final class TeyvatConfigScreen extends Screen {
             float bx = bx(x, w), bw = w / 2, by = by();
             boolean hover = Draw.inRect(mx, my, bx, by, bw, H);
             Component c = Component.translatable("teyvatcartographia.config.value." + MapConfig.get(value).name().toLowerCase(Locale.ROOT));
-            cycler(g, bx, by, bw, H, c, hover);
+            cycler(g, bx, by, bw, H, c, hover, active());
         }
 
         @Override
         boolean click(double mx, double my, float x, float w) {
             float bx = bx(x, w), bw = w / 2;
             if (!Draw.inRect(mx, my, bx, by(), bw, H)) return false;
+            if (!active()) return true; // inactive: the click is taken, the value stays
             int dir = mx < bx + bw / 2 ? -1 : 1;
             int i = (MapConfig.get(value).ordinal() + dir + values.length) % values.length;
             value.set(values[i]);
@@ -382,10 +395,13 @@ public final class TeyvatConfigScreen extends Screen {
         cycler(g, bx, by, bw, h, value, hover, true);
     }
 
-    /** Darker when there is nothing to choose ({@code active} false): no hover, dimmed text and arrows. */
+    /**
+     * Darker when there is nothing to choose or the choice does nothing now ({@code active} false): no hover, dimmed
+     * text and arrows, the no sign as the pointer.
+     */
     static void cycler(GuiGraphics g, float bx, float by, float bw, float h, Component value, boolean hover, boolean active) {
+        if (hover) Cursors.want(active ? Cursors.Shape.HAND : Cursors.Shape.UNAVAILABLE);
         hover &= active;
-        if (hover) Cursors.want(Cursors.Shape.HAND);
         int fill = active ? hover ? Theme.BUTTON_HOVER : Theme.BUTTON : Ui.inactive(Theme.BUTTON);
         if (Theme.Style.squareUi) Draw.rect(g, bx, by, bx + bw, by + h, fill);
         else Draw.capsule(g, bx, by, bw, h, fill);
@@ -487,7 +503,9 @@ public final class TeyvatConfigScreen extends Screen {
                     MapConfig.MINIMAP_SHOW_TIME.set(s > 0);
                     if (s > 0) MapConfig.MINIMAP_TIME_SOURCE.set(StepChoice.clockSource(s));
                 }));
-        rows.add(new EnumRow<>("teyvatcartographia.config.minimap_time_format", MapConfig.MINIMAP_TIME_FORMAT, MapConfig.TimeFormat.values(), null));
+        // The time format only matters while the clock shows a time.
+        rows.add(new EnumRow<>("teyvatcartographia.config.minimap_time_format", MapConfig.MINIMAP_TIME_FORMAT, MapConfig.TimeFormat.values(), null,
+                () -> MapConfig.get(MapConfig.MINIMAP_SHOW_TIME)));
         rows.add(new BoolRow("teyvatcartographia.config.minimap_day", MapConfig.MINIMAP_SHOW_DAY));
         // Pins: each kind as one choice (off, the map, both maps, everywhere with the beam); then the path to a tracked
         // pin of each kind the same way (everywhere with the stars).
