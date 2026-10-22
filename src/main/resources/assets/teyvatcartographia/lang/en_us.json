@@ -245,7 +245,7 @@
   "teyvatcartographia.config.max_tiles": "Cached regions",
   "teyvatcartographia.config.max_tiles.tooltip": "Map regions kept in memory. More uses more RAM.",
 
-  "teyvatcartographia.config.section.compat": "Compatibility",
+  "teyvatcartographia.config.tab.compat": "Compatibility",
   "teyvatcartographia.config.subsection.compat_aether": "The Aether",
   "teyvatcartographia.config.compat.aether_caves": "Cave map",
   "teyvatcartographia.config.compat.aether_caves.tooltip": "Map caves in the Aether too. Its islands float over the void, so under an island already counts as underground.",

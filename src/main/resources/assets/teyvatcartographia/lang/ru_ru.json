@@ -245,7 +245,7 @@
   "teyvatcartographia.config.max_tiles": "Регионов в памяти",
   "teyvatcartographia.config.max_tiles.tooltip": "Сколько регионов карты держать в памяти. Больше: выше расход памяти.",
 
-  "teyvatcartographia.config.section.compat": "Совместимость",
+  "teyvatcartographia.config.tab.compat": "Совместимость",
   "teyvatcartographia.config.subsection.compat_aether": "The Aether",
   "teyvatcartographia.config.compat.aether_caves": "Карта пещер",
   "teyvatcartographia.config.compat.aether_caves.tooltip": "Наносить на карту пещеры и в Aether. Его острова парят над пустотой, поэтому под островом уже считается «под землёй».",

@@ -43,11 +43,16 @@ public final class TeyvatConfigScreen extends Screen {
     private static final int VALUE_W = 32;
 
     private final Screen parent;
-    /** The two tabs: the general settings and the map colours; {@link #rows} is the one shown. */
-    private final List<Row> general = new ArrayList<>(), colours = new ArrayList<>();
+    /**
+     * The tabs: the general settings, the map colours and (with a supported mod in the game) the other mods; {@link #rows}
+     * is the one shown.
+     */
+    private final List<Row> general = new ArrayList<>(), colours = new ArrayList<>(), compat = new ArrayList<>();
+    private record Tab(String key, List<Row> rows) {}
+    private final List<Tab> tabs = new ArrayList<>();
     private List<Row> rows = general;
     /** The tab shown: kept while the game runs, like the open sub-sections. */
-    private static boolean coloursTab;
+    private static int tab;
     private static final int TAB_H = Grid.ROW;
     private float scroll;
     private Row draggingRow;
@@ -604,7 +609,7 @@ public final class TeyvatConfigScreen extends Screen {
         rows.add(SliderRow.ofInt("teyvatcartographia.config.scan_radius", MapConfig.SCAN_RADIUS, 2, 32));
         rows.add(SliderRow.ofInt("teyvatcartographia.config.chunks_per_tick", MapConfig.CHUNKS_PER_TICK, 1, 32));
         rows.add(SliderRow.ofInt("teyvatcartographia.config.max_tiles", MapConfig.MAX_CACHED_TILES, 32, 1024));
-        // Compatibility: a sub-section per mod, only for the mods in the game (no section without any), in the
+        // The compatibility tab: a sub-section per mod, only for the mods in the game (no tab without any), in the
         // alphabetical order of their names like the modded dimensions of the dimensions panel.
         List<ModPart> mods = new ArrayList<>();
         if (ModCompat.aether()) mods.add(new ModPart("teyvatcartographia.config.subsection.compat_aether", List.of(
@@ -615,10 +620,9 @@ public final class TeyvatConfigScreen extends Screen {
                 new BoolRow("teyvatcartographia.config.compat.xaero_hidden", MapConfig.XAERO_HIDDEN),
                 new BoolRow("teyvatcartographia.config.compat.xaero_deaths", MapConfig.XAERO_DEATHS))));
         mods.sort(Comparator.comparing(ModPart::name, String.CASE_INSENSITIVE_ORDER));
-        if (!mods.isEmpty()) rows.add(new Section("teyvatcartographia.config.section.compat"));
         for (ModPart m : mods) {
-            rows.add(new SubSection(m.key(), Component.literal(m.name())));
-            rows.addAll(m.rows());
+            compat.add(new SubSection(m.key(), Component.literal(m.name())));
+            compat.addAll(m.rows());
         }
         // The colours tab: the palette, samples of it, and the tuning of the mod's own one.
         Runnable remap = () -> MapDataManager.get().remapLoaded();
@@ -630,15 +634,19 @@ public final class TeyvatConfigScreen extends Screen {
         colours.add(SliderRow.ofPercent("teyvatcartographia.config.palette_mute", MapConfig.PALETTE_MUTE, 0, 100).activeWhen(teyvat).onChange(remap));
         colours.add(SliderRow.ofPercent("teyvatcartographia.config.palette_warmth", MapConfig.PALETTE_WARMTH, 0, 50).activeWhen(teyvat).onChange(remap));
         // Rows after a sub-heading (up to the next heading) fold with it.
-        for (List<Row> tab : List.of(general, colours)) {
+        tabs.add(new Tab("teyvatcartographia.config.tab.general", general));
+        tabs.add(new Tab("teyvatcartographia.config.tab.colours", colours));
+        if (!compat.isEmpty()) tabs.add(new Tab("teyvatcartographia.config.tab.compat", compat));
+        for (Tab t : tabs) {
             SubSection current = null;
-            for (Row r : tab) {
+            for (Row r : t.rows()) {
                 if (r instanceof Section) current = null;
                 else if (r instanceof SubSection s) current = s;
                 else r.owner = current;
             }
         }
-        rows = coloursTab ? colours : general;
+        tab = Math.min(tab, tabs.size() - 1); // the compatibility tab was shown and its mod is gone
+        rows = tabs.get(tab).rows();
     }
 
     /** Samples of the map colours (grass, leaves, sand, stone, water, snow) in the palette and tuning chosen now. */
@@ -757,13 +765,13 @@ public final class TeyvatConfigScreen extends Screen {
         }
     }
 
-    /** The tab strip under the header: General and Colours, half the width each. */
+    /** The tab strip under the header: General, Colours and Compatibility (when shown), sharing the width. */
     private float tabY() {
         return panelY + Grid.HEADER_H + Grid.GAP;
     }
 
     private float tabW() {
-        return (contentW() - Grid.GAP) / 2f;
+        return (contentW() - (tabs.size() - 1) * Grid.GAP) / tabs.size();
     }
 
     private float tabX(int i) {
@@ -812,8 +820,7 @@ public final class TeyvatConfigScreen extends Screen {
         Draw.rect(g, 0, 0, width, height, Theme.SETTINGS_DIM);
         Ui.panel(g, panelX, panelY, panelW, panelH, true, title, Icon.GEAR, mx, my);
         Backdrop.release();
-        renderTab(g, 0, "teyvatcartographia.config.tab.general", !coloursTab, mx, my);
-        renderTab(g, 1, "teyvatcartographia.config.tab.colours", coloursTab, mx, my);
+        for (int i = 0; i < tabs.size(); i++) renderTab(g, i, tabs.get(i).key(), i == tab, mx, my);
         float total = total();
         scroll = Math.max(0, Math.min(Math.max(0, total - (listBottom - listTop)), scroll));
 
@@ -854,10 +861,10 @@ public final class TeyvatConfigScreen extends Screen {
             onClose();
             return true;
         }
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < tabs.size(); i++) {
             if (Draw.inRect(mx, my, tabX(i), tabY(), tabW(), TAB_H)) {
-                coloursTab = i == 1;
-                rows = coloursTab ? colours : general;
+                tab = i;
+                rows = tabs.get(i).rows();
                 scroll = 0;
                 return true;
             }

@@ -239,10 +239,10 @@ Place pins, search for them and for biomes, track them, follow the path and find
 
 * The gear on the map holds quick switches: the three pin kinds, the path to the target, biome names, chunk grid.
 * The full settings screen (also from the NeoForge mod list) has *Appearance*, *World map*, *Minimap* (display, size
-  and position, extra information), *Pins* (display and path to the target for each kind), *Cartography* and, when a
-  supported mod is in the game, *Compatibility* (The Aether: caves there; Xaero's Minimap: the
-  import). Sub-sections fold and unfold with a click. The *Colours* tab holds the map colours: the palette, its
-  sliders and samples.
+  and position, extra information), *Pins* (display and path to the target for each kind) and
+  *Cartography*. Sub-sections fold and unfold with a click. The *Colours* tab holds the map colours: the palette, its sliders and samples. With a
+  supported mod in the game, the *Compatibility* tab has its settings (The Aether: caves there; Xaero's Minimap: the
+  import).
 * A setting with parts is one slider in steps: each pin kind and its path go Off, Map, Both maps, Everywhere (the
   beam, or the stars, in the world too), and the clock Off, Game, Real, Both.
 * Reset to defaults and a shortcut to key binds. Stored in `config/teyvatcartographia-client.toml`.
