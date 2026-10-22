@@ -28,7 +28,7 @@ public enum MarkerType {
     STRUCTURE(Icon.STRUCTURE, Category.INTERACTION),
     // Automatic points (not selectable for custom pins)
     SPAWN(Icon.SPAWN, Category.AUTO),
-    DEATH(Icon.GRAVE, Category.AUTO);
+    DEATH(Icon.DEATH, Category.AUTO);
 
     public enum Category {
         EXPLORATION, INTERACTION, AUTO;

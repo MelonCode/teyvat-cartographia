@@ -14,7 +14,7 @@ public enum Icon {
     // Operator pin types
     PARTY, STRUCTURE, SIGN,
     // Automatic points
-    SPAWN, GRAVE;
+    SPAWN, DEATH;
 
     public static final int COLUMNS = 8, CELL = 64, ATLAS_W = 512, ATLAS_H = 256;
 

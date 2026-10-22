@@ -59,6 +59,9 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * Every icon but the player arrow now comes from Nieobie's Game Icon Pack, like the pins before: the interface icons
   (close, zoom, settings, list, layers, edit, delete, export and import, search and the others), the world spawn (a
   house) and the last death (a skull). The Key binds button of the settings has a keyboard, Reset a circular arrow.
+* For theme makers: some icon files have new names, after the pins: `boss`, `food`, `clover`, `statue`, `domain`,
+  `waypoint` and `grave` are now `demon`, `meat`, `flower`, `party`, `structure`, `sign` and `death`; new ones are
+  `earth`, `keyboard` and `reset`, and the mouse pointers are in `cursors/`.
 
 ### New defaults
 * For new players and after **Reset**: the minimap 4 units from the screen corner (was 8), opacity 0.85 (was 0.95),
