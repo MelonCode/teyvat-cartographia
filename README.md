@@ -153,6 +153,9 @@ Place pins, search for them and for biomes, track them, follow the path and find
   restarts.
 * Fog of war over unexplored land, painted regions with relief shading and contour lines. The map darkens at night,
   while torches, lava and other lights keep their colour.
+* Two colour palettes (Settings > Colours): the soft painted one, with sliders for how muted and how warm it is, or
+  Original, the colours of the block textures like Xaero's Minimap, for the blocks of any mod. Colour samples show
+  the result at once.
 * Biome name labels (zoom 1/4 to 4), biome under the cursor, player and cursor coordinates, explored chunk counter,
   zoom slider (1/16 to 16), optional chunk grid.
 * **Search** in the pin list (or **Ctrl+F**): pins of every dimension by name, and the explored biomes by name. A
@@ -209,7 +212,8 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * **Export and import** from the pin list: save every pin of the world to a `.json` file, add the pins of such a file
   (or of another world's `markers.json`); repeats are skipped.
 * **Import from Xaero's Minimap** (its waypoints also show on Xaero's World Map): the waypoints of the current world
-  are found on their own, or pick any waypoint file of a Xaero world. Death points are left out.
+  are found on their own, or pick any waypoint file of a Xaero world. Settings > Compatibility > Xaero's Minimap sets
+  the pin type they get and whether hidden waypoints and death points come too.
 
 <h3 id="pin-in-the-world">Pin in the world</h3>
 
@@ -235,8 +239,10 @@ Place pins, search for them and for biomes, track them, follow the path and find
 
 * The gear on the map holds quick switches: the three pin kinds, the path to the target, biome names, chunk grid.
 * The full settings screen (also from the NeoForge mod list) has *Appearance*, *World map*, *Minimap* (display, size
-  and position, extra information), *Pins* (display and path to the target for each kind) and *Cartography*.
-  Sub-sections fold and unfold with a click.
+  and position, extra information), *Pins* (display and path to the target for each kind), *Cartography* and, when a
+  supported mod is in the game, *Compatibility* (The Aether: caves there; Xaero's Minimap: the
+  import). Sub-sections fold and unfold with a click. The *Colours* tab holds the map colours: the palette, its
+  sliders and samples.
 * A setting with parts is one slider in steps: each pin kind and its path go Off, Map, Both maps, Everywhere (the
   beam, or the stars, in the world too), and the clock Off, Game, Real, Both.
 * Reset to defaults and a shortcut to key binds. Stored in `config/teyvatcartographia-client.toml`.
@@ -269,6 +275,7 @@ Every theme follows the same layout, `assets/teyvatcartographia/themes/<id>/`:
 | `colors.json` | no | Colours as `"key": "#AARRGGBB"` or `"#RRGGBB"`. Keys are the colour fields of `render/Theme.java`; `themes/default/colors.json` lists them all. Missing keys keep the built-in defaults. |
 | `icons/64/<name>.png` | no (64 x 64) | Icons. Missing ones (or the whole folder) fall back to the `default` icons. |
 | `fog.png` | no | Seamless background for unexplored space (512 x 512 in `default`), shown at 440 GUI units per repeat whatever its resolution. Falls back to the `default` fog. |
+| `dimensions/<namespace>/<path>.json` | no | Map colours of one dimension's blocks, `{ "blocks": { "<block id>": "#AARRGGBB" } }` (for example `dimensions/aether/the_aether.json`). Used with the Teyvat Cartographia palette; other blocks keep the usual colours, and a theme's file replaces the `default` one of that dimension. |
 | `cursors/<name>.png`, `cursors/hotspots.json` | no (64 x 64) | The mouse pointers of the menus (white, tinted with the `cursor` colours) and the pixel of each that clicks. Fall back to the `default` ones. |
 
 A theme does not set any shapes: the minimap shape and the interface style are the player's settings. Colour keys

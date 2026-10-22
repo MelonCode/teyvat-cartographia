@@ -89,17 +89,17 @@ public final class XaeroWaypoints {
 
     /**
      * All waypoints under a Xaero folder: a world folder (holding {@code dim%} folders) or one
-     * dimension folder. Death points are left out; every waypoint becomes a custom star pin.
+     * dimension folder, as custom pins of the options' type (hidden waypoints and death points as the options say).
      */
-    public static List<Marker> read(Path folder) throws IOException {
+    public static List<Marker> read(Path folder, Options options) throws IOException {
         List<Marker> out = new ArrayList<>();
         if (dimension(folder) != null) {
-            readDimension(folder, out);
+            readDimension(folder, out, options);
             return out;
         }
         try (Stream<Path> s = Files.list(folder)) {
             for (Path p : (Iterable<Path>) s::iterator) {
-                if (Files.isDirectory(p) && dimension(p) != null) readDimension(p, out);
+                if (Files.isDirectory(p) && dimension(p) != null) readDimension(p, out, options);
             }
         }
         return out;
@@ -111,30 +111,47 @@ public final class XaeroWaypoints {
         return dim == null || dimension(dim) == null ? null : dim.getParent();
     }
 
-    private static void readDimension(Path dir, List<Marker> out) throws IOException {
+    private static void readDimension(Path dir, List<Marker> out, Options options) throws IOException {
         ResourceKey<Level> dim = dimension(dir);
         try (Stream<Path> s = Files.list(dir)) {
             for (Path f : (Iterable<Path>) s::iterator) {
                 if (!Files.isRegularFile(f) || !f.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".txt")) continue;
                 for (String line : Files.readAllLines(f, StandardCharsets.UTF_8)) {
-                    Marker m = parse(line, dim);
+                    Marker m = parse(line, dim, options);
                     if (m != null) out.add(m);
                 }
             }
         }
     }
 
-    /** One waypoint line, or null for other lines, death points and broken lines. */
+    /**
+     * What an import takes (the Xaero's Minimap settings of the Compatibility section): the pin type the waypoints get,
+     * whether hidden (disabled) waypoints and death points come too, and the name death points get (theirs is a key).
+     */
+    public record Options(MarkerType type, boolean hidden, boolean deaths, String deathName) {
+        /** As before these settings: every waypoint but the death points, as stars. */
+        public static final Options DEFAULT = new Options(MarkerType.STAR, true, false, "Death");
+    }
+
+    /** One waypoint line as before the settings (see {@link Options#DEFAULT}). */
     static Marker parse(String line, ResourceKey<Level> dim) {
+        return parse(line, dim, Options.DEFAULT);
+    }
+
+    /** One waypoint line, or null for other lines, broken lines and the waypoints the options leave out. */
+    static Marker parse(String line, ResourceKey<Level> dim, Options options) {
         String[] f = line.split(":");
         if (f.length < 9 || !f[0].equalsIgnoreCase("waypoint")) return null;
         try {
             int type = Integer.parseInt(f[8]);
-            if (type == 1 || type == 2) return null;
+            boolean death = type == 1 || type == 2;
+            if (death && !options.deaths()) return null;
+            if (!options.hidden() && f[7].equalsIgnoreCase("true")) return null;
             String name = f[1].replace("§§", ":").trim();
             if (name.isEmpty()) name = f[2].replace("§§", ":").trim();
+            if (death) name = options.deathName();
             int y = f[4].equals("~") ? Integer.MIN_VALUE : Integer.parseInt(f[4]);
-            return Marker.custom(name, MarkerType.STAR, dim, Integer.parseInt(f[3]), y, Integer.parseInt(f[5]));
+            return Marker.custom(name, options.type(), dim, Integer.parseInt(f[3]), y, Integer.parseInt(f[5]));
         } catch (NumberFormatException e) {
             return null;
         }

@@ -1,6 +1,7 @@
 package net.tapacywka.teyvatcartographia.map.data;
 
 import net.tapacywka.teyvatcartographia.TeyvatCartographia;
+import net.tapacywka.teyvatcartographia.compat.ModCompat;
 import net.tapacywka.teyvatcartographia.config.MapConfig;
 import net.tapacywka.teyvatcartographia.map.MapView;
 import net.tapacywka.teyvatcartographia.map.WorldId;
@@ -98,10 +99,13 @@ public final class MapDataManager {
 
     private MapDataManager() {}
 
-    /** Whether the active dimension has cave layers: a sky and no ceiling, and the setting is on. */
+    /**
+     * Whether the active dimension has cave layers: a sky and no ceiling, the setting on, and not a dimension where a
+     * mod's world makes no sense of them (the Aether's floating islands, see {@link ModCompat}).
+     */
     public boolean cavesSupported() {
         return level != null && active != null && level.dimensionType().hasSkyLight() && !level.dimensionType().hasCeiling()
-                && MapConfig.get(MapConfig.CAVES_ENABLED);
+                && MapConfig.get(MapConfig.CAVES_ENABLED) && ModCompat.caves(level.dimension());
     }
 
     /** The cave band the player is in, or null above ground (or without cave layers). */
@@ -206,6 +210,7 @@ public final class MapDataManager {
 
     public void tick() {
         Minecraft mc = Minecraft.getInstance();
+        if (TextureColors.tick()) remapLoaded(); // the texture colours were read (again): the chunks around in them
         ClientLevel lvl = mc.level;
         LocalPlayer player = mc.player;
         if (lvl == null || player == null) {

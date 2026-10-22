@@ -1,10 +1,14 @@
 package net.tapacywka.teyvatcartographia.gui;
 
+import net.tapacywka.teyvatcartographia.compat.ModCompat;
 import net.tapacywka.teyvatcartographia.config.MapConfig;
 import net.tapacywka.teyvatcartographia.config.StepChoice;
 import net.tapacywka.teyvatcartographia.gui.Ui.Grid;
 import net.tapacywka.teyvatcartographia.map.MapView;
 import net.tapacywka.teyvatcartographia.map.data.MapDataManager;
+import net.tapacywka.teyvatcartographia.map.data.MapPalette;
+import net.tapacywka.teyvatcartographia.map.data.TextureColors;
+import net.tapacywka.teyvatcartographia.marker.MarkerType;
 import net.tapacywka.teyvatcartographia.render.Backdrop;
 import net.tapacywka.teyvatcartographia.render.Draw;
 import net.tapacywka.teyvatcartographia.render.DrawText;
@@ -21,6 +25,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
@@ -38,9 +43,18 @@ public final class TeyvatConfigScreen extends Screen {
     private static final int VALUE_W = 32;
 
     private final Screen parent;
-    private final List<Row> rows = new ArrayList<>();
+    /** The two tabs: the general settings and the map colours; {@link #rows} is the one shown. */
+    private final List<Row> general = new ArrayList<>(), colours = new ArrayList<>();
+    private List<Row> rows = general;
+    /** The tab shown: kept while the game runs, like the open sub-sections. */
+    private static boolean coloursTab;
+    private static final int TAB_H = Grid.ROW;
     private float scroll;
     private Row draggingRow;
+    /** The scrollbar is being dragged; where on its thumb it was taken. */
+    private boolean draggingBar;
+    private float barGrab;
+    private static final float BAR_W = 3;
     private float panelX, panelY, panelW, panelH, listTop, listBottom;
     private int blurW = -1, blurH = -1, blurTheme = -1, blurFrames;
 
@@ -68,6 +82,12 @@ public final class TeyvatConfigScreen extends Screen {
 
         Row(String key) {
             this(key, true);
+        }
+
+        /** A row with a text of its own and no tooltip. */
+        Row(Component label) {
+            this.label = label;
+            this.tooltip = null;
         }
 
         float height() {
@@ -105,6 +125,13 @@ public final class TeyvatConfigScreen extends Screen {
         }
     }
 
+    /** A mod's sub-section of the Compatibility section: its lang key, the name it shows (title case) and its rows. */
+    private record ModPart(String key, List<Row> rows) {
+        String name() {
+            return ModCompat.titleCase(Component.translatable(key).getString());
+        }
+    }
+
     /** Sub-headings opened by the player, by their key (all start folded): kept while the game runs (not saved). */
     private static final java.util.Set<String> OPENED = new java.util.HashSet<>();
 
@@ -118,6 +145,12 @@ public final class TeyvatConfigScreen extends Screen {
 
         SubSection(String key) {
             super(key, false);
+            this.key = key;
+        }
+
+        /** A sub-heading with its own text (a mod's name); the key still keeps it open or folded. */
+        SubSection(String key, Component label) {
+            super(label);
             this.key = key;
         }
 
@@ -148,10 +181,16 @@ public final class TeyvatConfigScreen extends Screen {
 
     private static final class BoolRow extends Row {
         final ModConfigSpec.BooleanValue value;
+        final Runnable onChange; // null: nothing more to do
 
         BoolRow(String key, ModConfigSpec.BooleanValue value) {
+            this(key, value, null);
+        }
+
+        BoolRow(String key, ModConfigSpec.BooleanValue value, Runnable onChange) {
             super(key);
             this.value = value;
+            this.onChange = onChange;
         }
 
         private float tx(float x, float w) {
@@ -173,6 +212,7 @@ public final class TeyvatConfigScreen extends Screen {
             if (!Ui.toggleHit(tx(x, w), ty(), mx, my)) return false;
             value.set(!MapConfig.get(value));
             MapConfig.save();
+            if (onChange != null) onChange.run();
             return true;
         }
     }
@@ -191,6 +231,23 @@ public final class TeyvatConfigScreen extends Screen {
         String[] stepKeys;
         /** Width of the value column right of the track. */
         float valueW = VALUE_W;
+        /** Optional: when the slider can be moved (else grey, like an inactive choice), and what follows a change. */
+        BooleanSupplier activeWhen;
+        Runnable onChange;
+
+        SliderRow activeWhen(BooleanSupplier when) {
+            this.activeWhen = when;
+            return this;
+        }
+
+        SliderRow onChange(Runnable r) {
+            this.onChange = r;
+            return this;
+        }
+
+        boolean active() {
+            return activeWhen == null || activeWhen.getAsBoolean();
+        }
 
         SliderRow(String key, double min, double max, boolean log, boolean integer, String format, DoubleSupplier getter, DoubleConsumer setter) {
             super(key);
@@ -293,40 +350,46 @@ public final class TeyvatConfigScreen extends Screen {
             }
             double v = getter.getAsDouble();
             float t = (float) Math.max(0, Math.min(1, toT(v)));
+            boolean on = active();
             boolean hover = Draw.inRect(mx, my, tx0 - Grid.PAD, y, tw0 + 2 * Grid.PAD, Grid.ROW);
-            if (hover) Cursors.want(Cursors.Shape.RESIZE_H);
+            if (hover) Cursors.want(on ? Cursors.Shape.RESIZE_H : Cursors.Shape.UNAVAILABLE);
+            hover &= on;
+            int fill = on ? Theme.GOLD : Ui.inactive(Theme.GOLD), knob = on ? Theme.TOGGLE_KNOB : Ui.inactive(Theme.TOGGLE_KNOB);
             if (Theme.Style.squareUi) {
                 // As the rounded slider with square shapes: a flat track, its filled part, a framed square-cornered knob.
                 Draw.rect(g, tx0, cy - 2, tx0 + tw0, cy + 2, Theme.TOGGLE_TRACK_OFF);
-                Draw.rect(g, tx0, cy - 2, tx + tw * t, cy + 2, Theme.GOLD);
+                Draw.rect(g, tx0, cy - 2, tx + tw * t, cy + 2, fill);
                 float kx = Math.round(tx + tw * t), kh = hover ? 7 : 6;
-                Draw.rect(g, kx - 4, cy - kh, kx + 4, cy + kh, Theme.TOGGLE_KNOB);
+                Draw.rect(g, kx - 4, cy - kh, kx + 4, cy + kh, knob);
                 Draw.frame(g, kx - 4, cy - kh, 8, 2 * kh, 1, Theme.SLIDER_TICK);
             } else {
                 Draw.capsule(g, tx0, cy - 2, tw0, 4, Theme.TOGGLE_TRACK_OFF);
-                Draw.capsule(g, tx0, cy - 2, Math.max(4, half + tw * t), 4, Theme.GOLD);
+                Draw.capsule(g, tx0, cy - 2, Math.max(4, half + tw * t), 4, fill);
                 float k = hover ? 7 : 6;
-                Draw.diamond(g, tx + tw * t, cy, k, Theme.TOGGLE_KNOB);
+                Draw.diamond(g, tx + tw * t, cy, k, knob);
                 Draw.diamondOutline(g, tx + tw * t, cy, k, 1, Theme.SLIDER_TICK);
             }
             String text = labeler != null ? labeler.apply(v)
                     : integer ? String.format(Locale.ROOT, format, (int) Math.round(v)) : String.format(Locale.ROOT, format, v);
             DrawText.room(text, valueW + Grid.GAP); // right of the track and its knob
-            DrawText.textRight(g, Component.literal(text), x + w, DrawText.textY(y, Grid.ROW), Theme.CREAM, false);
+            DrawText.textRight(g, Component.literal(text), x + w, DrawText.textY(y, Grid.ROW), on ? Theme.CREAM : Ui.inactive(Theme.CREAM), false);
         }
 
         @Override
         boolean click(double mx, double my, float x, float w) {
             if (!Draw.inRect(mx, my, trackX(x, w) - Grid.PAD, y, trackW(w) + 2 * Grid.PAD, Grid.ROW)) return false;
-            drag(mx, x, w);
+            drag(mx, x, w); // an inactive slider takes the click and stays
             return true;
         }
 
         @Override
         void drag(double mx, float x, float w) {
+            if (!active()) return;
             float half = knobHalf();
+            double before = getter.getAsDouble();
             setter.accept(fromT((mx - trackX(x, w) - half) / (trackW(w) - 2 * half)));
             MapConfig.save();
+            if (onChange != null && getter.getAsDouble() != before) onChange.run();
         }
 
         /** Half the knob along the track: the square handle, or the diamond (the larger one while hovered). */
@@ -359,6 +422,14 @@ public final class TeyvatConfigScreen extends Screen {
             return activeWhen == null || activeWhen.getAsBoolean();
         }
 
+        /** The words for the values: by default {@code teyvatcartographia.config.value.<value>}. */
+        java.util.function.Function<E, Component> names;
+
+        EnumRow<E> named(java.util.function.Function<E, Component> names) {
+            this.names = names;
+            return this;
+        }
+
         float bx(float x, float w) {
             return x + w / 2;
         }
@@ -372,7 +443,8 @@ public final class TeyvatConfigScreen extends Screen {
             renderLabel(g, x, w);
             float bx = bx(x, w), bw = w / 2, by = by();
             boolean hover = Draw.inRect(mx, my, bx, by, bw, H);
-            Component c = Component.translatable("teyvatcartographia.config.value." + MapConfig.get(value).name().toLowerCase(Locale.ROOT));
+            E v = MapConfig.get(value);
+            Component c = names != null ? names.apply(v) : Component.translatable("teyvatcartographia.config.value." + v.name().toLowerCase(Locale.ROOT));
             cycler(g, bx, by, bw, H, c, hover, active());
         }
 
@@ -382,7 +454,8 @@ public final class TeyvatConfigScreen extends Screen {
             if (!Draw.inRect(mx, my, bx, by(), bw, H)) return false;
             if (!active()) return true; // inactive: the click is taken, the value stays
             int dir = mx < bx + bw / 2 ? -1 : 1;
-            int i = (MapConfig.get(value).ordinal() + dir + values.length) % values.length;
+            int cur = Math.max(0, java.util.Arrays.asList(values).indexOf(MapConfig.get(value))); // its place among the choices
+            int i = (cur + dir + values.length) % values.length;
             value.set(values[i]);
             MapConfig.save();
             if (onChange != null) onChange.run();
@@ -531,12 +604,83 @@ public final class TeyvatConfigScreen extends Screen {
         rows.add(SliderRow.ofInt("teyvatcartographia.config.scan_radius", MapConfig.SCAN_RADIUS, 2, 32));
         rows.add(SliderRow.ofInt("teyvatcartographia.config.chunks_per_tick", MapConfig.CHUNKS_PER_TICK, 1, 32));
         rows.add(SliderRow.ofInt("teyvatcartographia.config.max_tiles", MapConfig.MAX_CACHED_TILES, 32, 1024));
+        // Compatibility: a sub-section per mod, only for the mods in the game (no section without any), in the
+        // alphabetical order of their names like the modded dimensions of the dimensions panel.
+        List<ModPart> mods = new ArrayList<>();
+        if (ModCompat.aether()) mods.add(new ModPart("teyvatcartographia.config.subsection.compat_aether", List.of(
+                new BoolRow("teyvatcartographia.config.compat.aether_caves", MapConfig.AETHER_CAVES))));
+        if (ModCompat.xaero()) mods.add(new ModPart("teyvatcartographia.config.subsection.compat_xaero", List.of(
+                new EnumRow<>("teyvatcartographia.config.compat.xaero_type", MapConfig.XAERO_PIN_TYPE,
+                        MarkerType.customTypes().toArray(new MarkerType[0]), null).named(t -> Component.translatable(t.langKey())),
+                new BoolRow("teyvatcartographia.config.compat.xaero_hidden", MapConfig.XAERO_HIDDEN),
+                new BoolRow("teyvatcartographia.config.compat.xaero_deaths", MapConfig.XAERO_DEATHS))));
+        mods.sort(Comparator.comparing(ModPart::name, String.CASE_INSENSITIVE_ORDER));
+        if (!mods.isEmpty()) rows.add(new Section("teyvatcartographia.config.section.compat"));
+        for (ModPart m : mods) {
+            rows.add(new SubSection(m.key(), Component.literal(m.name())));
+            rows.addAll(m.rows());
+        }
+        // The colours tab: the palette, samples of it, and the tuning of the mod's own one.
+        Runnable remap = () -> MapDataManager.get().remapLoaded();
+        colours.add(new Section("teyvatcartographia.config.section.colours"));
+        colours.add(new EnumRow<>("teyvatcartographia.config.palette", MapConfig.PALETTE, MapConfig.Palette.values(), remap));
+        colours.add(new SwatchRow());
+        colours.add(new Section("teyvatcartographia.config.section.palette_tuning"));
+        BooleanSupplier teyvat = () -> MapConfig.get(MapConfig.PALETTE) == MapConfig.Palette.TEYVAT;
+        colours.add(SliderRow.ofPercent("teyvatcartographia.config.palette_mute", MapConfig.PALETTE_MUTE, 0, 100).activeWhen(teyvat).onChange(remap));
+        colours.add(SliderRow.ofPercent("teyvatcartographia.config.palette_warmth", MapConfig.PALETTE_WARMTH, 0, 50).activeWhen(teyvat).onChange(remap));
         // Rows after a sub-heading (up to the next heading) fold with it.
-        SubSection current = null;
-        for (Row r : rows) {
-            if (r instanceof Section) current = null;
-            else if (r instanceof SubSection s) current = s;
-            else r.owner = current;
+        for (List<Row> tab : List.of(general, colours)) {
+            SubSection current = null;
+            for (Row r : tab) {
+                if (r instanceof Section) current = null;
+                else if (r instanceof SubSection s) current = s;
+                else r.owner = current;
+            }
+        }
+        rows = coloursTab ? colours : general;
+    }
+
+    /** Samples of the map colours (grass, leaves, sand, stone, water, snow) in the palette and tuning chosen now. */
+    private static final class SwatchRow extends Row {
+        private static final String[] NAMES = {"grass", "leaves", "sand", "stone", "water", "snow"};
+        private static final int SWATCH_H = 16;
+
+        /** The samples, worked out again only when the palette, its tuning or the texture colours change. */
+        private int[] samples;
+        private long key = Long.MIN_VALUE;
+
+        SwatchRow() {
+            super(Component.empty());
+        }
+
+        private int[] samples() {
+            long k = (long) MapConfig.get(MapConfig.PALETTE).ordinal() << 48 | (long) MapConfig.get(MapConfig.PALETTE_MUTE) << 40
+                    | (long) MapConfig.get(MapConfig.PALETTE_WARMTH) << 32 | (TextureColors.water() & 0xFFFFFFFFL);
+            if (k != key || samples == null) {
+                samples = MapPalette.samples();
+                key = k;
+            }
+            return samples;
+        }
+
+        @Override
+        float height() {
+            return Grid.GAP + SWATCH_H + Grid.GAP + DrawText.LINE + Grid.GAP;
+        }
+
+        @Override
+        void render(GuiGraphics g, float x, float w, int mx, int my) {
+            int[] c = samples();
+            float cell = (w + Grid.GAP) / c.length, sw = cell - Grid.GAP, top = y + Grid.GAP;
+            for (int i = 0; i < c.length; i++) {
+                float sx = x + i * cell;
+                if (Theme.Style.squareUi) Draw.rect(g, sx, top, sx + sw, top + SWATCH_H, c[i]);
+                else Draw.roundRect(g, sx, top, sw, SWATCH_H, 4, c[i]);
+                Component name = Component.translatable("teyvatcartographia.config.swatch." + NAMES[i]);
+                DrawText.room(name, sw);
+                DrawText.textCentered(g, name, sx + sw / 2f, top + SWATCH_H + Grid.GAP, Theme.CREAM, false);
+            }
         }
     }
 
@@ -550,7 +694,7 @@ public final class TeyvatConfigScreen extends Screen {
         panelX = Math.round((width - panelW) / 2f);
         panelY = Grid.MARGIN;
         panelH = height - 2 * Grid.MARGIN;
-        listTop = panelY + Grid.HEADER_H + Grid.GAP;
+        listTop = tabY() + TAB_H + Grid.GAP;
         listBottom = footerY() - Grid.PAD;
     }
 
@@ -560,6 +704,83 @@ public final class TeyvatConfigScreen extends Screen {
 
     private float contentW() {
         return panelW - 4 * Grid.PAD;
+    }
+
+    /** Height of the rows of the tab shown (folded ones count nothing). */
+    private float total() {
+        float total = 0;
+        for (Row r : rows) total += r.listHeight();
+        return total;
+    }
+
+    // ------------------------------------------------------------------ scrollbar: in the right margin beside the list
+
+    private float barX() {
+        return contentX() + contentW() + Grid.PAD - BAR_W / 2f;
+    }
+
+    private float thumbH(float total) {
+        float view = listBottom - listTop;
+        return Math.max(Grid.ROW, view * view / total);
+    }
+
+    private float thumbY(float total) {
+        float view = listBottom - listTop, th = thumbH(total);
+        return listTop + (view - th) * scroll / (total - view);
+    }
+
+    /** A little wider than the bar, so it is easy to take; only while the list is longer than its room. */
+    private boolean barHit(double mx, double my) {
+        return total() > listBottom - listTop && my >= listTop && my < listBottom && mx >= barX() - Grid.GAP && mx < barX() + BAR_W + Grid.GAP;
+    }
+
+    private void dragBar(double my) {
+        float total = total(), view = listBottom - listTop, th = thumbH(total);
+        float t = (float) ((my - barGrab - listTop) / (view - th));
+        scroll = Math.max(0, Math.min(1, t)) * (total - view);
+    }
+
+    /** The track along the list and the thumb over the part shown; lit while pointed at or dragged. */
+    private void renderBar(GuiGraphics g, float total, int mx, int my) {
+        float view = listBottom - listTop;
+        if (total <= view) return;
+        boolean hover = barHit(mx, my);
+        if (hover) Cursors.want(Cursors.Shape.RESIZE_V);
+        float bx = barX(), th = thumbH(total), ty = thumbY(total);
+        int thumb = hover || draggingBar ? Theme.GOLD : Theme.SCROLL_THUMB;
+        if (Theme.Style.squareUi) {
+            Draw.rect(g, bx, listTop, bx + BAR_W, listBottom, Theme.SCROLL_TRACK);
+            Draw.rect(g, bx, ty, bx + BAR_W, ty + th, thumb);
+        } else {
+            Draw.roundRect(g, bx, listTop, BAR_W, view, BAR_W / 2f, Theme.SCROLL_TRACK);
+            Draw.roundRect(g, bx, ty, BAR_W, th, BAR_W / 2f, thumb);
+        }
+    }
+
+    /** The tab strip under the header: General and Colours, half the width each. */
+    private float tabY() {
+        return panelY + Grid.HEADER_H + Grid.GAP;
+    }
+
+    private float tabW() {
+        return (contentW() - Grid.GAP) / 2f;
+    }
+
+    private float tabX(int i) {
+        return contentX() + i * (tabW() + Grid.GAP);
+    }
+
+    /** One tab: the shown one in the button colour with a gold title, the other a darker button (lit under the pointer). */
+    private void renderTab(GuiGraphics g, int i, String key, boolean shown, int mx, int my) {
+        float x = tabX(i), y = tabY(), w = tabW();
+        boolean hover = !shown && Draw.inRect(mx, my, x, y, w, TAB_H);
+        if (hover) Cursors.want(Cursors.Shape.HAND);
+        int fill = shown || hover ? Theme.BUTTON : Ui.inactive(Theme.BUTTON);
+        if (Theme.Style.squareUi) Draw.rect(g, x, y, x + w, y + TAB_H, fill);
+        else Draw.capsule(g, x, y, w, TAB_H, fill);
+        Component t = Component.translatable(key);
+        DrawText.room(t, w - 2 * Grid.GAP);
+        DrawText.textCentered(g, t, x + w / 2f, DrawText.textY(y, TAB_H), shown ? Theme.GOLD : Theme.CREAM, false);
     }
 
     private float footerY() {
@@ -591,8 +812,9 @@ public final class TeyvatConfigScreen extends Screen {
         Draw.rect(g, 0, 0, width, height, Theme.SETTINGS_DIM);
         Ui.panel(g, panelX, panelY, panelW, panelH, true, title, Icon.GEAR, mx, my);
         Backdrop.release();
-        float total = 0;
-        for (Row r : rows) total += r.listHeight();
+        renderTab(g, 0, "teyvatcartographia.config.tab.general", !coloursTab, mx, my);
+        renderTab(g, 1, "teyvatcartographia.config.tab.colours", coloursTab, mx, my);
+        float total = total();
         scroll = Math.max(0, Math.min(Math.max(0, total - (listBottom - listTop)), scroll));
 
         g.enableScissor((int) panelX, (int) listTop, (int) (panelX + panelW), (int) listBottom);
@@ -604,6 +826,7 @@ public final class TeyvatConfigScreen extends Screen {
             yy += r.listHeight();
         }
         g.disableScissor();
+        renderBar(g, total, mx, my);
 
         float bw = footerButtonW(), by = footerY();
         Ui.actionButton(g, footerButtonX(0), by, bw, Component.translatable("teyvatcartographia.config.keybinds"), Icon.KEYBOARD, true, mx, my);
@@ -620,6 +843,7 @@ public final class TeyvatConfigScreen extends Screen {
             }
         }
         if (draggingRow != null) Cursors.force(Cursors.Shape.RESIZE_H);
+        if (draggingBar) Cursors.force(Cursors.Shape.RESIZE_V);
         Cursors.apply();
     }
 
@@ -629,6 +853,14 @@ public final class TeyvatConfigScreen extends Screen {
         if (Ui.closeHit(panelX, panelY, panelW, mx, my)) {
             onClose();
             return true;
+        }
+        for (int i = 0; i < 2; i++) {
+            if (Draw.inRect(mx, my, tabX(i), tabY(), tabW(), TAB_H)) {
+                coloursTab = i == 1;
+                rows = coloursTab ? colours : general;
+                scroll = 0;
+                return true;
+            }
         }
         float bw = footerButtonW(), by = footerY();
         if (Ui.actionHit(footerButtonX(0), by, bw, mx, my)) {
@@ -645,6 +877,13 @@ public final class TeyvatConfigScreen extends Screen {
             onClose();
             return true;
         }
+        if (barHit(mx, my)) {
+            float th = thumbH(total()), ty = thumbY(total());
+            barGrab = my >= ty && my < ty + th ? (float) my - ty : th / 2f; // on the track: the thumb jumps under the pointer
+            draggingBar = true;
+            dragBar(my);
+            return true;
+        }
         if (my >= listTop && my < listBottom) {
             for (Row r : rows) {
                 if (r.shown() && r.click(mx, my, contentX(), contentW())) {
@@ -658,6 +897,10 @@ public final class TeyvatConfigScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+        if (draggingBar) {
+            dragBar(my);
+            return true;
+        }
         if (draggingRow != null) {
             draggingRow.drag(mx, contentX(), contentW());
             return true;
@@ -668,6 +911,7 @@ public final class TeyvatConfigScreen extends Screen {
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
         draggingRow = null;
+        draggingBar = false;
         return super.mouseReleased(mx, my, button);
     }
 

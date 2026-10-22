@@ -113,12 +113,23 @@ public final class WorldMapScreen extends Screen {
         return DIMENSION_NAMES.computeIfAbsent(dimension, WorldMapScreen::buildDimensionName);
     }
 
-    /** The mod's name for a dimension, else its id's path made readable ("the_aether" as "The aether"). */
+    /** The mod's name for a dimension, else its id's path made readable ("the_aether" as "The Aether"). */
     private static Component buildDimensionName(ResourceKey<Level> dimension) {
         String key = net.minecraft.Util.makeDescriptionId("teyvatcartographia.dimension", dimension.location());
         if (net.minecraft.client.resources.language.I18n.exists(key)) return Component.translatable(key);
-        String path = dimension.location().getPath(), pretty = path.replace('_', ' ').replace('/', ' ');
-        return Component.literal(pretty.isEmpty() ? dimension.location().toString() : Character.toUpperCase(pretty.charAt(0)) + pretty.substring(1));
+        String pretty = readableName(dimension.location().getPath());
+        return Component.literal(pretty.isEmpty() ? dimension.location().toString() : pretty);
+    }
+
+    /** An id's path as a title: words split at "_", "/" and "-", each with a capital letter ("the_aether": "The Aether"). */
+    static String readableName(String path) {
+        StringBuilder out = new StringBuilder();
+        for (String word : path.split("[_/\\-]+")) {
+            if (word.isEmpty()) continue;
+            if (!out.isEmpty()) out.append(' ');
+            out.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return out.toString();
     }
 
     public ResourceKey<Level> viewedDimension() {

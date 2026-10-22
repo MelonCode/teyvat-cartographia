@@ -50,6 +50,11 @@ public enum MarkerType {
         this.custom = category != Category.AUTO;
     }
 
+    /** The seven custom types, in the order of the pin editor's grid. */
+    public static java.util.List<MarkerType> customTypes() {
+        return java.util.Arrays.stream(values()).filter(t -> t.category == Category.EXPLORATION).toList();
+    }
+
     /** Translation key of the type's name (named by what its icon shows), the tooltip of its tile in the pin editor. */
     public String langKey() {
         return "teyvatcartographia.pin.type." + name().toLowerCase(java.util.Locale.ROOT);

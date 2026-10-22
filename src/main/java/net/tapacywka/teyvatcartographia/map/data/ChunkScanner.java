@@ -10,6 +10,7 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.ColorResolver;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -17,6 +18,9 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.MapColor;
+import net.tapacywka.teyvatcartographia.compat.ModCompat;
+
+import java.util.Map;
 
 /**
  * Stage 1-2 of the pipeline: reads one loaded client chunk on a worker thread and produces a compact,
@@ -46,6 +50,11 @@ public final class ChunkScanner {
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         TintGrid water = new TintGrid(BiomeColors.WATER_COLOR_RESOLVER), grass = new TintGrid(BiomeColors.GRASS_COLOR_RESOLVER),
                 foliageTint = new TintGrid(BiomeColors.FOLIAGE_COLOR_RESOLVER);
+        // The colours of the block textures: the Original palette everywhere, the mod's own one (softened) in worlds whose
+        // map colours look nothing like them (the Aether). The theme's own colours for this dimension's blocks come first.
+        boolean original = MapPalette.original();
+        boolean textured = original || ModCompat.texturedWorld(level.dimension());
+        Map<Block, Integer> own = original ? null : MapPalette.dimension(level.dimension());
 
         for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
@@ -78,19 +87,29 @@ public final class ChunkScanner {
                     }
                     depth[i] = (byte) d;
                     pos.set(wx, y, wz);
-                    color[i] = MapPalette.water(water.at(level, cx, cz, x, y, z));
+                    int tint = water.at(level, cx, cz, x, y, z);
+                    color[i] = original && TextureColors.water() != 0 ? TextureColors.multiply(TextureColors.water(), tint) : MapPalette.water(tint);
                     continue;
                 }
                 if (fluid.is(FluidTags.LAVA)) {
                     depth[i] = LAVA;
-                    color[i] = MapPalette.LAVA;
+                    color[i] = original && TextureColors.lava() != 0 ? TextureColors.lava() : MapPalette.LAVA;
                     continue;
                 }
                 pos.set(wx, y + 1, wz);
                 BlockState above = chunk.getBlockState(pos);
                 pos.set(wx, y, wz);
+                Integer mine = own == null ? null : own.get(state.getBlock());
+                TextureColors.Entry tex = textured ? TextureColors.get(state.getBlock()) : null;
                 if (above.getBlock() instanceof SnowLayerBlock) {
-                    color[i] = MapPalette.of(MapColor.SNOW);
+                    color[i] = original && TextureColors.snow() != 0 ? TextureColors.snow() : MapPalette.of(MapColor.SNOW);
+                } else if (mine != null) {
+                    color[i] = mine; // before the biome tints: the palette gives the block's whole colour
+                } else if (tex != null) {
+                    int c = tex.argb();
+                    if (tex.tint() == TextureColors.Tint.GRASS) c = TextureColors.multiply(c, grass.at(level, cx, cz, x, y, z));
+                    else if (tex.tint() == TextureColors.Tint.FOLIAGE) c = TextureColors.multiply(c, foliageTint.at(level, cx, cz, x, y, z));
+                    color[i] = original ? c : MapPalette.soften(c);
                 } else if (state.is(Blocks.GRASS_BLOCK) || mc == MapColor.GRASS) {
                     color[i] = MapPalette.tinted(MapPalette.GRASS, grass.at(level, cx, cz, x, y, z), 0.85f);
                 } else if (state.is(BlockTags.LEAVES) && !isBiomeTinted(state)) {
@@ -104,6 +123,11 @@ public final class ChunkScanner {
                     color[i] = MapPalette.of(mc);
                 }
             }
+        }
+        // The player's mute and warmth of the mod's palette (none for the Original one).
+        int[] tuning = original ? null : MapPalette.tuning();
+        if (tuning != null) {
+            for (int i = 0; i < 256; i++) if (!isVoid[i]) color[i] = MapPalette.tune(color[i], tuning[0], tuning[1]);
         }
         // Real block light (torches, lava, glowstone, lanterns...) just above the visible surface, 0..15,
         // as computed by the vanilla light engine. Sky light is ignored: the map shows artificial light only.

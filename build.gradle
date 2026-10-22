@@ -29,7 +29,12 @@ tasks.named('jar', Jar) {
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 neoForge {
-    version = project.neo_version
+    enable {
+        version = project.neo_version
+        // Local runs with mods whose mixins target vanilla lambdas (the Aether's Accessories) need the game's own
+        // classes: the recompiled ones number their lambdas differently. -PbinaryGame=true
+        disableRecompilation = project.findProperty('binaryGame') == 'true'
+    }
 
     parchment {
         mappingsVersion = project.parchment_mappings_version

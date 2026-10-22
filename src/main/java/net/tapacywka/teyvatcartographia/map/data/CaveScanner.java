@@ -3,10 +3,14 @@ package net.tapacywka.teyvatcartographia.map.data;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.material.MapColor;
 import net.neoforged.neoforge.common.Tags;
+import net.tapacywka.teyvatcartographia.compat.ModCompat;
+
+import java.util.Map;
 
 /**
  * Maps one chunk of a cave layer (worker thread): the height band of {@code BAND} blocks the player is in. For every
@@ -42,6 +46,11 @@ public final class CaveScanner {
         boolean[] drop = new boolean[256];
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         double r2 = radius * radius;
+        // The palette as in ChunkScanner: the theme's colours for this dimension, else the textures (Original, the Aether).
+        boolean original = MapPalette.original();
+        boolean textured = original || ModCompat.texturedWorld(level.dimension());
+        Map<Block, Integer> own = original ? null : MapPalette.dimension(level.dimension());
+        int[] tuning = original ? null : MapPalette.tuning(); // the player's mute and warmth of the mod's palette
         for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
                 int i = z * 16 + x, wx = (cx << 4) + x, wz = (cz << 4) + z;
@@ -83,7 +92,7 @@ public final class CaveScanner {
                     f |= MapTile.FLAG_WATER;
                     if (depth >= 2) f |= MapTile.FLAG_IMPASSABLE;
                 } else if (s.getFluidState().is(FluidTags.LAVA)) {
-                    c = MapPalette.LAVA;
+                    c = original && TextureColors.lava() != 0 ? TextureColors.lava() : MapPalette.LAVA;
                     f |= MapTile.FLAG_IMPASSABLE;
                 } else if (s.is(Tags.Blocks.ORES)) {
                     // Ore stands out from the stone: gems in teal, everything else in pale gold.
@@ -91,9 +100,13 @@ public final class CaveScanner {
                     c = gem ? ORE_GEM : ORE;
                 } else {
                     MapColor mc = s.getMapColor(level, pos);
-                    c = MapPalette.of(mc == MapColor.NONE ? MapColor.STONE : mc);
+                    Integer mine = own == null ? null : own.get(s.getBlock());
+                    TextureColors.Entry tex = textured && mine == null ? TextureColors.get(s.getBlock()) : null;
+                    if (mine != null) c = mine;
+                    else if (tex != null) c = original ? tex.argb() : MapPalette.soften(tex.argb()); // no biome tint underground
+                    else c = MapPalette.of(mc == MapColor.NONE ? MapColor.STONE : mc);
                 }
-                color[i] = c;
+                color[i] = tuning == null ? c : MapPalette.tune(c, tuning[0], tuning[1]);
                 flags[i] = f;
             }
         }

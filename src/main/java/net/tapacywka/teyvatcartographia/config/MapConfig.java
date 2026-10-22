@@ -143,9 +143,24 @@ public final class MapConfig {
     public static final ModConfigSpec.IntValue SCAN_RADIUS;
     public static final ModConfigSpec.IntValue MAX_CACHED_TILES;
     public static final ModConfigSpec.EnumValue<Detail> DETAIL;
+    public static final ModConfigSpec.EnumValue<Palette> PALETTE;
+    public static final ModConfigSpec.IntValue PALETTE_MUTE;
+    public static final ModConfigSpec.IntValue PALETTE_WARMTH;
     public static final ModConfigSpec.BooleanValue CAVES_ENABLED;
 
+    // Compatibility with other mods (shown in the settings only while that mod is there).
+    public static final ModConfigSpec.BooleanValue AETHER_CAVES;
+    public static final ModConfigSpec.EnumValue<net.tapacywka.teyvatcartographia.marker.MarkerType> XAERO_PIN_TYPE;
+    public static final ModConfigSpec.BooleanValue XAERO_HIDDEN;
+    public static final ModConfigSpec.BooleanValue XAERO_DEATHS;
+
     public enum Detail { LOW, MEDIUM, HIGH }
+
+    /**
+     * Map colours: TEYVAT = the mod's soft painted palette (block map colours; in worlds a mod draws its own way, such
+     * as the Aether, the textures, softened alike), ORIGINAL = the colours of the block textures, as Xaero's Minimap.
+     */
+    public enum Palette { TEYVAT, ORIGINAL }
 
     /** Clock under the minimap: the time of day in the game world, or the real time of the player's computer. */
     public enum TimeSource { GAME_TIME, REAL_TIME, BOTH }
@@ -204,7 +219,21 @@ public final class MapConfig {
         SCAN_RADIUS = b.comment("Maximum mapping radius around the player, in chunks (limited by the render distance)").translation("teyvatcartographia.config.scan_radius").defineInRange("scanRadius", 16, 2, 32);
         MAX_CACHED_TILES = b.comment("Maximum number of 256x256 map regions kept in memory").translation("teyvatcartographia.config.max_tiles").defineInRange("maxCachedTiles", 160, 32, 1024);
         DETAIL = b.comment("Terrain detail: LOW = flat colours, MEDIUM = relief shading, HIGH = relief + contour lines").translation("teyvatcartographia.config.detail").defineEnum("detail", Detail.HIGH);
+        PALETTE = b.comment("Map colours: TEYVAT = the soft painted palette of the mod, ORIGINAL = the colours of the block textures (like Xaero's Minimap)").translation("teyvatcartographia.config.palette").defineEnum("palette", Palette.TEYVAT);
+        PALETTE_MUTE = b.comment("Teyvat Cartographia palette: how much of the colour saturation is taken away, percent (0 = the full colours, 100 = grey)").translation("teyvatcartographia.config.palette_mute").defineInRange("paletteMute", 25, 0, 100);
+        PALETTE_WARMTH = b.comment("Teyvat Cartographia palette: how much the colours lean to a warm beige, percent (0 = none)").translation("teyvatcartographia.config.palette_warmth").defineInRange("paletteWarmth", 15, 0, 50);
         CAVES_ENABLED = b.comment("Map the caves around you while underground, in layers of 16 blocks; the world map and the minimap switch to the layer you are in").translation("teyvatcartographia.config.caves").define("caves", true);
+        b.pop();
+
+        b.push("compat");
+        b.push("aether");
+        AETHER_CAVES = b.comment("The Aether: map caves in the Aether too (its islands float over the void, so under an island counts as underground)").translation("teyvatcartographia.config.compat.aether_caves").define("caves", false);
+        b.pop();
+        b.push("xaero");
+        XAERO_PIN_TYPE = b.comment("Xaero's Minimap: the pin type imported waypoints get (a custom type)").translation("teyvatcartographia.config.compat.xaero_type").defineEnum("pinType", net.tapacywka.teyvatcartographia.marker.MarkerType.STAR, net.tapacywka.teyvatcartographia.marker.MarkerType.customTypes());
+        XAERO_HIDDEN = b.comment("Xaero's Minimap: import its hidden (disabled) waypoints too").translation("teyvatcartographia.config.compat.xaero_hidden").define("hidden", true);
+        XAERO_DEATHS = b.comment("Xaero's Minimap: import its death points too").translation("teyvatcartographia.config.compat.xaero_deaths").define("deaths", false);
+        b.pop();
         b.pop();
 
         SPEC = b.build();
@@ -226,7 +255,8 @@ public final class MapConfig {
         resetValue(MINIMAP_SHOW_BIOME); resetValue(MINIMAP_SHOW_TIME); resetValue(MINIMAP_TIME_SOURCE); resetValue(MINIMAP_TIME_FORMAT); resetValue(MINIMAP_SHOW_DAY);
         for (PinOptions o : PINS) o.reset();
         resetValue(MAP_SHOW_LABELS); resetValue(MAP_SHOW_GRID); resetValue(MAP_DEFAULT_ZOOM);
-        resetValue(CHUNKS_PER_TICK); resetValue(SCAN_RADIUS); resetValue(MAX_CACHED_TILES); resetValue(DETAIL); resetValue(CAVES_ENABLED);
+        resetValue(CHUNKS_PER_TICK); resetValue(SCAN_RADIUS); resetValue(MAX_CACHED_TILES); resetValue(DETAIL); resetValue(PALETTE); resetValue(PALETTE_MUTE); resetValue(PALETTE_WARMTH); resetValue(CAVES_ENABLED);
+        resetValue(AETHER_CAVES); resetValue(XAERO_PIN_TYPE); resetValue(XAERO_HIDDEN); resetValue(XAERO_DEATHS);
         save();
     }
 

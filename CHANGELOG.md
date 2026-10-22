@@ -84,6 +84,32 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * The beam of light fades out as the marker nears the edge of its limiter ellipse and is gone when the marker starts
   to ride the ellipse (it used to vanish at once); turning back, it fades in the same way.
 
+### Other mods
+* The settings have a **Compatibility** section with a part for each supported mod that is in the game (none shows
+  without them).
+* **The Aether**: no cave layers in the Aether by default (its islands float over the void, so the space under them
+  read as caves; a switch turns them back on), and the map draws the Aether from the colours of its block textures,
+  softened like the rest of the map (its blocks' own map colours look nothing like it).
+* **Xaero's Minimap**: the import settings moved to its part: the type the waypoints get (Star by default), whether
+  hidden waypoints come too (yes by default) and death points (no by default). Without Xaero's Minimap and its
+  waypoints, Import in the pin list opens the file dialog at once instead of asking where from.
+* The names of other mods' dimensions read as titles: `aether:the_aether` is "The Aether" (it was "The aether").
+* For theme makers: a theme may paint a dimension's blocks in colours of its own, in
+  `dimensions/<namespace>/<path>.json` (`{ "blocks": { "<block id>": "#AARRGGBB" } }`); other blocks keep the usual
+  map colours.
+
+### Map colours
+* The settings have two tabs: **General** (everything as before) and **Colours**, with all about the map colours and
+  a strip of samples (grass, leaves, sand, stone, water, snow) that change at once with the palette and its sliders.
+  A thin scrollbar at the right of the list shows where you are; drag it, or click its track to jump.
+* **Colour palette** in **Settings > Colours**: **Teyvat Cartographia** (the soft painted colours, as before) or
+  **Original**: the colours of the block textures, like Xaero's Minimap (the average of the texture on a block's
+  top, with the biome tint of grass, leaves and water). Original works for the blocks of any mod and is read again
+  when resource packs change. The map around you is drawn again at once; other places when you come back.
+* **Teyvat Cartographia palette** under it: **Mute** (how much colour it takes away, 25% as
+  before; 0% the full colours, 100% grey) and **Warm haze** (how much the colours lean to a warm beige, 15% as
+  before). Grey and still while the Original palette is on.
+
 ## 0.1.2+mc1.21.1-neoforge
 
 ### Map search

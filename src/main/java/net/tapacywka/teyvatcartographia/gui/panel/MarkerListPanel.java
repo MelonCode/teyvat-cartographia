@@ -2,6 +2,7 @@ package net.tapacywka.teyvatcartographia.gui.panel;
 
 import net.minecraft.world.level.Level;
 import net.minecraft.resources.ResourceKey;
+import net.tapacywka.teyvatcartographia.compat.ModCompat;
 import net.tapacywka.teyvatcartographia.gui.ChipField;
 import net.tapacywka.teyvatcartographia.gui.Cursors;
 import net.tapacywka.teyvatcartographia.gui.FileDialogs;
@@ -37,9 +38,9 @@ import java.util.List;
  * explored biomes under two small headings; a click on a biome flies to its nearest place, each further click to the
  * next one. Rows fill a block centred vertically in the panel (shorter lists start at the block's top); longer lists
  * scroll by rows with the mouse wheel and show a thin scroll bar, like the pick list on the map.
- * At the bottom: Export and Import ({@link PinTransfer}); Import opens a choice between our file and Xaero's Minimap
- * above the buttons (it stays open after a pick), and the outcome is shown for a while in a popup left of the panel,
- * pointing at the button that was used.
+ * At the bottom: Export and Import ({@link PinTransfer}); with Xaero's Minimap in the game Import opens a choice between
+ * our file and Xaero's Minimap above the buttons (it stays open after a pick), without it our file at once; the outcome
+ * is shown for a while in a popup left of the panel, pointing at the button that was used.
  */
 public final class MarkerListPanel extends SidePanel {
     /** Row: 2 text lines (9 + 2 + 9) with 4 units padding top and bottom = 28 = one tile. */
@@ -251,7 +252,7 @@ public final class MarkerListPanel extends SidePanel {
         return (contentW() - Grid.GAP) / 2f;
     }
 
-    /** Top of the n-th import choice above the button row (0 = the lowest: Xaero's Minimap, 1: our own file). */
+    /** Top of the n-th import choice above the button row (0 = the lowest: our own file, 1: Xaero's Minimap). */
     private float choiceY(int n) {
         return transferRowY() - (n + 1) * (Grid.ACTION_H + Grid.GAP);
     }
@@ -267,8 +268,8 @@ public final class MarkerListPanel extends SidePanel {
         Ui.actionButton(g, bx, row, half, Component.translatable("teyvatcartographia.transfer.export"), Icon.EXPORT, free, mx, my);
         Ui.actionButton(g, bx + half + Grid.GAP, row, half, Component.translatable("teyvatcartographia.transfer.import"), Icon.IMPORT, free, mx, my);
         if (importMenu) {
-            Ui.actionButton(g, bx, choiceY(1), bw, Component.translatable("teyvatcartographia.transfer.import.file"), null, free, mx, my);
-            Ui.actionButton(g, bx, choiceY(0), bw, Component.translatable("teyvatcartographia.transfer.import.xaero"), null, free, mx, my);
+            Ui.actionButton(g, bx, choiceY(0), bw, Component.translatable("teyvatcartographia.transfer.import.file"), null, free, mx, my);
+            Ui.actionButton(g, bx, choiceY(1), bw, Component.translatable("teyvatcartographia.transfer.import.xaero"), null, free, mx, my);
         }
         // The outcome of the last export or import: a popup over the map left of the panel, pointing at its button
         // (at Import when the choice was closed since).
@@ -279,8 +280,8 @@ public final class MarkerListPanel extends SidePanel {
     private float sourceY(PinTransfer.Source source) {
         return switch (source) {
             case EXPORT -> transferRowY();
-            case FILE -> importMenu ? choiceY(1) : transferRowY();
-            case XAERO -> importMenu ? choiceY(0) : transferRowY();
+            case FILE -> importMenu ? choiceY(0) : transferRowY();
+            case XAERO -> importMenu ? choiceY(1) : transferRowY();
         };
     }
 
@@ -294,15 +295,17 @@ public final class MarkerListPanel extends SidePanel {
             return true;
         }
         if (Ui.actionHit(bx + half + Grid.GAP, row, half, mx, my)) {
-            importMenu = !importMenu;
+            // The choice of a source only with Xaero's Minimap in the game (or its data); else our own file at once.
+            if (ModCompat.xaero()) importMenu = !importMenu;
+            else PinTransfer.importFile();
             return true;
         }
         // The choice stays open after a pick, so the outcome's popup can point at the button that was used.
-        if (importMenu && Ui.actionHit(bx, choiceY(1), bw, mx, my)) {
+        if (importMenu && Ui.actionHit(bx, choiceY(0), bw, mx, my)) {
             PinTransfer.importFile();
             return true;
         }
-        if (importMenu && Ui.actionHit(bx, choiceY(0), bw, mx, my)) {
+        if (importMenu && Ui.actionHit(bx, choiceY(1), bw, mx, my)) {
             PinTransfer.importXaero();
             return true;
         }

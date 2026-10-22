@@ -3,6 +3,7 @@ package net.tapacywka.teyvatcartographia.gui;
 import net.minecraft.network.chat.Component;
 import net.tapacywka.teyvatcartographia.TeyvatCartographia;
 import net.tapacywka.teyvatcartographia.compat.XaeroWaypoints;
+import net.tapacywka.teyvatcartographia.config.MapConfig;
 import net.tapacywka.teyvatcartographia.map.WorldId;
 import net.tapacywka.teyvatcartographia.marker.Marker;
 import net.tapacywka.teyvatcartographia.marker.MarkerFile;
@@ -129,9 +130,15 @@ public final class PinTransfer {
         });
     }
 
+    /** What the import takes, from the Xaero's Minimap settings of the Compatibility section. */
+    private static XaeroWaypoints.Options xaeroOptions() {
+        return new XaeroWaypoints.Options(MapConfig.get(MapConfig.XAERO_PIN_TYPE), MapConfig.get(MapConfig.XAERO_HIDDEN),
+                MapConfig.get(MapConfig.XAERO_DEATHS), Component.translatable("teyvatcartographia.transfer.xaero.death").getString());
+    }
+
     private static void importXaero(Path folder) {
         try {
-            List<Marker> pins = XaeroWaypoints.read(folder);
+            List<Marker> pins = XaeroWaypoints.read(folder, xaeroOptions());
             if (pins.isEmpty()) say(importTitle(Source.XAERO), Source.XAERO, Component.translatable("teyvatcartographia.transfer.xaero.none"));
             else report(Source.XAERO, MarkerStore.addAll(pins));
         } catch (IOException e) {

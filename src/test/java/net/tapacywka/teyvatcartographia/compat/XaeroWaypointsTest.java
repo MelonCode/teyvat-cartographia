@@ -81,13 +81,28 @@ class XaeroWaypointsTest {
                 line("gui.xaero_deathpoint", "D", 3, "64", 4, 1)), StandardCharsets.UTF_8);
         Files.write(nether.resolve("mw$default_1.txt"), List.of(line("Portal", "P", 8, "70", 8, 0)), StandardCharsets.UTF_8);
         Files.writeString(over.resolve("notes.dat"), "not waypoints", StandardCharsets.UTF_8);
-        List<Marker> pins = XaeroWaypoints.read(dir);
+        List<Marker> pins = XaeroWaypoints.read(dir, XaeroWaypoints.Options.DEFAULT);
         assertEquals(2, pins.size());
         assertTrue(pins.stream().anyMatch(m -> m.name.equals("Home") && m.dimension == Level.OVERWORLD));
         assertTrue(pins.stream().anyMatch(m -> m.name.equals("Portal") && m.dimension == Level.NETHER));
         // One dimension folder alone, and the world folder of a picked file.
-        assertEquals(1, XaeroWaypoints.read(nether).size());
+        assertEquals(1, XaeroWaypoints.read(nether, XaeroWaypoints.Options.DEFAULT).size());
         assertEquals(dir.toAbsolutePath(), XaeroWaypoints.worldFolderOf(over.resolve("mw$default_1.txt")));
         assertNull(XaeroWaypoints.worldFolderOf(dir.resolve("config/x.txt")));
+    }
+
+    @Test
+    void theImportSettingsChooseTheTypeHiddenWaypointsAndDeathPoints() {
+        String hidden = line("Old base", "O", 1, "64", 1, 0).replace(":5:false:", ":5:true:");
+        String death = line("gui.xaero_deathpoint", "D", 7, "70", 8, 1);
+        XaeroWaypoints.Options asIs = XaeroWaypoints.Options.DEFAULT;
+        assertEquals("Old base", XaeroWaypoints.parse(hidden, Level.OVERWORLD, asIs).name, "hidden ones come by default");
+        assertNull(XaeroWaypoints.parse(death, Level.OVERWORLD, asIs), "death points do not");
+        var mine = new XaeroWaypoints.Options(MarkerType.FLOWER, false, true, "Death point");
+        assertNull(XaeroWaypoints.parse(hidden, Level.OVERWORLD, mine), "hidden ones left out");
+        Marker d = XaeroWaypoints.parse(death, Level.OVERWORLD, mine);
+        assertEquals("Death point", d.name, "a death point gets a readable name");
+        assertEquals(MarkerType.FLOWER, d.type);
+        assertEquals(MarkerType.FLOWER, XaeroWaypoints.parse(line("Home", "H", 1, "64", 1, 0), Level.OVERWORLD, mine).type);
     }
 }
