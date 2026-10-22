@@ -100,7 +100,9 @@ public final class ChunkScanner {
                 BlockState above = chunk.getBlockState(pos);
                 pos.set(wx, y, wz);
                 Integer mine = own == null ? null : own.get(state.getBlock());
-                TextureColors.Entry tex = textured ? TextureColors.get(state.getBlock()) : null;
+                // The texture: always in a textured palette, else only where the block's map colour is far from it.
+                TextureColors.Entry tex = TextureColors.get(state.getBlock());
+                if (tex != null && !textured && !tex.offMap()) tex = null;
                 if (above.getBlock() instanceof SnowLayerBlock) {
                     color[i] = original && TextureColors.snow() != 0 ? TextureColors.snow() : MapPalette.of(MapColor.SNOW);
                 } else if (mine != null) {

@@ -107,6 +107,10 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   **Original**: the colours of the block textures, like Xaero's Minimap (the average of the texture on a block's
   top, with the biome tint of grass, leaves and water). Original works for the blocks of any mod and is read again
   when resource packs change. The map around you is drawn again at once; other places when you come back.
+* The Teyvat Cartographia palette draws a block from its texture (softened alike) when the map colour the game
+  gives it is far from how it looks: basalt is no longer as black as blackstone, tuff and calcite get their own
+  greys, and blocks of mods with a generic map colour look like themselves. Terracotta and its colours keep their
+  map colours, so the badlands look as before.
 * **Teyvat Cartographia palette** under it: **Mute** (how much colour it takes away, 25% as
   before; 0% the full colours, 100% grey) and **Warm haze** (how much the colours lean to a warm beige, 15% as
   before). Grey and still while the Original palette is on.

@@ -3,6 +3,7 @@ package net.tapacywka.teyvatcartographia.map.data;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** The Original palette: a texture's colour is the average of its visible pixels, tinted channel by channel. */
 class TextureColorsTest {
@@ -21,6 +22,16 @@ class TextureColorsTest {
     void aFullyTransparentTextureHasNoColour() {
         assertEquals(0, TextureColors.average(new int[] {abgr(0, 10, 20, 30)}));
         assertEquals(0, TextureColors.average(new int[0]));
+    }
+
+    @Test
+    void theColourDistanceTellsCloseColoursFromOtherOnes() {
+        assertEquals(0f, TextureColors.distance(0xFF808080, 0xFF808080), 0.01f);
+        assertEquals(100f, TextureColors.distance(0xFF000000, 0xFFFFFFFF), 0.5f, "black to white");
+        // Basalt's grey texture against the black map colour the game gives it: drawn from the texture.
+        assertTrue(TextureColors.distance(0xFF505055, 0xFF191919) > TextureColors.OFF_MAP);
+        // Stone against its own map colour: the map colour stays.
+        assertTrue(TextureColors.distance(0xFF7D7D7D, 0xFF707070) < TextureColors.OFF_MAP);
     }
 
     @Test
