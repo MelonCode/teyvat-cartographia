@@ -487,6 +487,7 @@ public final class TeyvatConfigScreen extends Screen {
                     MapConfig.MINIMAP_SHOW_TIME.set(s > 0);
                     if (s > 0) MapConfig.MINIMAP_TIME_SOURCE.set(StepChoice.clockSource(s));
                 }));
+        rows.add(new EnumRow<>("teyvatcartographia.config.minimap_time_format", MapConfig.MINIMAP_TIME_FORMAT, MapConfig.TimeFormat.values(), null));
         rows.add(new BoolRow("teyvatcartographia.config.minimap_day", MapConfig.MINIMAP_SHOW_DAY));
         // Pins: each kind as one choice (off, the map, both maps, everywhere with the beam); then the path to a tracked
         // pin of each kind the same way (everywhere with the stars).

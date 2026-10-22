@@ -79,4 +79,20 @@ class MinimapFitTest {
         assertEquals(2, MinimapFit.day(24000));
         assertEquals(12, MinimapFit.day(11 * 24000L + 18000));
     }
+
+    @Test
+    void theClockIn24And12Hours() {
+        var h24 = net.tapacywka.teyvatcartographia.config.MapConfig.TimeFormat.HOURS_24;
+        var h12 = net.tapacywka.teyvatcartographia.config.MapConfig.TimeFormat.HOURS_12;
+        var ampm = net.tapacywka.teyvatcartographia.config.MapConfig.TimeFormat.HOURS_12_AM_PM;
+        assertEquals("14:35", MinimapFit.clock(14 * 60 + 35, h24));
+        assertEquals("00:05", MinimapFit.clock(5, h24));
+        assertEquals("2:35", MinimapFit.clock(14 * 60 + 35, h12));
+        assertEquals("2:35 PM", MinimapFit.clock(14 * 60 + 35, ampm));
+        assertEquals("12:05 AM", MinimapFit.clock(5, ampm), "just after midnight");
+        assertEquals("12:00 PM", MinimapFit.clock(12 * 60, ampm), "noon");
+        assertEquals("11:59 AM", MinimapFit.clock(11 * 60 + 59, ampm));
+        assertEquals("11:59 PM", MinimapFit.clock(23 * 60 + 59, ampm));
+        assertEquals("12:05", MinimapFit.clock(5, h12));
+    }
 }

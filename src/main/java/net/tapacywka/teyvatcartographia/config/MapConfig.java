@@ -60,6 +60,7 @@ public final class MapConfig {
     public static final ModConfigSpec.BooleanValue MINIMAP_SHOW_BIOME;
     public static final ModConfigSpec.BooleanValue MINIMAP_SHOW_TIME;
     public static final ModConfigSpec.EnumValue<TimeSource> MINIMAP_TIME_SOURCE;
+    public static final ModConfigSpec.EnumValue<TimeFormat> MINIMAP_TIME_FORMAT;
     public static final ModConfigSpec.BooleanValue MINIMAP_SHOW_DAY;
 
     // World map
@@ -149,6 +150,9 @@ public final class MapConfig {
     /** Clock under the minimap: the time of day in the game world, or the real time of the player's computer. */
     public enum TimeSource { GAME_TIME, REAL_TIME, BOTH }
 
+    /** How the clock under the minimap writes the time: 14:35, 2:35 or 2:35 PM. */
+    public enum TimeFormat { HOURS_24, HOURS_12, HOURS_12_AM_PM }
+
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
 
@@ -179,6 +183,7 @@ public final class MapConfig {
         MINIMAP_SHOW_BIOME = b.comment("Show the biome you are in under the minimap").translation("teyvatcartographia.config.minimap_biome").define("showBiome", true);
         MINIMAP_SHOW_TIME = b.comment("Show a clock under the minimap").translation("teyvatcartographia.config.minimap_time").define("showTime", true);
         MINIMAP_TIME_SOURCE = b.comment("Clock under the minimap: GAME_TIME = time of day in the world, REAL_TIME = your computer's clock, BOTH = both side by side (game on the left)").translation("teyvatcartographia.config.minimap_time_source").defineEnum("timeSource", TimeSource.GAME_TIME);
+        MINIMAP_TIME_FORMAT = b.comment("How the clock writes the time, game and real: HOURS_24 = 14:35, HOURS_12 = 2:35, HOURS_12_AM_PM = 2:35 PM").translation("teyvatcartographia.config.minimap_time_format").defineEnum("timeFormat", TimeFormat.HOURS_24);
         MINIMAP_SHOW_DAY = b.comment("Show the day of the world under the minimap, with the game time when the clock shows it").translation("teyvatcartographia.config.minimap_day").define("showDay", true);
         b.pop();
 
@@ -218,7 +223,7 @@ public final class MapConfig {
         resetValue(MINIMAP_OFFSET_X); resetValue(MINIMAP_OFFSET_Y); resetValue(MINIMAP_OPACITY);
         resetValue(MINIMAP_PADDING); resetValue(MINIMAP_FADE_WIDTH); resetValue(MINIMAP_FADE_STRENGTH); resetValue(MINIMAP_INFO_GAP); resetValue(MINIMAP_TEXT_SIZE); resetValue(MINIMAP_PILL_OPACITY);
         resetValue(MINIMAP_ZOOM); resetValue(MINIMAP_ORIENTATION); resetValue(MINIMAP_UPDATE_RATE); resetValue(MINIMAP_SHOW_COORDS);
-        resetValue(MINIMAP_SHOW_BIOME); resetValue(MINIMAP_SHOW_TIME); resetValue(MINIMAP_TIME_SOURCE); resetValue(MINIMAP_SHOW_DAY);
+        resetValue(MINIMAP_SHOW_BIOME); resetValue(MINIMAP_SHOW_TIME); resetValue(MINIMAP_TIME_SOURCE); resetValue(MINIMAP_TIME_FORMAT); resetValue(MINIMAP_SHOW_DAY);
         for (PinOptions o : PINS) o.reset();
         resetValue(MAP_SHOW_LABELS); resetValue(MAP_SHOW_GRID); resetValue(MAP_DEFAULT_ZOOM);
         resetValue(CHUNKS_PER_TICK); resetValue(SCAN_RADIUS); resetValue(MAX_CACHED_TILES); resetValue(DETAIL); resetValue(CAVES_ENABLED);

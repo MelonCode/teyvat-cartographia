@@ -41,7 +41,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.TimeZone;
 
 /**
@@ -491,16 +490,19 @@ public final class MinimapLayer implements LayeredDraw.Layer {
 
     // The clock texts change once a minute (of game and of real time), each kept apart.
     private int gameMinute = -1, realMinute = -1;
+    private MapConfig.TimeFormat gameFormat, realFormat; // the clock format each text was made for
     private Component gameClock, realClock;
     private static final TimeZone ZONE = TimeZone.getDefault();
 
-    /** "HH:MM": the time of day in the world (tick 0 is 06:00). */
+    /** The time of day in the world (tick 0 is 06:00), in the chosen format. */
     private Component gameTimeText(Minecraft mc) {
         long ticks = Math.floorMod(mc.level.getDayTime() + 6000, 24000L);
         int minute = (int) (ticks * 1440 / 24000);
-        if (gameClock == null || minute != gameMinute) {
+        MapConfig.TimeFormat format = MapConfig.get(MapConfig.MINIMAP_TIME_FORMAT);
+        if (gameClock == null || minute != gameMinute || format != gameFormat) {
+            gameFormat = format;
             gameMinute = minute;
-            gameClock = Component.literal(String.format(Locale.ROOT, "%02d:%02d", minute / 60, minute % 60));
+            gameClock = Component.literal(MinimapFit.clock(minute, format));
         }
         return gameClock;
     }
@@ -525,13 +527,15 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         return dayClock;
     }
 
-    /** "HH:MM": the computer's local time. */
+    /** "IRL 14:35": the computer's local time in the chosen format, marked apart from the game time. */
     private Component realTimeText() {
         long now = System.currentTimeMillis();
         int minute = (int) (Math.floorDiv(now + ZONE.getOffset(now), 60_000L) % 1440);
-        if (realClock == null || minute != realMinute) {
+        MapConfig.TimeFormat format = MapConfig.get(MapConfig.MINIMAP_TIME_FORMAT);
+        if (realClock == null || minute != realMinute || format != realFormat) {
+            realFormat = format;
             realMinute = minute;
-            realClock = Component.literal(String.format(Locale.ROOT, "%02d:%02d", minute / 60, minute % 60));
+            realClock = Component.translatable("teyvatcartographia.minimap.real_time", MinimapFit.clock(minute, format));
         }
         return realClock;
     }

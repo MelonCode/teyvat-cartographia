@@ -1,8 +1,13 @@
 package net.tapacywka.teyvatcartographia.hud;
 
+import net.tapacywka.teyvatcartographia.config.MapConfig;
+
+import java.util.Locale;
+
 /**
- * Keeping the minimap and its pills on screen ({@link MinimapLayer}): a minimap too large for the screen is drawn
- * smaller (B23), and a pill wider than the map near the screen edge is shifted inward (B22).
+ * Rules of the minimap ({@link MinimapLayer}) kept apart to be tested: a minimap too large for the screen is drawn
+ * smaller (B23), a pill wider than the map near the screen edge is shifted inward (B22), the text size, the clock row
+ * and its texts, the day of the world.
  */
 final class MinimapFit {
     private MinimapFit() {}
@@ -41,6 +46,17 @@ final class MinimapFit {
      */
     static boolean clockWraps(float w1, float gap, float w2, float mapW) {
         return w1 + gap + w2 > mapW;
+    }
+
+    /**
+     * A time of day ({@code minute} 0 to 1439 after midnight) as the clock writes it: "14:35" (24 hours), "2:35"
+     * (12 hours, midnight and noon as 12) or "2:35 PM" (12 hours with AM/PM).
+     */
+    static String clock(int minute, MapConfig.TimeFormat format) {
+        int h = minute / 60, m = minute % 60;
+        if (format == MapConfig.TimeFormat.HOURS_24) return String.format(Locale.ROOT, "%02d:%02d", h, m);
+        String t = String.format(Locale.ROOT, "%d:%02d", h % 12 == 0 ? 12 : h % 12, m);
+        return format == MapConfig.TimeFormat.HOURS_12_AM_PM ? t + (h < 12 ? " AM" : " PM") : t;
     }
 
     /** The day of the world for a day time in ticks: 1 on the first day, the next one at 06:00 (tick 0 of a day). */
