@@ -67,7 +67,12 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         boolean menu = mc.screen != null && !(mc.screen instanceof ChatScreen);
         return !menu && !mc.getDebugOverlay().showDebugScreen();
     }
-    private static final Component NORTH = Component.literal("N");
+    /** North, east, south and west, clockwise. */
+    private static final Component[] COMPASS = {Component.literal("N"), Component.literal("E"), Component.literal("S"), Component.literal("W")};
+    /** Opacity of east, south and west against north. */
+    private static final float SIDE_LETTER_ALPHA = 0.6f;
+    /** The map turns with the camera (east, south and west are shown too); read every frame, in the layer key. */
+    private boolean rotating, kRotating;
 
     @Override
     public void render(GuiGraphics g, DeltaTracker delta) {
@@ -91,6 +96,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         float alpha = MapConfig.get(MapConfig.MINIMAP_OPACITY).floatValue();
         double zoom = MapView.snapZoom(MapConfig.get(MapConfig.MINIMAP_ZOOM));
         boolean rotate = MapConfig.get(MapConfig.MINIMAP_ORIENTATION) == MapConfig.Orientation.PLAYER_UP;
+        rotating = rotate;
         // Info pills: coordinates, biome and clock, each only when enabled. The texts are rebuilt only when what they
         // show changes, so their identity tells when the layer must be redrawn.
         Component coordsLine = MapConfig.get(MapConfig.MINIMAP_SHOW_COORDS) ? coordsText(player) : null;
@@ -194,7 +200,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
                 || MarkerStore.version() != kMarkers || AutoMarkers.version() != kAuto
                 || target != kTarget || pinState != kPinState
                 || dim != kDim || textBelow != kTextBelow || Theme.generation() != kTheme
-                || padding != kPadding || fadeStart != kFadeStart || fadeEdge != kFadeEdge || infoGap != kInfoGap
+                || padding != kPadding || rotating != kRotating || fadeStart != kFadeStart || fadeEdge != kFadeEdge || infoGap != kInfoGap
                 || (coordsLine == null) != (kCoords == null) || (biomeLine == null) != (kBiome == null) || (timeLine == null) != (kTime == null)
                 || (time2Line == null) != (kTime2 == null) || pillScale != kPillScale;
         boolean moved = pos.x != kX || pos.z != kZ || heading != kHeading || view.rotation != kRotation
@@ -226,7 +232,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
             kCx = cx; kCy = cy; kR = r; kAlpha = alpha; kBx0 = bx0; kBy0 = by0; kBx1 = bx1; kBy1 = by1;
             kGeneration = cacheGeneration; kMarkers = MarkerStore.version(); kAuto = AutoMarkers.version();
             kTarget = target; kPinState = pinState; kRoute = route; kCoords = coordsLine; kBiome = biomeLine; kTime = timeLine; kTime2 = time2Line; kPillScale = pillScale; kDim = dim; kTextBelow = textBelow; kTheme = Theme.generation();
-            kPadding = padding; kFadeStart = fadeStart; kFadeEdge = fadeEdge; kInfoGap = infoGap;
+            kPadding = padding; kRotating = rotating; kFadeStart = fadeStart; kFadeEdge = fadeEdge; kInfoGap = infoGap;
         }
         Draw.texturedQuadPremultiplied(g, layer.textureId(), kBx0, kBy0, kBx1, kBy1, 0f, 1f, 1f, 0f);
     }
@@ -357,15 +363,19 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         MarkerRenderer.player(g, cx, cy, ARROW, heading, alpha);
 
         // "N": inside the circle, no background, pointing to world north.
-        double northAngle = view.rotation; // screen angle of world north, clockwise from up
-        float ns = (float) Math.sin(northAngle), nc = (float) Math.cos(northAngle);
-        // On the inner circle, or (square map) on the inner square's edge.
-        float nk = Theme.Style.squareMap ? inner / Math.max(Math.abs(ns), Math.abs(nc)) : inner;
-        float nx = cx + ns * nk, ny = cy - nc * nk;
-        // Vanilla-font letter in the frame's colour, with a faint dark outline so it stays readable on light ground
-        // and stands apart from the (dark) pin tiles. Drawn last, above the markers. Left batched: the layer is flushed
-        // once at the end (the pills below never overlap it).
-        DrawText.textOutlined(g, NORTH, nx, ny, Theme.withAlpha(Theme.MINIMAP_NORTH, alpha), Theme.withAlpha(Theme.MINIMAP_NORTH_OUTLINE, alpha), false);
+        // Vanilla-font letters in the frame's colour, with a faint dark outline so they stay readable on light ground
+        // and stand apart from the (dark) pin tiles. Drawn last, above the markers. Left batched: the layer is flushed
+        // once at the end (the pills below never overlap them). North only while north is up; on a map turning with
+        // the camera also east, south and west, fainter, so north still stands out.
+        for (int i = 0; i < (rotating ? 4 : 1); i++) {
+            double angle = view.rotation + i * Math.PI / 2; // screen angle of the direction, clockwise from up
+            float ns = (float) Math.sin(angle), nc = (float) Math.cos(angle);
+            // On the inner circle, or (square map) on the inner square's edge.
+            float nk = Theme.Style.squareMap ? inner / Math.max(Math.abs(ns), Math.abs(nc)) : inner;
+            float a = i == 0 ? alpha : alpha * SIDE_LETTER_ALPHA;
+            DrawText.textOutlined(g, COMPASS[i], cx + ns * nk, cy - nc * nk, Theme.withAlpha(Theme.MINIMAP_NORTH, a),
+                    Theme.withAlpha(Theme.MINIMAP_NORTH_OUTLINE, a), false);
+        }
 
         // Pills: coordinates, biome, clock
         float ty = textBelow ? cy + r + 3 + infoGap : cy - r - 3 - textBlock + infoGap;
