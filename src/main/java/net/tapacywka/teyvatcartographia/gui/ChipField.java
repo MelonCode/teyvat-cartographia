@@ -80,6 +80,7 @@ public final class ChipField {
         this.y = y;
         this.w = w;
         boolean focused = box.isFocused(), light = style == Style.LIGHT;
+        if (Draw.inRect(mx, my, x, y, w, Grid.CHIP_H)) Cursors.want(Cursors.Shape.TEXT);
         if (light) Ui.chip(g, x, y, w, Grid.CHIP_H, Theme.PANEL_LIGHT_CHIP);
         else Draw.rect(g, x, y, x + w, y + Grid.CHIP_H, focused || Draw.inRect(mx, my, x, y, w, Grid.CHIP_H) ? Theme.PANEL_DARK_TILE_HOVER : Theme.PANEL_DARK_TILE);
         int iconColor = light ? (focused ? Theme.CHIP_ICON : Theme.CHIP_ICON_SOFT) : (focused ? Theme.CREAM : Theme.TEXT_MUTED);

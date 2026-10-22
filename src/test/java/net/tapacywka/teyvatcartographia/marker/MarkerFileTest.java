@@ -22,7 +22,7 @@ class MarkerFileTest {
 
     @Test
     void pinsOfEveryDimensionComeBack() throws IOException {
-        Marker a = Marker.custom("Camp", MarkerType.BOSS, Level.OVERWORLD, 10, 70, -20);
+        Marker a = Marker.custom("Camp", MarkerType.DEMON, Level.OVERWORLD, 10, 70, -20);
         a.band = 2;
         Marker b = Marker.custom("Fortress", MarkerType.QUEST, Level.NETHER, -5, Integer.MIN_VALUE, 8);
         Marker c = Marker.custom("Gateway", MarkerType.STAR, Level.END, 1000, 64, 1000);

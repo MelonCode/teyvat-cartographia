@@ -306,6 +306,7 @@ public final class WorldMapScreen extends Screen {
 
     @Override
     public void removed() {
+        Cursors.reset();
         Navigation.setPathWanted(Navigation.PATH_MAP, false);
         MapDataManager.get().releaseViewStores();
         chrome.destroy();
@@ -379,6 +380,7 @@ public final class WorldMapScreen extends Screen {
         float dt = Math.min(0.1f, (now - lastFrameNs) / 1e9f);
         lastFrameNs = now;
         time += dt;
+        Cursors.begin();
         animate(dt);
         view.set(centerX, centerZ, scale, 0, width / 2f, height / 2f);
 
@@ -429,6 +431,32 @@ public final class WorldMapScreen extends Screen {
         drawChrome(g, mx, my, store);
         if (pick != null) pick.render(g, mx, my, time);
         else if (panel == null && !dragging && !drawLayerTooltip(g, mx, my) && hovered != null) drawTooltip(g, hovered, mx, my);
+        pointer(mx, my);
+    }
+
+    /**
+     * The mouse pointer of this frame (the panels and the pick list asked for theirs while drawing): moving the map,
+     * the zoom slider, the buttons of the map, a pin; the arrow with an hourglass while the search reads the biomes.
+     */
+    private void pointer(int mx, int my) {
+        int hover = chromeHover(mx, my, panel != null, viewingPlayerDim());
+        float sx = leftColumnX();
+        if (sliderDrag || (hover & 4) != 0 || Draw.inRect(mx, my, sx - 9, sliderTop() - 4, 18, sliderBottom() - sliderTop() + 8)) {
+            Cursors.want(Cursors.Shape.RESIZE_V);
+        } else if (hover != 0) {
+            Cursors.want(Cursors.Shape.HAND);
+        }
+        if (panel == null && pick == null) {
+            if (hovered != null || layerArrowAt(mx, my) != 0
+                    || !Float.isNaN(indicatorX) && Draw.inCircle(mx, my, indicatorX, indicatorY, INDICATOR_R + 2)
+                    || !Float.isNaN(targetIndicatorX) && Draw.inCircle(mx, my, targetIndicatorX, targetIndicatorY, INDICATOR_R + 2)) {
+                Cursors.want(Cursors.Shape.HAND);
+            }
+        }
+        if (panel instanceof MarkerListPanel && search.searchingBiomes()) Cursors.want(Cursors.Shape.LOADING);
+        if (dragging && dragMoved) Cursors.force(Cursors.Shape.MOVE);
+        if (sliderDrag) Cursors.force(Cursors.Shape.RESIZE_V);
+        Cursors.apply();
     }
 
     // Grid lines, collected and drawn in one call.

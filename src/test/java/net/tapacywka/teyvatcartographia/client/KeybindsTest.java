@@ -23,8 +23,8 @@ class KeybindsTest {
         assertEquals(GLFW.GLFW_KEY_EQUAL, Keybinds.MINIMAP_ZOOM_IN.getDefaultKey().getValue());
         assertEquals(GLFW.GLFW_KEY_MINUS, Keybinds.MINIMAP_ZOOM_OUT.getDefaultKey().getValue());
         assertEquals(GLFW.GLFW_KEY_V, Keybinds.PULSE_TARGET.getDefaultKey().getValue());
-        assertTrue(Keybinds.QUICK_PIN.isUnbound(), "the quick pin has no key by default");
-        assertTrue(Keybinds.CLEAR_TARGET.isUnbound(), "stop tracking has no key by default");
+        assertEquals(GLFW.GLFW_KEY_B, Keybinds.QUICK_PIN.getDefaultKey().getValue(), "pin your position (since 0.1.3)");
+        assertEquals(GLFW.GLFW_KEY_Z, Keybinds.CLEAR_TARGET.getDefaultKey().getValue(), "stop tracking (since 0.1.3)");
     }
 
     @Test

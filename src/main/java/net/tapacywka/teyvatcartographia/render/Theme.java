@@ -237,6 +237,9 @@ public final class Theme {
     public static int MINIMAP_VIEW_CONE = 0x75FFFFFF;
     public static int MINIMAP_NORTH = 0xFFDCE6EE;
     public static int MINIMAP_NORTH_OUTLINE = 0x702B3340;
+    // Mouse pointer in the mod's menus (a system cursor made from the cursors/ masks): fill and outline.
+    public static int CURSOR = 0xFFECE5D8;
+    public static int CURSOR_OUTLINE = 0xFF1B2029;
 
     // ------------------------------------------------------------------ loading
 

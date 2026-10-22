@@ -80,6 +80,7 @@ final class MarkerPickList {
     /** {@code time}: seconds, drives the swaying pointer and the pulsing outline of the hovered row. */
     void render(GuiGraphics g, int mx, int my, float time) {
         Marker hover = rowAt(mx, my);
+        if (hover != null) Cursors.want(Cursors.Shape.HAND);
         float phase = 0.5f + 0.5f * (float) Math.sin(time * HOVER_SPEED); // 0 = grey / pointer in, 1 = white / out
         for (int i = 0; i < visible; i++) {
             Marker m = items.get(scroll + i);

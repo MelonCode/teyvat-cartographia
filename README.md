@@ -129,7 +129,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 |---|---|---|
 | In game | Open world map | **M** (rebindable) |
 | In game | Toggle minimap / minimap zoom in / zoom out | **N** / **=** / **-** (rebindable) |
-| In game | Pin your position, stop tracking | unbound by default: Options > Controls > Key Binds > *Teyvat Cartographia* |
+| In game | Pin your position / stop tracking | **B** / **Z** (rebindable) |
 | In game | Pulse the tracked pin (shows the pin and the path stars again) | **V** (rebindable) |
 | World map | Pan | drag with the left mouse button, or WASD / arrow keys |
 | World map | Zoom (keeps the point under the cursor) | mouse wheel, `+`/`-`, or the slider on the left |
@@ -161,6 +161,9 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * Off-screen indicators for the player (green) and the tracked pin (in its kind's colour).
 * Separate maps per world or server and per dimension. The compass opens the list of mapped dimensions: Overworld,
   The Nether, The End, then modded dimensions in alphabetical order. The Nether is mapped below its roof.
+* Its own mouse pointer in the theme's colours on the map and in the settings: a hand over what you can click, a
+  text cursor in text fields, a move cross while you drag the map, arrows on the sliders. It is a system cursor, so it
+  never lags behind the mouse.
 
 <h3 id="cave-layers">Cave layers</h3>
 
@@ -175,8 +178,9 @@ Place pins, search for them and for biomes, track them, follow the path and find
 
 <h3 id="minimap">Minimap</h3>
 
-* Square or round (**Settings > Appearance > Minimap shape**), with "N" on the rim, the player arrow and view
-  cone, pins, the walking path and the tracked pin held on the rim when it is far.
+* Square or round (**Settings > Appearance > Minimap shape**), with "N" on the rim (and a fainter E, S and W while
+  it turns with the view), the player arrow and view cone, pins, the walking path and the tracked pin held on the rim
+  when it is far.
 * North up or rotating with the view; size, corner, offsets, opacity, zoom and update rate (30 redraws a second while
   you move by default). An inner padding between the frame and the map, and how wide and how strong its edge fades.
 * Coordinates, biome (long names wrap onto two lines), a clock (game time, your computer's time, or both side by
@@ -185,9 +189,10 @@ Place pins, search for them and for biomes, track them, follow the path and find
 <h3 id="pins-and-tracking">Pins and tracking</h3>
 
 * Three kinds of pins:
-  * **Custom**, for every player: boss, quest, star, food, plants, ores and fishing;
-  * **Interactive**, created by operators only (permission level 2, or cheats in singleplayer): waypoint, statue and
-    domain. Only these offer **Teleport**; other players can see and track them;
+  * **Custom**, for every player: demon, quest, star, meat, flower, pickaxe and hook (the name of each shows when you
+    point at its tile);
+  * **Interactive**, created by operators only (permission level 2, or cheats in singleplayer): sign, party and
+    structure. Only these offer **Teleport**; other players can see and track them;
   * **System**: automatic points from real data, the world spawn and your last death location.
 * Rename, retype, delete (an interactive pin asks first); up to 100 pins per world, a pin list sorted by distance,
   saved per world and dimension.
@@ -227,7 +232,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 
 <h3 id="settings">Settings</h3>
 
-* The gear on the map holds quick switches: the three pin kinds, biome names, chunk grid.
+* The gear on the map holds quick switches: the three pin kinds, the path to the target, biome names, chunk grid.
 * The full settings screen (also from the NeoForge mod list) has *Appearance*, *World map*, *Minimap* (display, size
   and position, extra information), *Pins* (display and path to the target for each kind) and *Cartography*.
   Sub-sections fold and unfold with a click.
@@ -242,7 +247,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * **Theme**: colours, icons and the fog of war. **Default** (`default`) is built in and always available; a resource
   pack may add more, and the list shows only themes whose pack is enabled. Other themes fall back to its assets.
 * **Minimap shape**: **Square** (the default) or **Round**.
-* **Interface style**: **Rectangular** (the default), with a soft vanilla-style bevel on panels, buttons and tiles, or
+* **Interface style**: **Rectangular** (the default), flat panels, buttons and tiles with square corners, or
   **Rounded**, with circles, capsules and rounded corners.
 
 So the minimap can be round while the menus stay rectangular, or the other way round, with any theme.
@@ -263,6 +268,7 @@ Every theme follows the same layout, `assets/teyvatcartographia/themes/<id>/`:
 | `colors.json` | no | Colours as `"key": "#AARRGGBB"` or `"#RRGGBB"`. Keys are the colour fields of `render/Theme.java`; `themes/default/colors.json` lists them all. Missing keys keep the built-in defaults. |
 | `icons/64/<name>.png` | no (64 x 64) | Icons. Missing ones (or the whole folder) fall back to the `default` icons. |
 | `fog.png` | no | Seamless background for unexplored space (512 x 512 in `default`), shown at 440 GUI units per repeat whatever its resolution. Falls back to the `default` fog. |
+| `cursors/<name>.png`, `cursors/hotspots.json` | no (64 x 64) | The mouse pointers of the menus (white, tinted with the `cursor` colours) and the pixel of each that clicks. Fall back to the `default` ones. |
 
 A theme does not set any shapes: the minimap shape and the interface style are the player's settings. Colour keys
 are named by their role, not their shape: `icon_button_*` is a round or a square button, `info_box_*` a capsule or a
@@ -330,9 +336,9 @@ Release notes for every version are in
 Teyvat Cartographia is released under the [MIT License](https://github.com/Tapacywka/teyvat-cartographia/blob/main/LICENSE).
 Source code: [github.com/Tapacywka/teyvat-cartographia](https://github.com/Tapacywka/teyvat-cartographia).
 
-* All textures and UI icons are original. The UI icons are drawn from exact vector geometry with 8x supersampling,
-  and every pin gets a thin dark outline.
-* The ten pin glyphs (boss, quest, star, food, plants, ores, fishing, waypoint, statue, domain) come from
+* All textures and the player arrow are original; every pin gets a thin dark outline and is scaled to the same
+  visual weight.
+* All other icons (the pins, the automatic points and the interface icons) come from
   [Game Icon Pack](https://nieobie.itch.io/free-icons) by Nieobie, released under
   [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Thank you!
 * All text uses the vanilla Minecraft font. No Genshin Impact assets are included.

@@ -3,6 +3,7 @@ package net.tapacywka.teyvatcartographia.gui.panel;
 import net.minecraft.world.level.Level;
 import net.minecraft.resources.ResourceKey;
 import net.tapacywka.teyvatcartographia.gui.ChipField;
+import net.tapacywka.teyvatcartographia.gui.Cursors;
 import net.tapacywka.teyvatcartographia.gui.Ui;
 import net.tapacywka.teyvatcartographia.gui.Ui.Grid;
 import net.tapacywka.teyvatcartographia.gui.WorldMapScreen;
@@ -79,7 +80,7 @@ public final class PinPanel extends SidePanel {
         this.px = x;
         this.py = y;
         this.pz = z;
-        this.type = editing != null && editing.type.custom ? editing.type : MarkerType.BOSS; // Genshin pre-selects the first type
+        this.type = editing != null && editing.type.custom ? editing.type : MarkerType.DEMON; // Genshin pre-selects the first type
         name = new ChipField(ChipField.Style.LIGHT, Icon.PENCIL, Component.translatable("teyvatcartographia.pin.name"),
                 Component.translatable("teyvatcartographia.pin.name_hint"), 48);
         name.setValue(editing != null ? editing.name : defaultName());
@@ -275,10 +276,11 @@ public final class PinPanel extends SidePanel {
     @Override
     protected void renderBody(GuiGraphics g, int mx, int my, float bx, float by, float bw) {
         localOnlyHint = false;
+        hoveredType = null;
         int maxText = (int) (bw - Grid.CHIP_H - Grid.GAP);
         boolean readOnly = readOnly();
         // Operator rights revoked while a new pin had an interaction type selected: back to the first type.
-        if (!readOnly && type.operatorOnly() && !MarkerType.isOperator()) type = MarkerType.BOSS;
+        if (!readOnly && type.operatorOnly() && !MarkerType.isOperator()) type = MarkerType.DEMON;
         if (!readOnly) {
             name.render(g, bx, nameY(), bw, mx, my);
         }
@@ -318,7 +320,12 @@ public final class PinPanel extends SidePanel {
                 for (int i = 0; i < types.size(); i++) {
                     MarkerType t = types.get(i);
                     float sx = slotX(i), sy = slotY(k, i), s = Grid.SLOT;
-                    MarkerRenderer.badge(g, t.icon, sx + s / 2f, sy + s / 2f, s, t == type, hoverGrid && Draw.inRect(mx, my, sx, sy, s, s), 1f);
+                    boolean hover = hoverGrid && Draw.inRect(mx, my, sx, sy, s, s);
+                    if (hover) {
+                        hoveredType = t;
+                        Cursors.want(Cursors.Shape.HAND);
+                    }
+                    MarkerRenderer.badge(g, t.icon, sx + s / 2f, sy + s / 2f, s, t == type, hover, 1f);
                 }
             }
             if (max > 0) {
@@ -354,6 +361,9 @@ public final class PinPanel extends SidePanel {
         }
         if (localOnlyHint) Ui.wrappedTooltip(g, Component.translatable("teyvatcartographia.pin.local_only"),
                 Component.translatable("teyvatcartographia.pin.local_only.hint"), mx, my, screen.width, screen.height);
+        // The name of the type under the mouse in the grid.
+        if (hoveredType != null && deleteLines == null)
+            Ui.tooltip(g, Component.translatable(hoveredType.langKey()).getString(), null, mx, my, screen.width, screen.height);
         if (deleteLines != null) renderDeleteConfirm(g, mx, my);
     }
 
@@ -409,6 +419,8 @@ public final class PinPanel extends SidePanel {
 
     /** The mouse is over the total bar while it says the pin is the player's own only (its tooltip explains why). */
     private boolean localOnlyHint;
+    /** The type tile under the mouse on this frame, for its name's tooltip; null for none. */
+    private MarkerType hoveredType;
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {

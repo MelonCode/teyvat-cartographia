@@ -28,8 +28,9 @@ class ConfigDefaultsTest {
     void minimap() {
         assertTrue(MapConfig.MINIMAP_ENABLED.getDefault());
         assertEquals(MapConfig.Corner.TOP_LEFT, MapConfig.MINIMAP_CORNER.getDefault());
-        assertEquals(8, MapConfig.MINIMAP_OFFSET_X.getDefault());
-        assertEquals(8, MapConfig.MINIMAP_OFFSET_Y.getDefault());
+        assertEquals(4, MapConfig.MINIMAP_OFFSET_X.getDefault());
+        assertEquals(4, MapConfig.MINIMAP_OFFSET_Y.getDefault());
+        assertEquals(0.85, MapConfig.MINIMAP_OPACITY.getDefault());
         assertEquals(48, MapConfig.MINIMAP_RADIUS.getDefault());
         assertEquals(1.0, MapConfig.MINIMAP_ZOOM.getDefault());
         assertEquals(MapConfig.Orientation.NORTH_UP, MapConfig.MINIMAP_ORIENTATION.getDefault());
@@ -38,11 +39,12 @@ class ConfigDefaultsTest {
         assertTrue(MapConfig.MINIMAP_SHOW_BIOME.getDefault());
         assertTrue(MapConfig.MINIMAP_SHOW_TIME.getDefault());
         assertEquals(MapConfig.TimeSource.GAME_TIME, MapConfig.MINIMAP_TIME_SOURCE.getDefault());
-        // The look of 0.1.2: no inner padding, the outer 20% of the radius fading out completely, pills 4 units away.
+        assertTrue(MapConfig.MINIMAP_SHOW_DAY.getDefault(), "the day counter is on");
+        // Since 0.1.3: no inner padding, the outer 15% of the radius fading out completely, pills 2 units apart.
         assertEquals(0, MapConfig.MINIMAP_PADDING.getDefault());
-        assertEquals(20, MapConfig.MINIMAP_FADE_WIDTH.getDefault());
+        assertEquals(15, MapConfig.MINIMAP_FADE_WIDTH.getDefault());
         assertEquals(100, MapConfig.MINIMAP_FADE_STRENGTH.getDefault());
-        assertEquals(4, MapConfig.MINIMAP_INFO_GAP.getDefault());
+        assertEquals(2, MapConfig.MINIMAP_INFO_GAP.getDefault());
         assertEquals(0, MapConfig.MINIMAP_TEXT_SIZE.getDefault(), "Auto");
     }
 

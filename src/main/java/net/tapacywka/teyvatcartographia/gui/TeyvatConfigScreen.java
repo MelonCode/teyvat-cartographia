@@ -127,6 +127,7 @@ public final class TeyvatConfigScreen extends Screen {
         @Override
         void render(GuiGraphics g, float x, float w, int mx, int my) {
             boolean hover = Draw.inRect(mx, my, x, y + 2, w, Grid.ROW - 4);
+            if (hover) Cursors.want(Cursors.Shape.HAND);
             Draw.rect(g, x, y + 2, x + w, y + Grid.ROW - 2, hover ? Theme.PANEL_DARK_TILE_HOVER : Theme.INFO_BOX);
             Draw.rect(g, x, y + 2, x + 2, y + Grid.ROW - 2, Theme.GOLD);
             DrawText.room(label, w - 2 - 3 * Grid.GAP - 6); // up to the fold arrow
@@ -292,6 +293,7 @@ public final class TeyvatConfigScreen extends Screen {
             double v = getter.getAsDouble();
             float t = (float) Math.max(0, Math.min(1, toT(v)));
             boolean hover = Draw.inRect(mx, my, tx0 - Grid.PAD, y, tw0 + 2 * Grid.PAD, Grid.ROW);
+            if (hover) Cursors.want(Cursors.Shape.RESIZE_H);
             if (Theme.Style.squareUi) {
                 // As the rounded slider with square shapes: a flat track, its filled part, a framed square-cornered knob.
                 Draw.rect(g, tx0, cy - 2, tx0 + tw0, cy + 2, Theme.TOGGLE_TRACK_OFF);
@@ -383,6 +385,7 @@ public final class TeyvatConfigScreen extends Screen {
     /** Darker when there is nothing to choose ({@code active} false): no hover, dimmed text and arrows. */
     static void cycler(GuiGraphics g, float bx, float by, float bw, float h, Component value, boolean hover, boolean active) {
         hover &= active;
+        if (hover) Cursors.want(Cursors.Shape.HAND);
         int fill = active ? hover ? Theme.BUTTON_HOVER : Theme.BUTTON : Ui.inactive(Theme.BUTTON);
         if (Theme.Style.squareUi) Draw.rect(g, bx, by, bx + bw, by + h, fill);
         else Draw.capsule(g, bx, by, bw, h, fill);
@@ -553,6 +556,7 @@ public final class TeyvatConfigScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
+        Cursors.begin();
         renderBackground(g, mx, my, pt);
         layout();
         // Blur the fog before the dimming layer: the translucent dim writes alpha < 1 into the frame, which the vanilla
@@ -573,16 +577,17 @@ public final class TeyvatConfigScreen extends Screen {
 
         g.enableScissor((int) panelX, (int) listTop, (int) (panelX + panelW), (int) listBottom);
         float yy = listTop - scroll;
+        int rowMy = my >= listTop && my < listBottom ? my : -10_000; // rows cut off by the list edge take no hover
         for (Row r : rows) {
             r.y = yy;
-            if (r.shown() && yy + r.height() >= listTop && yy <= listBottom) r.render(g, contentX(), contentW(), mx, my);
+            if (r.shown() && yy + r.height() >= listTop && yy <= listBottom) r.render(g, contentX(), contentW(), mx, rowMy);
             yy += r.listHeight();
         }
         g.disableScissor();
 
         float bw = footerButtonW(), by = footerY();
-        Ui.actionButton(g, footerButtonX(0), by, bw, Component.translatable("teyvatcartographia.config.keybinds"), Icon.LIST, true, mx, my);
-        Ui.actionButton(g, footerButtonX(1), by, bw, Component.translatable("teyvatcartographia.config.reset"), Icon.TRASH, true, mx, my);
+        Ui.actionButton(g, footerButtonX(0), by, bw, Component.translatable("teyvatcartographia.config.keybinds"), Icon.KEYBOARD, true, mx, my);
+        Ui.actionButton(g, footerButtonX(1), by, bw, Component.translatable("teyvatcartographia.config.reset"), Icon.RESET, true, mx, my);
         Ui.actionButton(g, footerButtonX(2), by, bw, Component.translatable("gui.done"), Icon.CHECK, true, mx, my);
 
         // Tooltip for the setting whose label is under the cursor.
@@ -594,6 +599,8 @@ public final class TeyvatConfigScreen extends Screen {
                 }
             }
         }
+        if (draggingRow != null) Cursors.force(Cursors.Shape.RESIZE_H);
+        Cursors.apply();
     }
 
     @Override
@@ -657,6 +664,11 @@ public final class TeyvatConfigScreen extends Screen {
             return true;
         }
         return super.keyPressed(key, scan, mods);
+    }
+
+    @Override
+    public void removed() {
+        Cursors.reset();
     }
 
     @Override

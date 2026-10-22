@@ -42,7 +42,7 @@ class MarkerCodecTest {
         Marker cave = pins.get(0);
         assertEquals(UUID.fromString("aaaaaaaa-0000-4000-8000-000000000001"), cave.id);
         assertEquals("Old cave camp", cave.name);
-        assertEquals(MarkerType.BOSS, cave.type);
+        assertEquals(MarkerType.DEMON, cave.type);
         assertEquals(Level.OVERWORLD, cave.dimension);
         assertEquals(40, cave.x);
         assertEquals(20, cave.y);
@@ -63,7 +63,7 @@ class MarkerCodecTest {
                   {"id": "aaaaaaaa-0000-4000-8000-000000000005", "name": "Odd", "type": "NO_SUCH_TYPE", "dimension": "minecraft:overworld", "x": 3, "z": 3}
                 ]""");
         assertEquals(3, pins.size());
-        assertEquals(MarkerType.CLOVER, pins.get(0).type);
+        assertEquals(MarkerType.FLOWER, pins.get(0).type);
         assertEquals(MarkerType.STAR, pins.get(1).type);
         assertEquals(MarkerType.STAR, pins.get(2).type);
     }
@@ -83,7 +83,7 @@ class MarkerCodecTest {
 
     @Test
     void aPinSurvivesSavingAndLoading() {
-        Marker m = Marker.custom("Round trip", MarkerType.FISHING, Level.END, -123, 64, 456);
+        Marker m = Marker.custom("Round trip", MarkerType.HOOK, Level.END, -123, 64, 456);
         m.band = -2;
         JsonElement saved = Marker.CODEC.encodeStart(JsonOps.INSTANCE, m).getOrThrow();
         Marker back = Marker.CODEC.parse(JsonOps.INSTANCE, saved).getOrThrow();

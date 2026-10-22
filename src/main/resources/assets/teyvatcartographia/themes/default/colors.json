@@ -109,6 +109,8 @@
     "minimap_frame_glow": "#26DCE6EE",
     "minimap_view_cone": "#75FFFFFF",
     "minimap_north": "#FFDCE6EE",
-    "minimap_north_outline": "#702B3340"
+    "minimap_north_outline": "#702B3340",
+    "cursor": "#FFECE5D8",
+    "cursor_outline": "#FF1B2029"
   }
 }

@@ -46,12 +46,35 @@ public final class SettingsPanel extends SidePanel {
         });
     }
 
+    /**
+     * The path to the tracked pin on the world map, for every kind at once: on while any kind shows it there; turning
+     * it off turns off the map switch of every kind, turning it on turns on the path and its map switch of every kind.
+     */
+    private static Row path() {
+        return new Row(Component.translatable("teyvatcartographia.settings.path"), Component.translatable("teyvatcartographia.settings.path.tooltip"),
+                false, SettingsPanel::anyPathOnMap, () -> {
+                    boolean on = !anyPathOnMap();
+                    for (MapConfig.PinKind kind : MapConfig.PinKind.values()) {
+                        MapConfig.PinOptions o = MapConfig.pins(kind);
+                        o.pathMap.set(on);
+                        if (on) o.path.set(true);
+                    }
+                    MapConfig.save();
+                });
+    }
+
+    private static boolean anyPathOnMap() {
+        for (MapConfig.PinKind kind : MapConfig.PinKind.values()) if (MapConfig.pins(kind).pathOnMap()) return true;
+        return false;
+    }
+
     /** Quick switches for what the map shows; everything else is on the full settings screen. */
     private final List<Row> rows = List.of(
             section("teyvatcartographia.settings.section.display"),
             pins("teyvatcartographia.settings.custom_pins", MapConfig.PinKind.CUSTOM),
             pins("teyvatcartographia.settings.interactive_pins", MapConfig.PinKind.INTERACTIVE),
             pins("teyvatcartographia.settings.system_pins", MapConfig.PinKind.SYSTEM),
+            path(),
             option("teyvatcartographia.settings.labels", "map_labels", MapConfig.MAP_SHOW_LABELS),
             option("teyvatcartographia.settings.grid", "map_grid", MapConfig.MAP_SHOW_GRID));
 

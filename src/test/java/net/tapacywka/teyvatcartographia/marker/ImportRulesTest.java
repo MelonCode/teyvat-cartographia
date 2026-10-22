@@ -39,8 +39,8 @@ class ImportRulesTest {
 
     @Test
     void importLeavesOutRepeats() {
-        MarkerStore.add(pin("Camp", MarkerType.BOSS, 10));
-        List<Marker> file = List.of(pin("Camp", MarkerType.BOSS, 10), pin("Camp", MarkerType.BOSS, 11), pin("Other", MarkerType.BOSS, 10));
+        MarkerStore.add(pin("Camp", MarkerType.DEMON, 10));
+        List<Marker> file = List.of(pin("Camp", MarkerType.DEMON, 10), pin("Camp", MarkerType.DEMON, 11), pin("Other", MarkerType.DEMON, 10));
         MarkerStore.Added r = MarkerStore.addAll(file, false);
         assertEquals(2, r.added(), "same name elsewhere and another name here are new");
         assertEquals(1, r.duplicates(), "same place and name");
@@ -67,19 +67,19 @@ class ImportRulesTest {
 
     @Test
     void interactivePinsOnlyForOperators() {
-        List<Marker> file = List.of(pin("Statue", MarkerType.STATUE, 1), pin("Camp", MarkerType.BOSS, 2));
+        List<Marker> file = List.of(pin("Statue", MarkerType.PARTY, 1), pin("Camp", MarkerType.DEMON, 2));
         MarkerStore.Added player = MarkerStore.addAll(file, false);
         assertEquals(1, player.added());
         assertEquals(1, player.operatorOnly());
-        MarkerStore.Added op = MarkerStore.addAll(List.of(pin("Statue", MarkerType.STATUE, 1)), true);
+        MarkerStore.Added op = MarkerStore.addAll(List.of(pin("Statue", MarkerType.PARTY, 1)), true);
         assertEquals(1, op.added(), "an operator gets it (as an own pin where the server keeps no shared pins)");
     }
 
     @Test
     void anImportedPinKeepsItsIdUnlessItIsTaken() {
-        Marker mine = pin("Mine", MarkerType.MINE, 5);
+        Marker mine = pin("Mine", MarkerType.PICKAXE, 5);
         MarkerStore.add(mine);
-        Marker sameId = new Marker(mine.id, "Elsewhere", MarkerType.MINE, Level.OVERWORLD, 900, 64, 900, 0, false);
+        Marker sameId = new Marker(mine.id, "Elsewhere", MarkerType.PICKAXE, Level.OVERWORLD, 900, 64, 900, 0, false);
         Marker fresh = pin("Fresh", MarkerType.STAR, 7);
         MarkerStore.addAll(List.of(sameId, fresh), false);
         assertTrue(MarkerStore.find(fresh.id) != null, "its own id");

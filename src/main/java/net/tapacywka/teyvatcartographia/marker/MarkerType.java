@@ -10,22 +10,22 @@ import net.tapacywka.teyvatcartographia.render.Icon;
  * Marker types in two pin categories plus automatic points that come from real world data (spawn, last death):
  * <ul>
  *   <li>{@link Category#EXPLORATION} (shown as "Custom"): the seven custom pin types of Genshin Impact, for every player;</li>
- *   <li>{@link Category#INTERACTION} (shown as "Interactive"): waypoint, statue and domain; only operators create, edit and
- *       teleport to them.</li>
+ *   <li>{@link Category#INTERACTION} (shown as "Interactive"): sign, party and structure (waypoint, statue and domain up
+ *       to 0.1.2); only operators create, edit and teleport to them.</li>
  * </ul>
  */
 public enum MarkerType {
-    BOSS(Icon.BOSS, Category.EXPLORATION),
+    DEMON(Icon.DEMON, Category.EXPLORATION),
     QUEST(Icon.QUEST, Category.EXPLORATION),
     STAR(Icon.STAR, Category.EXPLORATION),
-    FOOD(Icon.FOOD, Category.EXPLORATION),
-    CLOVER(Icon.CLOVER, Category.EXPLORATION),
-    MINE(Icon.PICKAXE, Category.EXPLORATION),
-    FISHING(Icon.HOOK, Category.EXPLORATION),
+    MEAT(Icon.MEAT, Category.EXPLORATION),
+    FLOWER(Icon.FLOWER, Category.EXPLORATION),
+    PICKAXE(Icon.PICKAXE, Category.EXPLORATION),
+    HOOK(Icon.HOOK, Category.EXPLORATION),
     // Declaration order = order in the pin editor's grid.
-    WAYPOINT(Icon.WAYPOINT, Category.INTERACTION),
-    STATUE(Icon.STATUE, Category.INTERACTION),
-    DOMAIN(Icon.DOMAIN, Category.INTERACTION),
+    SIGN(Icon.SIGN, Category.INTERACTION),
+    PARTY(Icon.PARTY, Category.INTERACTION),
+    STRUCTURE(Icon.STRUCTURE, Category.INTERACTION),
     // Automatic points (not selectable for custom pins)
     SPAWN(Icon.SPAWN, Category.AUTO),
     DEATH(Icon.GRAVE, Category.AUTO);
@@ -48,6 +48,11 @@ public enum MarkerType {
         this.icon = icon;
         this.category = category;
         this.custom = category != Category.AUTO;
+    }
+
+    /** Translation key of the type's name (named by what its icon shows), the tooltip of its tile in the pin editor. */
+    public String langKey() {
+        return "teyvatcartographia.pin.type." + name().toLowerCase(java.util.Locale.ROOT);
     }
 
     /** System pins: created, edited and teleported to by operators only. */
@@ -77,7 +82,17 @@ public enum MarkerType {
     private static MarkerType parse(String s) {
         if (s == null) return STAR;
         return switch (s) {
-            case "HERB" -> CLOVER;
+            case "HERB" -> FLOWER;
+            // The custom types up to 0.1.2.
+            case "BOSS" -> DEMON;
+            case "FOOD" -> MEAT;
+            case "CLOVER" -> FLOWER;
+            case "MINE" -> PICKAXE;
+            case "FISHING" -> HOOK;
+            // The interactive types up to 0.1.2.
+            case "WAYPOINT" -> SIGN;
+            case "STATUE" -> PARTY;
+            case "DOMAIN" -> STRUCTURE;
             case "POI", "TELEPORT", "HOME", "CHEST", "NOTE", "FLAG" -> STAR;
             default -> {
                 try {

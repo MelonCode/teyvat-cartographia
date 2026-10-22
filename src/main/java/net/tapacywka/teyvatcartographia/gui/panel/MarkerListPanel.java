@@ -3,6 +3,7 @@ package net.tapacywka.teyvatcartographia.gui.panel;
 import net.minecraft.world.level.Level;
 import net.minecraft.resources.ResourceKey;
 import net.tapacywka.teyvatcartographia.gui.ChipField;
+import net.tapacywka.teyvatcartographia.gui.Cursors;
 import net.tapacywka.teyvatcartographia.gui.FileDialogs;
 import net.tapacywka.teyvatcartographia.gui.MapSearch;
 import net.tapacywka.teyvatcartographia.gui.PinTransfer;
@@ -394,6 +395,7 @@ public final class MarkerListPanel extends SidePanel {
             return;
         }
         boolean hover = Draw.inRect(mx, my, bx, ry, rw, ROW_H);
+        if (hover) Cursors.want(Cursors.Shape.HAND);
         Draw.rect(g, bx, ry, bx + rw, ry + ROW_H, hover ? Theme.PANEL_DARK_TILE_HOVER : Theme.PANEL_DARK_TILE);
         float cx = bx + ROW_H / 2f, cy = ry + ROW_H / 2f;
         if (r.kind() == Kind.PIN) {

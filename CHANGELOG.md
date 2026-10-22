@@ -20,14 +20,14 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * New sliders in **Settings > Minimap > Size and position**: **Inner padding** (a gap between the frame and the map),
   **Edge fade width** (how much of the radius fades out, 0% for a sharp edge) and **Edge fade strength** (how
   transparent the very edge gets); and in **Extra information**: **Line spacing**, the gap from the map to the lines
-  under it and between them. The defaults keep the look of 0.1.2.
+  under it and between them.
 * **Text size** of the lines under the minimap (Extra information): Auto (one step smaller than the interface, so 2
   screen pixels per font pixel at GUI scale 3, about the size of other minimaps) or a whole number of pixels, so the
   pixel font stays sharp. The lines shrink with their text.
 * The clock can show **Both** game and real time: two pills side by side, game time on the left.
 * When the minimap turns with the camera, it shows **E**, **S** and **W** too, fainter than **N** so north still stands
   out; with north up it shows only **N**, as before.
-* **Day counter** (Extra information, off by default): the day of the world, in one pill
+* **Day counter** (Extra information, on by default): the day of the world, in one pill
   with the game time ("Day 12 · 14:35") or in a pill of its own when the clock shows no game time. When the row is
   wider than the minimap, the real time moves to a line of its own.
 * Settings that were a switch with sub-settings are one slider in steps now: the **Clock** (Off, Game, Real, Both),
@@ -40,8 +40,37 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * A pin opened from the pin list goes back to that list when you close it (the cross, Esc, a click on the map, or
   saving or deleting the pin), with your search and scroll as they were. Esc or a click on the map then closes the
   list as before.
+* The quick settings of the map (the gear) have a **Path to the target** switch: the path on the world map for every
+  kind of pin at once (All settings still set it per kind).
 * The zoom slider eases the map to the new scale like the mouse wheel, the + and - keys and the buttons do; its thumb
   follows the cursor at once.
+
+### Pins
+* The interactive pins are now **Sign**, **Party** and **Structure** (they were Waypoint, Statue and Domain), with new
+  icons; the boss pin has a horned demon. Pins saved, exported or shared by a server of 0.1.2 and earlier keep working:
+  the old types are read as the new ones. A server and its players should update together: a 0.1.2 server does not
+  know the new types.
+* The custom pins are named by what they show: **Demon**, **Quest** (now a shield with an exclamation mark, it was a
+  flag), **Star**, **Meat**, **Flower**, **Pickaxe** and **Hook**; the name shows when you point at a tile in the pin
+  editor. Old pins keep their kind.
+* All pins look the same size: each is scaled by its visual weight instead of its outer box, so solid ones (star,
+  flower, grave) are a little smaller and thin ones (pickaxe, hook, party) a little larger.
+* The dimensions panel of the world map has its own globe icon (it used the cave layers icon).
+* Every icon but the player arrow now comes from Nieobie's Game Icon Pack, like the pins before: the interface icons
+  (close, zoom, settings, list, layers, edit, delete, export and import, search and the others), the world spawn (a
+  house) and the last death (a skull). The Key binds button of the settings has a keyboard, Reset a circular arrow.
+
+### New defaults
+* For new players and after **Reset**: the minimap 4 units from the screen corner (was 8), opacity 0.85 (was 0.95),
+  edge fade width 15% (was 20%), line spacing 2 (was 4) and the day counter on. **Pin your position** is on **B** and
+  **Stop tracking** on **Z** (they had no key). Settings and keys you already changed stay as they are.
+
+### Mouse pointer
+* The world map with its panels and the settings have their own mouse pointer in the theme's colours (from Nieobie's
+  Game Icon Pack): the arrow, a hand over buttons, tiles, list rows and pins, a text cursor over text fields, a move
+  cross while dragging the map, up and down arrows on the zoom slider, left and right arrows on the settings sliders,
+  a no sign over a button that is off, and an arrow with an hourglass while the search reads the biomes. It is a
+  system cursor, so it never lags, sized to the interface scale; the usual pointer comes back when the menu closes.
 
 ### In-world marker
 * The beam of light fades out as the marker nears the edge of its limiter ellipse and is gone when the marker starts

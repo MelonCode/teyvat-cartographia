@@ -12,7 +12,10 @@ public final class Keybinds {
 
     public static final String CATEGORY = "key.categories.teyvatcartographia";
 
-    /** Defaults: M (map), N (minimap), = / - (minimap zoom) - none of them is used by vanilla 1.21.1. */
+    /**
+     * Defaults: M (map), N (minimap), = / - (minimap zoom), B (pin your position), Z (stop tracking) and V (pulse):
+     * none of them is used by vanilla 1.21.1.
+     */
     public static final KeyMapping OPEN_MAP = new KeyMapping("key.teyvatcartographia.open_map", KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_M, CATEGORY);
     public static final KeyMapping TOGGLE_MINIMAP = new KeyMapping("key.teyvatcartographia.toggle_minimap", KeyConflictContext.IN_GAME,
@@ -22,9 +25,9 @@ public final class Keybinds {
     public static final KeyMapping MINIMAP_ZOOM_OUT = new KeyMapping("key.teyvatcartographia.minimap_zoom_out", KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_MINUS, CATEGORY);
     public static final KeyMapping QUICK_PIN = new KeyMapping("key.teyvatcartographia.quick_pin", KeyConflictContext.IN_GAME,
-            InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, CATEGORY);
     public static final KeyMapping CLEAR_TARGET = new KeyMapping("key.teyvatcartographia.clear_target", KeyConflictContext.IN_GAME,
-            InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Z, CATEGORY);
     /** Pulse of the tracked marker in the world; V is not used by vanilla 1.21.1. */
     public static final KeyMapping PULSE_TARGET = new KeyMapping("key.teyvatcartographia.pulse_target", KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY);

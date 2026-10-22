@@ -16,15 +16,15 @@ class MarkerTypeTest {
     void interactiveTypesAreForOperatorsOnly() {
         Set<MarkerType> interactive = EnumSet.noneOf(MarkerType.class);
         for (MarkerType t : MarkerType.values()) if (t.operatorOnly()) interactive.add(t);
-        assertEquals(EnumSet.of(MarkerType.WAYPOINT, MarkerType.STATUE, MarkerType.DOMAIN), interactive);
+        assertEquals(EnumSet.of(MarkerType.SIGN, MarkerType.PARTY, MarkerType.STRUCTURE), interactive);
     }
 
     @Test
     void sevenCustomTypesForEveryone() {
         Set<MarkerType> custom = EnumSet.noneOf(MarkerType.class);
         for (MarkerType t : MarkerType.values()) if (t.category == MarkerType.Category.EXPLORATION) custom.add(t);
-        assertEquals(EnumSet.of(MarkerType.BOSS, MarkerType.QUEST, MarkerType.STAR, MarkerType.FOOD, MarkerType.CLOVER,
-                MarkerType.MINE, MarkerType.FISHING), custom);
+        assertEquals(EnumSet.of(MarkerType.DEMON, MarkerType.QUEST, MarkerType.STAR, MarkerType.MEAT, MarkerType.FLOWER,
+                MarkerType.PICKAXE, MarkerType.HOOK), custom);
         for (MarkerType t : custom) assertFalse(t.operatorOnly(), t.name());
     }
 
@@ -34,7 +34,7 @@ class MarkerTypeTest {
         assertFalse(MarkerType.DEATH.custom);
         assertFalse(MarkerType.SPAWN.operatorOnly());
         assertTrue(MarkerType.STAR.custom);
-        assertTrue(MarkerType.WAYPOINT.custom);
+        assertTrue(MarkerType.SIGN.custom);
     }
 
     @Test
@@ -43,6 +43,27 @@ class MarkerTypeTest {
             assertNotNull(t.icon, t.name());
             assertNotNull(t.category, t.name());
         }
+    }
+
+    @Test
+    void theTypesOfOldVersionsReadAsTheNewOnes() {
+        // Up to 0.1.2: WAYPOINT, STATUE and DOMAIN (files, exports and a server's shared pins).
+        assertEquals(MarkerType.SIGN, parse("WAYPOINT"));
+        assertEquals(MarkerType.PARTY, parse("STATUE"));
+        assertEquals(MarkerType.STRUCTURE, parse("DOMAIN"));
+        // And the custom ones, named by what they show since 0.1.3.
+        assertEquals(MarkerType.DEMON, parse("BOSS"));
+        assertEquals(MarkerType.MEAT, parse("FOOD"));
+        assertEquals(MarkerType.FLOWER, parse("CLOVER"));
+        assertEquals(MarkerType.PICKAXE, parse("MINE"));
+        assertEquals(MarkerType.HOOK, parse("FISHING"));
+        for (MarkerType t : MarkerType.values()) if (t.custom) assertEquals(t, parse(t.name()), "the new names read back");
+        assertEquals("PARTY", MarkerType.PIN_CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, MarkerType.PARTY)
+                .getOrThrow().getAsString(), "written with the new name");
+    }
+
+    private static MarkerType parse(String name) {
+        return MarkerType.PIN_CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, new com.google.gson.JsonPrimitive(name)).getOrThrow();
     }
 
     @Test

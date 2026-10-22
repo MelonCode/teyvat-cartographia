@@ -64,6 +64,7 @@ public final class Ui {
         int maxW = (int) (closeCx - Grid.ICON / 2f - Grid.GAP - tx);
         DrawText.text(g, DrawText.fit(title.getString(), maxW), tx, DrawText.textY(y, Grid.HEADER_H), Theme.GOLD, false);
         boolean hover = closeHit(x, y, w, mx, my);
+        if (hover) Cursors.want(Cursors.Shape.HAND);
         Draw.icon(g, Icon.CLOSE, closeCx, cy, Grid.ICON, hover ? Theme.WHITE : Theme.CREAM);
     }
 
@@ -82,6 +83,8 @@ public final class Ui {
                                     boolean enabled, int mx, int my) {
         float h = Grid.ACTION_H;
         boolean hover = enabled && Draw.inRect(mx, my, x, y, w, h);
+        if (hover) Cursors.want(Cursors.Shape.HAND);
+        else if (Draw.inRect(mx, my, x, y, w, h)) Cursors.want(Cursors.Shape.UNAVAILABLE);
         int fill = !enabled ? Theme.BUTTON_DISABLED : hover ? Theme.BUTTON_HOVER : Theme.BUTTON;
         float cx = x + h / 2f, cy = y + h / 2f, r = h / 2f - 2;
         if (Theme.Style.squareUi) {
@@ -112,6 +115,7 @@ public final class Ui {
     public static void toolButton(GuiGraphics g, float x, float y, Icon icon, int mx, int my) {
         float s = Grid.TOOL, cx = x + s / 2f, cy = y + s / 2f;
         boolean hover = Draw.inRect(mx, my, x, y, s, s);
+        if (hover) Cursors.want(Cursors.Shape.HAND);
         if (Theme.Style.squareUi) {
             Draw.rect(g, x, y, x + s, y + s, Theme.BUTTON_ICON_BADGE);
             if (hover) Draw.frame(g, x, y, s, s, 1, Theme.BUTTON_HOVER_OUTLINE);
@@ -135,6 +139,7 @@ public final class Ui {
     public static void toggle(GuiGraphics g, float x, float y, boolean on, int mx, int my) {
         float w = Grid.TOGGLE_W, h = Grid.TOGGLE_H, r = h / 2f;
         boolean hover = Draw.inRect(mx, my, x, y, w, h);
+        if (hover) Cursors.want(Cursors.Shape.HAND);
         float kx = on ? x + w - r : x + r, ky = y + r;
         int track = on ? Theme.TOGGLE_TRACK_ON : Theme.TOGGLE_TRACK_OFF, outline = hover ? Theme.TOGGLE_OUTLINE_HOVER : Theme.TOGGLE_OUTLINE;
         int knob = Theme.TOGGLE_KNOB, dot = Theme.TOGGLE_TRACK_ON, cross = Theme.TOGGLE_OFF_CROSS;
@@ -164,6 +169,7 @@ public final class Ui {
     public static void gridTile(GuiGraphics g, float x, float y, float w, Component label, boolean active, int mx, int my) {
         float h = Grid.TILE_H;
         boolean hover = Draw.inRect(mx, my, x, y, w, h);
+        if (hover) Cursors.want(Cursors.Shape.HAND);
         // The same in both styles (the tile is square anyway).
         Draw.rect(g, x, y, x + w, y + h, hover ? Theme.PANEL_DARK_TILE_HOVER : Theme.PANEL_DARK_TILE);
         Draw.roundRectOutline(g, x, y, w, h, 0, 1, Theme.TILE_OUTLINE);
@@ -204,6 +210,7 @@ public final class Ui {
     public static void iconButton(GuiGraphics g, float cx, float cy, float diameter, float iconSize, Icon icon, boolean light, int mx, int my) {
         float r = diameter / 2f;
         boolean hover = buttonHit(cx, cy, diameter, mx, my);
+        if (hover) Cursors.want(Cursors.Shape.HAND);
         int fill = light ? (hover ? Theme.ICON_BUTTON_LIGHT_HOVER : Theme.ICON_BUTTON_LIGHT) : (hover ? Theme.ICON_BUTTON_HOVER : Theme.ICON_BUTTON);
         if (Theme.Style.squareUi) {
             Draw.rect(g, cx - r + 1, cy - r + 1, cx + r + 1, cy + r + 1, Theme.ICON_BUTTON_SHADOW);

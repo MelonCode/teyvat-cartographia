@@ -67,8 +67,8 @@ public final class MapConfig {
     public static final ModConfigSpec.DoubleValue MAP_DEFAULT_ZOOM;
 
     /**
-     * The three kinds of pins, each with its own settings: the players' own (custom), the operators' waypoints,
-     * statues and domains (interactive), and the automatic world spawn and last death (system).
+     * The three kinds of pins, each with its own settings: the players' own (custom), the operators' signs,
+     * parties and structures (interactive), and the automatic world spawn and last death (system).
      */
     public enum PinKind {
         CUSTOM("custom"), INTERACTIVE("interactive"), SYSTEM("system");
@@ -162,13 +162,13 @@ public final class MapConfig {
         MINIMAP_ENABLED = b.comment("Show the minimap on the HUD").translation("teyvatcartographia.config.minimap_enabled").define("enabled", true);
         MINIMAP_RADIUS = b.comment("Minimap radius in GUI pixels").translation("teyvatcartographia.config.minimap_radius").defineInRange("radius", 48, 24, 110);
         MINIMAP_CORNER = b.comment("Screen corner the minimap is anchored to").translation("teyvatcartographia.config.minimap_corner").defineEnum("corner", Corner.TOP_LEFT);
-        MINIMAP_OFFSET_X = b.comment("Horizontal distance from the anchored corner").translation("teyvatcartographia.config.minimap_offset_x").defineInRange("offsetX", 8, 0, 1000);
-        MINIMAP_OFFSET_Y = b.comment("Vertical distance from the anchored corner").translation("teyvatcartographia.config.minimap_offset_y").defineInRange("offsetY", 8, 0, 1000);
-        MINIMAP_OPACITY = b.comment("Minimap opacity").translation("teyvatcartographia.config.minimap_opacity").defineInRange("opacity", 0.95, 0.2, 1.0);
+        MINIMAP_OFFSET_X = b.comment("Horizontal distance from the anchored corner").translation("teyvatcartographia.config.minimap_offset_x").defineInRange("offsetX", 4, 0, 1000);
+        MINIMAP_OFFSET_Y = b.comment("Vertical distance from the anchored corner").translation("teyvatcartographia.config.minimap_offset_y").defineInRange("offsetY", 4, 0, 1000);
+        MINIMAP_OPACITY = b.comment("Minimap opacity").translation("teyvatcartographia.config.minimap_opacity").defineInRange("opacity", 0.85, 0.2, 1.0);
         MINIMAP_PADDING = b.comment("Gap between the frame and the map inside it, in GUI pixels").translation("teyvatcartographia.config.minimap_padding").defineInRange("padding", 0, 0, 16);
-        MINIMAP_FADE_WIDTH = b.comment("Width of the faded edge of the map, in percent of its radius (0: a sharp edge)").translation("teyvatcartographia.config.minimap_fade_width").defineInRange("fadeWidth", 20, 0, 50);
+        MINIMAP_FADE_WIDTH = b.comment("Width of the faded edge of the map, in percent of its radius (0: a sharp edge)").translation("teyvatcartographia.config.minimap_fade_width").defineInRange("fadeWidth", 15, 0, 50);
         MINIMAP_FADE_STRENGTH = b.comment("How transparent the very edge of the map gets, in percent (0: no fading)").translation("teyvatcartographia.config.minimap_fade_strength").defineInRange("fadeStrength", 100, 0, 100);
-        MINIMAP_INFO_GAP = b.comment("Gap between the minimap and the lines under it (coordinates, biome, clock) and between those lines, in GUI pixels").translation("teyvatcartographia.config.minimap_info_gap").defineInRange("infoGap", 4, 0, 16);
+        MINIMAP_INFO_GAP = b.comment("Gap between the minimap and the lines under it (coordinates, biome, clock, day) and between those lines, in GUI pixels").translation("teyvatcartographia.config.minimap_info_gap").defineInRange("infoGap", 2, 0, 16);
         MINIMAP_TEXT_SIZE = b.comment("Size of the text under the minimap: 0 = Auto (a step below the GUI scale), else screen pixels per font pixel, at most the GUI scale").translation("teyvatcartographia.config.minimap_text_size").defineInRange("textSize", 0, 0, 6);
         MINIMAP_ZOOM = b.comment("Minimap scale in GUI pixels per block: 1/16, 1/8, 1/4, 1/3, 1/2, 1, 2, 3, 4, 8 or 16 (other values snap to the nearest). Below 1 only the tracked target keeps its pin").translation("teyvatcartographia.config.minimap_zoom").defineInRange("zoom", 1.0, 1 / 16.0, 16.0);
         MINIMAP_ORIENTATION = b.comment("NORTH_UP: north is always up. PLAYER_UP: the map rotates with the view direction").translation("teyvatcartographia.config.minimap_orientation").defineEnum("orientation", Orientation.NORTH_UP);
@@ -177,7 +177,7 @@ public final class MapConfig {
         MINIMAP_SHOW_BIOME = b.comment("Show the biome you are in under the minimap").translation("teyvatcartographia.config.minimap_biome").define("showBiome", true);
         MINIMAP_SHOW_TIME = b.comment("Show a clock under the minimap").translation("teyvatcartographia.config.minimap_time").define("showTime", true);
         MINIMAP_TIME_SOURCE = b.comment("Clock under the minimap: GAME_TIME = time of day in the world, REAL_TIME = your computer's clock, BOTH = both side by side (game on the left)").translation("teyvatcartographia.config.minimap_time_source").defineEnum("timeSource", TimeSource.GAME_TIME);
-        MINIMAP_SHOW_DAY = b.comment("Show the day of the world under the minimap, with the game time when the clock shows it").translation("teyvatcartographia.config.minimap_day").define("showDay", false);
+        MINIMAP_SHOW_DAY = b.comment("Show the day of the world under the minimap, with the game time when the clock shows it").translation("teyvatcartographia.config.minimap_day").define("showDay", true);
         b.pop();
 
         // Below scale 1 the maps show only the tracked target; the tracked target is always shown on them.

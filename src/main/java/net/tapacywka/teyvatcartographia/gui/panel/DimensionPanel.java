@@ -50,7 +50,7 @@ public final class DimensionPanel extends SidePanel {
 
     @Override
     protected Icon titleIcon() {
-        return Icon.LAYERS;
+        return Icon.EARTH;
     }
 
     private float tileW() {

@@ -26,16 +26,16 @@ class SharedPinsRulesTest {
     @Test
     void interactivePinsOnly() {
         List<Marker> pins = new ArrayList<>();
-        assertFalse(put(pins, pin("Camp", MarkerType.BOSS, 1)), "a custom pin is not shared");
-        assertTrue(put(pins, pin("Statue", MarkerType.STATUE, 2)));
+        assertFalse(put(pins, pin("Camp", MarkerType.DEMON, 1)), "a custom pin is not shared");
+        assertTrue(put(pins, pin("Statue", MarkerType.PARTY, 2)));
         assertEquals(1, pins.size());
     }
 
     @Test
     void namesAreTrimmedAndNotEmpty() {
         List<Marker> pins = new ArrayList<>();
-        assertFalse(put(pins, pin("   ", MarkerType.WAYPOINT, 1)), "an empty name");
-        put(pins, pin("  Gate  ", MarkerType.WAYPOINT, 2), pin("x".repeat(80), MarkerType.DOMAIN, 3));
+        assertFalse(put(pins, pin("   ", MarkerType.SIGN, 1)), "an empty name");
+        put(pins, pin("  Gate  ", MarkerType.SIGN, 2), pin("x".repeat(80), MarkerType.STRUCTURE, 3));
         assertEquals("Gate", pins.get(0).name);
         assertEquals(48, pins.get(1).name.length(), "at most 48 characters");
     }
@@ -43,13 +43,13 @@ class SharedPinsRulesTest {
     @Test
     void aChangeKeepsThePlace() {
         List<Marker> pins = new ArrayList<>();
-        Marker statue = pin("Statue", MarkerType.STATUE, 10);
+        Marker statue = pin("Statue", MarkerType.PARTY, 10);
         put(pins, statue);
-        Marker moved = new Marker(statue.id, "Statue of the Seven", MarkerType.WAYPOINT, Level.NETHER, 999, 5, 999, 0, false);
+        Marker moved = new Marker(statue.id, "Statue of the Seven", MarkerType.SIGN, Level.NETHER, 999, 5, 999, 0, false);
         assertTrue(put(pins, moved));
         Marker now = pins.get(0);
         assertEquals("Statue of the Seven", now.name);
-        assertEquals(MarkerType.WAYPOINT, now.type);
+        assertEquals(MarkerType.SIGN, now.type);
         assertEquals(Level.OVERWORLD, now.dimension, "the place stays");
         assertEquals(10, now.x);
         assertEquals(70, now.y);
@@ -59,22 +59,22 @@ class SharedPinsRulesTest {
     @Test
     void aRepeatIsNotAddedTwice() {
         List<Marker> pins = new ArrayList<>();
-        put(pins, pin("Gate", MarkerType.WAYPOINT, 5));
-        assertFalse(put(pins, pin("Gate", MarkerType.WAYPOINT, 5)), "same place and name, another id");
+        put(pins, pin("Gate", MarkerType.SIGN, 5));
+        assertFalse(put(pins, pin("Gate", MarkerType.SIGN, 5)), "same place and name, another id");
         assertEquals(1, pins.size());
     }
 
     @Test
     void atMost200() {
         List<Marker> pins = new ArrayList<>();
-        for (int i = 0; i < SharedPinsServer.MAX_SHARED + 5; i++) put(pins, pin("Gate " + i, MarkerType.WAYPOINT, i));
+        for (int i = 0; i < SharedPinsServer.MAX_SHARED + 5; i++) put(pins, pin("Gate " + i, MarkerType.SIGN, i));
         assertEquals(200, pins.size());
     }
 
     @Test
     void removing() {
         List<Marker> pins = new ArrayList<>();
-        Marker a = pin("A", MarkerType.WAYPOINT, 1), b = pin("B", MarkerType.STATUE, 2);
+        Marker a = pin("A", MarkerType.SIGN, 1), b = pin("B", MarkerType.PARTY, 2);
         put(pins, a, b);
         assertTrue(SharedPinsServer.apply(pins, new SharedPinsNetwork.Edit(List.of(), List.of(a.id))));
         assertEquals(1, pins.size());
@@ -85,7 +85,7 @@ class SharedPinsRulesTest {
     @Test
     void theCaveLayerIsKept() {
         List<Marker> pins = new ArrayList<>();
-        Marker cave = pin("Deep gate", MarkerType.WAYPOINT, 1);
+        Marker cave = pin("Deep gate", MarkerType.SIGN, 1);
         cave.band = -3;
         put(pins, cave);
         assertEquals(-3, pins.get(0).band);
