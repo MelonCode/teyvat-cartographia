@@ -16,6 +16,8 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.FoliageColor;
+import net.minecraft.world.level.GrassColor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RenderShape;
@@ -24,7 +26,6 @@ import net.minecraft.world.level.material.MapColor;
 import net.tapacywka.teyvatcartographia.TeyvatCartographia;
 
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -45,15 +46,8 @@ public final class TextureColors {
     /** Which biome tint a block's texture still needs. */
     public enum Tint { NONE, GRASS, FOLIAGE }
 
-    /**
-     * One block: its texture colour (ARGB), the biome tint to multiply it by, and whether its map colour is far from
-     * its texture ({@link #OFF_MAP}): the mod's palette then draws it from the texture too (basalt, which the game
-     * gives the map colour of blackstone; blocks of mods with a generic map colour).
-     */
-    public record Entry(int argb, Tint tint, boolean offMap) {}
-
-    /** How far (CIE76 colour distance) the map colour may be from the texture before the texture is used. */
-    static final float OFF_MAP = 20f;
+    /** One block: its texture colour (ARGB) and the biome tint to multiply it by. */
+    public record Entry(int argb, Tint tint) {}
 
     private static volatile Map<Block, Entry> blocks = Map.of();
     private static volatile int water, lava, snow;
@@ -102,8 +96,7 @@ public final class TextureColors {
         return false;
     }
 
-    /** The top texture, its tint, and the block's map colour (0: tinted or invisible, never compared). */
-    private record Found(ResourceLocation texture, Tint tint, int fixedTint, int mapColour) {}
+    private record Found(ResourceLocation texture, Tint tint, int fixedTint) {}
 
     private static void start(Minecraft mc) {
         RandomSource random = RandomSource.create(42L);
@@ -120,15 +113,12 @@ public final class TextureColors {
         Util.backgroundExecutor().execute(() -> {
             Map<ResourceLocation, Integer> averages = new HashMap<>();
             Map<Block, Entry> out = new IdentityHashMap<>();
-            List<String> off = new ArrayList<>();
             for (Map.Entry<Block, Found> e : found.entrySet()) {
                 Found f = e.getValue();
                 int argb = averages.computeIfAbsent(f.texture(), t -> read(rm, t));
                 if (argb == 0) continue;
                 if (f.fixedTint() != -1) argb = multiply(argb, f.fixedTint());
-                boolean offMap = f.mapColour() != 0 && distance(argb, f.mapColour()) > OFF_MAP;
-                if (offMap) off.add(BuiltInRegistries.BLOCK.getKey(e.getKey()).toString());
-                out.put(e.getKey(), new Entry(argb, f.tint(), offMap));
+                out.put(e.getKey(), new Entry(argb, f.tint()));
             }
             water = averages.computeIfAbsent(ResourceLocation.withDefaultNamespace("block/water_still"), t -> read(rm, t));
             lava = averages.computeIfAbsent(ResourceLocation.withDefaultNamespace("block/lava_still"), t -> read(rm, t));
@@ -136,8 +126,6 @@ public final class TextureColors {
             blocks = out;
             fresh = true;
             TeyvatCartographia.LOGGER.info("Teyvat Cartographia: texture colours of {} blocks ({} textures)", out.size(), averages.size());
-            TeyvatCartographia.LOGGER.info("Teyvat Cartographia: {} blocks drawn from their texture in the mod's palette", off.size());
-            TeyvatCartographia.LOGGER.debug("Teyvat Cartographia: drawn from their texture: {}", off);
         });
     }
 
@@ -154,25 +142,42 @@ public final class TextureColors {
         Tint tint = Tint.NONE;
         int fixed = -1;
         MapColor mc0 = state.getMapColor(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
-        // Terracotta and its colours keep the palette's map colours (the badlands look as they were designed).
-        int mapColour = index >= 0 || mc0 == MapColor.NONE || state.is(BlockTags.TERRACOTTA) ? 0 : 0xFF000000 | mc0.col;
-        if (index >= 0) {
+        if (index >= 0 && BuiltInRegistries.BLOCK.getKey(state.getBlock()).getNamespace().equals("minecraft")) {
+            // Vanilla: leaves and plants take the foliage tint, grass the grass tint, spruce and birch their own.
             if (state.is(Blocks.SPRUCE_LEAVES)) fixed = 0x619961;
             else if (state.is(Blocks.BIRCH_LEAVES)) fixed = 0x80A755;
             else if (state.is(BlockTags.LEAVES) || mc0 == MapColor.PLANT && !GRASSY.contains(state.getBlock())) tint = Tint.FOLIAGE;
             else if (mc0 == MapColor.GRASS || GRASSY.contains(state.getBlock())) tint = Tint.GRASS;
-            else fixed = fixedTint(mc, state, index);
+            else {
+                int c = fixedTint(mc, state, index);
+                fixed = c == NEEDS_WORLD ? -1 : c;
+            }
+        } else if (index >= 0) {
+            // A mod's block: what its colour handler gives without a world tells the kind of tint. No handler: the game
+            // does not tint it (the willow leaves of The Sift keep their cyan texture); the default foliage or grass
+            // colour: a biome tint; a handler that needs a world: as vanilla leaves and grass; else its own colour.
+            int c = fixedTint(mc, state, index);
+            int rgb = c & 0xFFFFFF;
+            if (c == NEEDS_WORLD) {
+                if (state.is(BlockTags.LEAVES) || mc0 == MapColor.PLANT) tint = Tint.FOLIAGE;
+                else if (mc0 == MapColor.GRASS) tint = Tint.GRASS;
+            } else if (c != -1 && rgb == FoliageColor.getDefaultColor()) tint = Tint.FOLIAGE;
+            else if (c != -1 && rgb == GrassColor.getDefaultColor()) tint = Tint.GRASS;
+            else fixed = c;
         }
         ResourceLocation name = sprite.contents().name();
-        return name.equals(MissingTextureAtlasSprite.getLocation()) ? null : new Found(name, tint, fixed, mapColour);
+        return name.equals(MissingTextureAtlasSprite.getLocation()) ? null : new Found(name, tint, fixed);
     }
 
-    /** The tint a block gives itself without a world (-1: none, or it needs a world). */
+    /** {@link #fixedTint}: the block's colour handler cannot answer without a world. */
+    private static final int NEEDS_WORLD = Integer.MIN_VALUE;
+
+    /** The tint a block gives itself without a world: -1 without a colour handler (not tinted), or {@link #NEEDS_WORLD}. */
     private static int fixedTint(Minecraft mc, BlockState state, int index) {
         try {
             return mc.getBlockColors().getColor(state, null, null, index);
         } catch (RuntimeException e) {
-            return -1;
+            return NEEDS_WORLD;
         }
     }
 
@@ -216,30 +221,6 @@ public final class TextureColors {
         }
         if (n == 0) return 0;
         return 0xFF000000 | (int) (r / n) << 16 | (int) (g / n) << 8 | (int) (b / n);
-    }
-
-    /** The CIE76 distance of two colours (ARGB, alpha ignored): about 2 is just visible, 20 a clearly other colour. */
-    static float distance(int a, int b) {
-        float[] p = lab(a), q = lab(b);
-        float dl = p[0] - q[0], da = p[1] - q[1], db = p[2] - q[2];
-        return (float) Math.sqrt(dl * dl + da * da + db * db);
-    }
-
-    private static float[] lab(int argb) {
-        double r = linear((argb >> 16) & 0xFF), g = linear((argb >> 8) & 0xFF), b = linear(argb & 0xFF);
-        double x = f((r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047);
-        double y = f(r * 0.2126 + g * 0.7152 + b * 0.0722);
-        double z = f((r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883);
-        return new float[] {(float) (116 * y - 16), (float) (500 * (x - y)), (float) (200 * (y - z))};
-    }
-
-    private static double linear(int c) {
-        double v = c / 255.0;
-        return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-    }
-
-    private static double f(double t) {
-        return t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16.0 / 116;
     }
 
     /** A colour multiplied by a tint channel by channel, as the game tints a texture (ARGB, the tint's alpha ignored). */

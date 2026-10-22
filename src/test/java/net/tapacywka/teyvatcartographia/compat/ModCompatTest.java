@@ -17,13 +17,6 @@ class ModCompatTest {
     }
 
     @Test
-    void onlyTheAetherIsDrawnFromItsTexturesInTheModsPalette() {
-        assertTrue(ModCompat.texturedWorld(ModCompat.AETHER_DIMENSION));
-        assertFalse(ModCompat.texturedWorld(Level.OVERWORLD));
-        assertFalse(ModCompat.texturedWorld(Level.NETHER));
-    }
-
-    @Test
     void modNamesStartEveryWordWithACapital() {
         assertEquals("Xaero's Minimap", ModCompat.titleCase("xaero's minimap"));
         assertEquals("The Aether", ModCompat.titleCase("The aether"));

@@ -8,7 +8,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.material.MapColor;
 import net.neoforged.neoforge.common.Tags;
-import net.tapacywka.teyvatcartographia.compat.ModCompat;
 
 import java.util.Map;
 
@@ -46,11 +45,8 @@ public final class CaveScanner {
         boolean[] drop = new boolean[256];
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         double r2 = radius * radius;
-        // The palette as in ChunkScanner: the theme's colours for this dimension, else the textures (Original, the Aether).
-        boolean original = MapPalette.original();
-        boolean textured = original || ModCompat.texturedWorld(level.dimension());
-        Map<Block, Integer> own = original ? null : MapPalette.dimension(level.dimension());
-        int[] tuning = original ? null : MapPalette.tuning(); // the player's mute and warmth of the mod's palette
+        // The standard colours as in ChunkScanner (the theme's colours for this dimension first); no biome tint underground.
+        Map<Block, Integer> own = MapPalette.dimension(level.dimension());
         for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
                 int i = z * 16 + x, wx = (cx << 4) + x, wz = (cz << 4) + z;
@@ -92,7 +88,7 @@ public final class CaveScanner {
                     f |= MapTile.FLAG_WATER;
                     if (depth >= 2) f |= MapTile.FLAG_IMPASSABLE;
                 } else if (s.getFluidState().is(FluidTags.LAVA)) {
-                    c = original && TextureColors.lava() != 0 ? TextureColors.lava() : MapPalette.LAVA;
+                    c = TextureColors.lava() != 0 ? TextureColors.lava() : MapPalette.LAVA;
                     f |= MapTile.FLAG_IMPASSABLE;
                 } else if (s.is(Tags.Blocks.ORES)) {
                     // Ore stands out from the stone: gems in teal, everything else in pale gold.
@@ -102,12 +98,11 @@ public final class CaveScanner {
                     MapColor mc = s.getMapColor(level, pos);
                     Integer mine = own == null ? null : own.get(s.getBlock());
                     TextureColors.Entry tex = mine == null ? TextureColors.get(s.getBlock()) : null;
-                    if (tex != null && !textured && !tex.offMap()) tex = null; // as in ChunkScanner
                     if (mine != null) c = mine;
-                    else if (tex != null) c = original ? tex.argb() : MapPalette.soften(tex.argb()); // no biome tint underground
-                    else c = MapPalette.of(mc == MapColor.NONE ? MapColor.STONE : mc);
+                    else if (tex != null) c = tex.argb();
+                    else c = MapPalette.standard(mc == MapColor.NONE ? MapColor.STONE : mc);
                 }
-                color[i] = tuning == null ? c : MapPalette.tune(c, tuning[0], tuning[1]);
+                color[i] = c;
                 flags[i] = f;
             }
         }

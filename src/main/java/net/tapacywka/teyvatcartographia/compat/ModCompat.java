@@ -12,7 +12,7 @@ import net.tapacywka.teyvatcartographia.config.MapConfig;
  * sub-section only while that mod is in the game):
  * <ul>
  *   <li>The Aether: its islands float over the void, so the cave map (under an island counts as underground) is off
- *       there unless asked for; the map draws it from its block textures, as its map colours look nothing like it.</li>
+ *       there unless asked for.</li>
  *   <li>Xaero's Minimap: the import of its waypoints (which type they get, hidden ones, death points).</li>
  * </ul>
  */
@@ -39,14 +39,6 @@ public final class ModCompat {
 
     static boolean caves(ResourceKey<Level> dimension, boolean aetherCaves) {
         return dimension != AETHER_DIMENSION || aetherCaves;
-    }
-
-    /**
-     * Whether the mod's own palette draws this dimension from its block textures (softened like the rest of the map)
-     * rather than the blocks' map colours: the Aether, whose map colours look nothing like it.
-     */
-    public static boolean texturedWorld(ResourceKey<Level> dimension) {
-        return dimension == AETHER_DIMENSION;
     }
 
     /**

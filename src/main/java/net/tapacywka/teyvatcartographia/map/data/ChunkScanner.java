@@ -5,7 +5,6 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.ColorResolver;
 import net.minecraft.world.level.LightLayer;
@@ -18,7 +17,6 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.MapColor;
-import net.tapacywka.teyvatcartographia.compat.ModCompat;
 
 import java.util.Map;
 
@@ -50,11 +48,9 @@ public final class ChunkScanner {
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         TintGrid water = new TintGrid(BiomeColors.WATER_COLOR_RESOLVER), grass = new TintGrid(BiomeColors.GRASS_COLOR_RESOLVER),
                 foliageTint = new TintGrid(BiomeColors.FOLIAGE_COLOR_RESOLVER);
-        // The colours of the block textures: the Original palette everywhere, the mod's own one (softened) in worlds whose
-        // map colours look nothing like them (the Aether). The theme's own colours for this dimension's blocks come first.
-        boolean original = MapPalette.original();
-        boolean textured = original || ModCompat.texturedWorld(level.dimension());
-        Map<Block, Integer> own = original ? null : MapPalette.dimension(level.dimension());
+        // The standard colours, those of the block textures (like Xaero's Minimap), in every dimension; the theme's own
+        // colours for this dimension's blocks come first. The Teyvat Cartographia palette is applied when shown.
+        Map<Block, Integer> own = MapPalette.dimension(level.dimension());
 
         for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
@@ -87,49 +83,33 @@ public final class ChunkScanner {
                     }
                     depth[i] = (byte) d;
                     pos.set(wx, y, wz);
-                    int tint = water.at(level, cx, cz, x, y, z);
-                    color[i] = original && TextureColors.water() != 0 ? TextureColors.multiply(TextureColors.water(), tint) : MapPalette.water(tint);
+                    int tint = 0xFF000000 | water.at(level, cx, cz, x, y, z);
+                    color[i] = TextureColors.water() != 0 ? TextureColors.multiply(TextureColors.water(), tint) : tint;
                     continue;
                 }
                 if (fluid.is(FluidTags.LAVA)) {
                     depth[i] = LAVA;
-                    color[i] = original && TextureColors.lava() != 0 ? TextureColors.lava() : MapPalette.LAVA;
+                    color[i] = TextureColors.lava() != 0 ? TextureColors.lava() : MapPalette.LAVA;
                     continue;
                 }
                 pos.set(wx, y + 1, wz);
                 BlockState above = chunk.getBlockState(pos);
                 pos.set(wx, y, wz);
                 Integer mine = own == null ? null : own.get(state.getBlock());
-                // The texture: always in a textured palette, else only where the block's map colour is far from it.
                 TextureColors.Entry tex = TextureColors.get(state.getBlock());
-                if (tex != null && !textured && !tex.offMap()) tex = null;
                 if (above.getBlock() instanceof SnowLayerBlock) {
-                    color[i] = original && TextureColors.snow() != 0 ? TextureColors.snow() : MapPalette.of(MapColor.SNOW);
+                    color[i] = TextureColors.snow() != 0 ? TextureColors.snow() : MapPalette.standard(MapColor.SNOW);
                 } else if (mine != null) {
-                    color[i] = mine; // before the biome tints: the palette gives the block's whole colour
+                    color[i] = mine; // before the biome tints: the theme gives the block's whole colour
                 } else if (tex != null) {
                     int c = tex.argb();
                     if (tex.tint() == TextureColors.Tint.GRASS) c = TextureColors.multiply(c, grass.at(level, cx, cz, x, y, z));
                     else if (tex.tint() == TextureColors.Tint.FOLIAGE) c = TextureColors.multiply(c, foliageTint.at(level, cx, cz, x, y, z));
-                    color[i] = original ? c : MapPalette.soften(c);
-                } else if (state.is(Blocks.GRASS_BLOCK) || mc == MapColor.GRASS) {
-                    color[i] = MapPalette.tinted(MapPalette.GRASS, grass.at(level, cx, cz, x, y, z), 0.85f);
-                } else if (state.is(BlockTags.LEAVES) && !isBiomeTinted(state)) {
-                    // Cherry and azalea leaves keep their own colour (pink / green), no biome tint.
-                    color[i] = MapPalette.of(mc);
-                } else if (state.is(BlockTags.LEAVES) || mc == MapColor.PLANT) {
-                    int foliage = state.is(Blocks.SPRUCE_LEAVES) ? 0x619961 : state.is(Blocks.BIRCH_LEAVES) ? 0x80A755
-                            : foliageTint.at(level, cx, cz, x, y, z);
-                    color[i] = MapPalette.scale(MapPalette.tinted(MapPalette.FOLIAGE, foliage, 0.8f), 0.92f);
+                    color[i] = c;
                 } else {
-                    color[i] = MapPalette.of(mc);
+                    color[i] = MapPalette.standard(mc); // no texture read (yet): the game's own map colour
                 }
             }
-        }
-        // The player's mute and warmth of the mod's palette (none for the Original one).
-        int[] tuning = original ? null : MapPalette.tuning();
-        if (tuning != null) {
-            for (int i = 0; i < 256; i++) if (!isVoid[i]) color[i] = MapPalette.tune(color[i], tuning[0], tuning[1]);
         }
         // Real block light (torches, lava, glowstone, lanterns...) just above the visible surface, 0..15,
         // as computed by the vanilla light engine. Sky light is ignored: the map shows artificial light only.
@@ -193,11 +173,6 @@ public final class ChunkScanner {
             float bottom = (c01 & 0xFF) + ((c11 & 0xFF) - (c01 & 0xFF)) * tx;
             return Math.round(top + (bottom - top) * tz);
         }
-    }
-
-    /** Leaves whose in-game colour comes from the biome foliage tint (others have a fixed texture colour). */
-    private static boolean isBiomeTinted(BlockState s) {
-        return !(s.is(Blocks.CHERRY_LEAVES) || s.is(Blocks.AZALEA_LEAVES) || s.is(Blocks.FLOWERING_AZALEA_LEAVES));
     }
 
     /** For dimensions with a ceiling (Nether): first floor below the roof. */

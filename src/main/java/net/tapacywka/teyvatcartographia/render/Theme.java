@@ -266,6 +266,11 @@ public final class Theme {
         return generation;
     }
 
+    /** Something drawn into the cached layers changed outside the theme (the map palette): they redraw. */
+    public static void invalidate() {
+        generation++;
+    }
+
     /** Resets all colours to their defaults and applies {@code colors} (JSON key -> ARGB) on top. */
     static void apply(Map<String, Integer> colors) {
         for (Map.Entry<String, Field> e : FIELDS.entrySet()) {

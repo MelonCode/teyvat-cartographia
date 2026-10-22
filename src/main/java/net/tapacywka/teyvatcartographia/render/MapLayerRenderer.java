@@ -6,6 +6,7 @@ import net.minecraft.resources.ResourceKey;
 import net.tapacywka.teyvatcartographia.map.MapView;
 import net.tapacywka.teyvatcartographia.map.data.LodStore;
 import net.tapacywka.teyvatcartographia.map.data.MapTile;
+import net.tapacywka.teyvatcartographia.map.data.PaletteTuning;
 import net.tapacywka.teyvatcartographia.map.data.TileStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -43,6 +44,7 @@ public final class MapLayerRenderer {
      *         picture is incomplete and should be drawn again (the minimap cache relies on this)
      */
     public static boolean drawRect(GuiGraphics g, TileStore store, MapView view, float x0, float y0, float x1, float y1, int tint, float lightAlpha) {
+        PaletteTuning.refresh(); // a changed palette or slider: the regions are drawn again in it
         if (store == null) return true;
         int tx0 = MapView.blockToTile((int) Math.floor(view.worldX(x0, y0)));
         int tz0 = MapView.blockToTile((int) Math.floor(view.worldZ(x0, y0)));

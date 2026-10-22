@@ -186,16 +186,10 @@ public final class TeyvatConfigScreen extends Screen {
 
     private static final class BoolRow extends Row {
         final ModConfigSpec.BooleanValue value;
-        final Runnable onChange; // null: nothing more to do
 
         BoolRow(String key, ModConfigSpec.BooleanValue value) {
-            this(key, value, null);
-        }
-
-        BoolRow(String key, ModConfigSpec.BooleanValue value, Runnable onChange) {
             super(key);
             this.value = value;
-            this.onChange = onChange;
         }
 
         private float tx(float x, float w) {
@@ -217,7 +211,6 @@ public final class TeyvatConfigScreen extends Screen {
             if (!Ui.toggleHit(tx(x, w), ty(), mx, my)) return false;
             value.set(!MapConfig.get(value));
             MapConfig.save();
-            if (onChange != null) onChange.run();
             return true;
         }
     }
@@ -236,17 +229,11 @@ public final class TeyvatConfigScreen extends Screen {
         String[] stepKeys;
         /** Width of the value column right of the track. */
         float valueW = VALUE_W;
-        /** Optional: when the slider can be moved (else grey, like an inactive choice), and what follows a change. */
+        /** Optional: when the slider can be moved (else grey, like an inactive choice). */
         BooleanSupplier activeWhen;
-        Runnable onChange;
 
         SliderRow activeWhen(BooleanSupplier when) {
             this.activeWhen = when;
-            return this;
-        }
-
-        SliderRow onChange(Runnable r) {
-            this.onChange = r;
             return this;
         }
 
@@ -391,10 +378,8 @@ public final class TeyvatConfigScreen extends Screen {
         void drag(double mx, float x, float w) {
             if (!active()) return;
             float half = knobHalf();
-            double before = getter.getAsDouble();
             setter.accept(fromT((mx - trackX(x, w) - half) / (trackW(w) - 2 * half)));
             MapConfig.save();
-            if (onChange != null && getter.getAsDouble() != before) onChange.run();
         }
 
         /** Half the knob along the track: the square handle, or the diamond (the larger one while hovered). */
@@ -625,14 +610,13 @@ public final class TeyvatConfigScreen extends Screen {
             compat.addAll(m.rows());
         }
         // The colours tab: the palette, samples of it, and the tuning of the mod's own one.
-        Runnable remap = () -> MapDataManager.get().remapLoaded();
         colours.add(new Section("teyvatcartographia.config.section.colours"));
-        colours.add(new EnumRow<>("teyvatcartographia.config.palette", MapConfig.PALETTE, MapConfig.Palette.values(), remap));
+        colours.add(new EnumRow<>("teyvatcartographia.config.palette", MapConfig.PALETTE, MapConfig.Palette.values(), null)); // repaints the whole map by itself (PaletteTuning)
         colours.add(new SwatchRow());
         colours.add(new Section("teyvatcartographia.config.section.palette_tuning"));
         BooleanSupplier teyvat = () -> MapConfig.get(MapConfig.PALETTE) == MapConfig.Palette.TEYVAT;
-        colours.add(SliderRow.ofPercent("teyvatcartographia.config.palette_mute", MapConfig.PALETTE_MUTE, 0, 100).activeWhen(teyvat).onChange(remap));
-        colours.add(SliderRow.ofPercent("teyvatcartographia.config.palette_warmth", MapConfig.PALETTE_WARMTH, 0, 50).activeWhen(teyvat).onChange(remap));
+        colours.add(SliderRow.ofPercent("teyvatcartographia.config.palette_mute", MapConfig.PALETTE_MUTE, 0, 100).activeWhen(teyvat));
+        colours.add(SliderRow.ofPercent("teyvatcartographia.config.palette_warmth", MapConfig.PALETTE_WARMTH, 0, 50).activeWhen(teyvat));
         // Rows after a sub-heading (up to the next heading) fold with it.
         tabs.add(new Tab("teyvatcartographia.config.tab.general", general));
         tabs.add(new Tab("teyvatcartographia.config.tab.colours", colours));

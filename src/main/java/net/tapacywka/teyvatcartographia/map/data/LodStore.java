@@ -79,15 +79,42 @@ public final class LodStore {
         }
 
         public boolean needsUpload() {
-            return texture == null || gpuDirty;
+            boolean tuned = PaletteTuning.active();
+            return texture == null || gpuDirty || tuned != textureTuned || tuned && shownGeneration != PaletteTuning.generation();
         }
+
+        /**
+         * The picture with the Teyvat Cartographia palette ({@link PaletteTuning}), only while it is on. Thumbnails carry
+         * no chunk marks, so far out the chunks mapped before 0.1.3 are tuned too.
+         */
+        private NativeImage shown;
+        private int shownGeneration = -1;
+        private boolean textureTuned;
 
         /** The GL texture id (linear filtering), uploading pending changes if {@code allowUpload}; -1 if not available yet. */
         public int textureId(boolean allowUpload) {
             RenderSystem.assertOnRenderThread();
+            boolean tuned = PaletteTuning.active();
+            if (texture != null && tuned != textureTuned) {
+                if (!allowUpload) return texture.getId();
+                texture.close();
+                texture = null;
+            }
+            if (tuned && (shown == null || shownGeneration != PaletteTuning.generation() || gpuDirty)) {
+                if (!allowUpload) return texture == null ? -1 : texture.getId();
+                if (shown == null) shown = new NativeImage(MapTile.SIZE, MapTile.SIZE, true);
+                PaletteTuning.apply(image, shown, null);
+                shownGeneration = PaletteTuning.generation();
+                gpuDirty = true;
+            }
+            if (!tuned && shown != null) {
+                shown.close();
+                shown = null;
+            }
             if (texture == null) {
                 if (!allowUpload) return -1;
-                texture = new DynamicTexture(image) {
+                textureTuned = tuned;
+                texture = new DynamicTexture(tuned ? shown : image) {
                     @Override
                     public void close() {
                         releaseId(); // the image belongs to the tile
@@ -108,6 +135,8 @@ public final class LodStore {
         void release() {
             if (texture != null) texture.close();
             texture = null;
+            if (shown != null) shown.close();
+            shown = null;
             image.close();
         }
     }

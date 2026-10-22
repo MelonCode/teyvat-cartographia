@@ -55,8 +55,8 @@
 <h2 id="about">📖 About</h2>
 
 **Teyvat Cartographia** is a client-side Minecraft mod (with an optional server side for shared pins) that brings a
-**Genshin Impact inspired world map and minimap** to Minecraft. The chunks you load are drawn as a painted map with a
-soft palette, relief shading, water depth and contour lines, while fog of war covers everything you have not seen yet.
+**Genshin Impact inspired world map and minimap** to Minecraft. The chunks you load are drawn as a map in the colours of their blocks (or a softer
+painted palette), with relief shading, water depth and contour lines, while fog of war covers everything you have not seen yet.
 Place pins, search for them and for biomes, track them, follow the path and find your way back home.
 
 | | |
@@ -153,9 +153,9 @@ Place pins, search for them and for biomes, track them, follow the path and find
   restarts.
 * Fog of war over unexplored land, painted regions with relief shading and contour lines. The map darkens at night,
   while torches, lava and other lights keep their colour.
-* Two colour palettes (Settings > Colours): the soft painted one, with sliders for how muted and how warm it is, or
-  Original, the colours of the block textures like Xaero's Minimap, for the blocks of any mod. Colour samples show
-  the result at once.
+* Blocks in the colours of their textures, like Xaero's Minimap, for the blocks of any mod (Settings > Colours:
+  Standard), or the Teyvat Cartographia palette: the same, softened by sliders for how muted and how warm it is.
+  The whole map repaints at once, and colour samples show the result.
 * Biome name labels (zoom 1/4 to 4), biome under the cursor, player and cursor coordinates, explored chunk counter,
   zoom slider (1/16 to 16), optional chunk grid.
 * **Search** in the pin list (or **Ctrl+F**): pins of every dimension by name, and the explored biomes by name. A
@@ -275,7 +275,7 @@ Every theme follows the same layout, `assets/teyvatcartographia/themes/<id>/`:
 | `colors.json` | no | Colours as `"key": "#AARRGGBB"` or `"#RRGGBB"`. Keys are the colour fields of `render/Theme.java`; `themes/default/colors.json` lists them all. Missing keys keep the built-in defaults. |
 | `icons/64/<name>.png` | no (64 x 64) | Icons. Missing ones (or the whole folder) fall back to the `default` icons. |
 | `fog.png` | no | Seamless background for unexplored space (512 x 512 in `default`), shown at 440 GUI units per repeat whatever its resolution. Falls back to the `default` fog. |
-| `dimensions/<namespace>/<path>.json` | no | Map colours of one dimension's blocks, `{ "blocks": { "<block id>": "#AARRGGBB" } }` (for example `dimensions/aether/the_aether.json`). Used with the Teyvat Cartographia palette; other blocks keep the usual colours, and a theme's file replaces the `default` one of that dimension. |
+| `dimensions/<namespace>/<path>.json` | no | Map colours of one dimension's blocks, `{ "blocks": { "<block id>": "#AARRGGBB" } }` (for example `dimensions/aether/the_aether.json`). They replace the texture colours of those blocks (in both palettes); a theme's file replaces the `default` one of that dimension. |
 | `cursors/<name>.png`, `cursors/hotspots.json` | no (64 x 64) | The mouse pointers of the menus (white, tinted with the `cursor` colours) and the pixel of each that clicks. Fall back to the `default` ones. |
 
 A theme does not set any shapes: the minimap shape and the interface style are the player's settings. Colour keys

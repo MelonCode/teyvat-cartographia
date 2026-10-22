@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Mute and warmth of the mod's palette: the defaults change nothing, the ends of the sliders do what they say. */
+/** The Teyvat Cartographia palette: the standard colours through mute and warm haze. */
 class PaletteTuningTest {
     private static int r(int c) {
         return (c >> 16) & 0xFF;
@@ -19,40 +19,38 @@ class PaletteTuningTest {
         return c & 0xFF;
     }
 
-    private static void near(int expected, int actual) {
-        assertTrue(Math.abs(r(expected) - r(actual)) <= 1 && Math.abs(g(expected) - g(actual)) <= 1 && Math.abs(b(expected) - b(actual)) <= 1,
-                String.format("#%06X near #%06X", actual & 0xFFFFFF, expected & 0xFFFFFF));
-    }
+    private static final int GRASS = 0xFF5C8E3A, WATER = 0xFF3F76E4;
 
     @Test
-    void theDefaultsGiveThePaletteBack() {
-        for (int c : new int[] {MapPalette.GRASS, MapPalette.FOLIAGE, 0xFFDCCB98, MapPalette.WATER_SHALLOW, MapPalette.LAVA}) {
-            near(c, MapPalette.tune(c, MapPalette.BASE_MUTE, MapPalette.BASE_WARMTH));
+    void bothSlidersAtZeroLeaveTheStandardColours() {
+        for (int c : new int[] {GRASS, WATER, 0xFFDBCFA3, 0xFF7D7D7D, 0xFF000000, 0xFFFFFFFF}) {
+            assertEquals(c, PaletteTuning.tune(c, 0, 0));
         }
     }
 
     @Test
-    void fullMuteWithoutWarmthIsGrey() {
-        int c = MapPalette.tune(MapPalette.GRASS, 100, 0);
-        assertEquals(r(c), g(c), 1);
-        assertEquals(g(c), b(c), 1);
+    void fullMuteWithoutHazeIsTheGreyOfTheSameLuminance() {
+        int c = PaletteTuning.tune(GRASS, 100, 0);
+        assertEquals(r(c), g(c));
+        assertEquals(g(c), b(c));
+        assertEquals(Math.round(0.3f * r(GRASS) + 0.59f * g(GRASS) + 0.11f * b(GRASS)), r(c));
     }
 
     @Test
-    void lessMuteMeansStrongerColours() {
-        int base = MapPalette.GRASS, vivid = MapPalette.tune(base, 0, MapPalette.BASE_WARMTH);
-        assertTrue(g(vivid) - b(vivid) > g(base) - b(base), "green stands further from blue");
+    void moreMuteMeansWeakerColours() {
+        int some = PaletteTuning.tune(GRASS, 25, 0), more = PaletteTuning.tune(GRASS, 60, 0);
+        assertTrue(g(GRASS) - b(GRASS) > g(some) - b(some) && g(some) - b(some) > g(more) - b(more));
     }
 
     @Test
-    void moreWarmthPullsTowardsTheBeige() {
-        int c = MapPalette.tune(MapPalette.WATER_SHALLOW, MapPalette.BASE_MUTE, 50);
-        // The beige is #B0AC94: the teal water loses blue and gains red.
-        assertTrue(r(c) > r(MapPalette.WATER_SHALLOW) && b(c) < b(MapPalette.WATER_SHALLOW));
+    void theHazeLeansToTheWarmBeige() {
+        int c = PaletteTuning.tune(WATER, 0, 50);
+        assertTrue(r(c) > r(WATER) && b(c) < b(WATER), "the blue water warms up");
+        assertEquals(0xFFB0AC94, PaletteTuning.tune(WATER, 0, 100), "full haze is the beige itself");
     }
 
     @Test
     void theAlphaStays() {
-        assertEquals(0xFF000000, MapPalette.tune(MapPalette.GRASS, 60, 30) & 0xFF000000);
+        assertEquals(0x80000000, PaletteTuning.tune(0x80123456, 60, 30) & 0xFF000000);
     }
 }
