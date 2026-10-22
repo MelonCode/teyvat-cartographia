@@ -34,6 +34,11 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * Right after joining a world the biome line could stay on Plains while the player stood still; it is checked again
   every second and on a change of world or dimension.
 
+### World map
+* A pin opened from the pin list goes back to that list when you close it (the cross, Esc, a click on the map, or
+  saving or deleting the pin), with your search and scroll as they were. Esc or a click on the map then closes the
+  list as before.
+
 ## 0.1.2+mc1.21.1-neoforge
 
 ### Map search

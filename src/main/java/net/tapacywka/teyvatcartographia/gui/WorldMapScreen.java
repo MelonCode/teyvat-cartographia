@@ -153,8 +153,12 @@ public final class WorldMapScreen extends Screen {
     /** Open list of overlapping pins to choose from, or null. */
     private MarkerPickList pick;
 
+    /** The pin list a pin panel was opened from: closing that pin panel goes back to it (same search and scroll). */
+    private MarkerListPanel backToList;
+
     private void openPanel(SidePanel p) {
         pick = null;
+        backToList = null;
         if (panel != null) panel.onClose();
         panel = p;
         if (p != null) p.layout(width, height);
@@ -168,8 +172,12 @@ public final class WorldMapScreen extends Screen {
         return list;
     }
 
+    /**
+     * Closes the side panel (the cross, Esc, a click on the map, a pin saved or deleted). A pin panel opened from the
+     * pin list gives way to that list again; anything else leaves the bare map.
+     */
     public void closePanel() {
-        openPanel(null);
+        openPanel(panel instanceof PinPanel ? backToList : null);
         clearSelection(); // the highlight belongs to the open pin panel; it goes away together with it
     }
 
@@ -196,10 +204,12 @@ public final class WorldMapScreen extends Screen {
 
     /** A pin found by the search: flies there (in its dimension), opens its panel and sends rings out from it. */
     public void showMarker(Marker m) {
+        MarkerListPanel list = panel instanceof MarkerListPanel l ? l : null;
         viewDimension(m.dimension);
         startFlight(m.centerX(), m.centerZ(), Math.max(targetScale, 1));
         found(m.dimension, m.centerX(), m.centerZ(), false);
         selectMarker(m);
+        backToList = list;
     }
 
     /** A biome place found by the search: flies there (in its dimension) and sends rings out from it. */
@@ -1331,7 +1341,7 @@ public final class WorldMapScreen extends Screen {
         if (panel != null) {
             // Clicking the dimmed map closes the panel; it never starts a drag. Dark panels (settings, pin list,
             // dimensions) only close. With a pin panel open, a click on another pin opens that pin, and a click on
-            // empty ground only closes the panel (no new pin editor).
+            // empty ground only closes the panel (no new pin editor; back to the pin list if the pin came from it).
             boolean consume = panel.consumesOutsideClick();
             closePanel();
             if (!consume) openPinsAt(mx, my);
