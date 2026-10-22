@@ -41,6 +41,10 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * The zoom slider eases the map to the new scale like the mouse wheel, the + and - keys and the buttons do; its thumb
   follows the cursor at once.
 
+### In-world marker
+* The beam of light fades out as the marker nears the edge of its limiter ellipse and is gone when the marker starts
+  to ride the ellipse (it used to vanish at once); turning back, it fades in the same way.
+
 ## 0.1.2+mc1.21.1-neoforge
 
 ### Map search

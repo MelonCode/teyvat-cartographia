@@ -34,6 +34,22 @@ class MarkerTimingTest {
     }
 
     @Test
+    void theBeamFadesOutNearTheLimiterEllipse() {
+        assertEquals(1f, MarkerTiming.edgeFade(0f), 1e-6, "at the screen centre");
+        assertEquals(1f, MarkerTiming.edgeFade(0.85f * 0.85f), 1e-6, "where the fade begins");
+        float mid = MarkerTiming.edgeFade(0.925f * 0.925f);
+        assertTrue(mid > 0.3f && mid < 0.7f, "halfway through the fade: " + mid);
+        assertEquals(0f, MarkerTiming.edgeFade(1f), 1e-6, "gone on the ellipse");
+        assertEquals(0f, MarkerTiming.edgeFade(1.5f), 1e-6, "and beyond it");
+        float last = 1f;
+        for (float r = 0.85f; r <= 1f; r += 0.01f) {
+            float f = MarkerTiming.edgeFade(r * r);
+            assertTrue(f <= last + 1e-6f, "never brighter further out (" + r + ")");
+            last = f;
+        }
+    }
+
+    @Test
     void aPulseRunsOneSecondAndPressesMeanwhileAreIgnored() {
         assertFalse(MarkerTiming.pulseRunning(Long.MIN_VALUE, 5_000), "no pulse yet");
         assertTrue(MarkerTiming.pulseRunning(1_000, 1_500));

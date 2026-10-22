@@ -107,6 +107,8 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
      * glyph held on the limiter and look detached from it.
      */
     private static boolean glyphInView;
+    /** Fade of the beam as the glyph nears the limiter ellipse on the last HUD frame, 0..1 (gone on the ellipse). */
+    private static float edgeFade;
 
     /**
      * {@link RenderLevelStageEvent} listener: draws the stars after the particles and the beam after the clouds and
@@ -185,6 +187,7 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         glyphInView = false; // set below once the glyph is placed in view
+        edgeFade = 0f;
         shown = 0f;
         starsShown = 0f;
         beamOn = false;
@@ -226,9 +229,11 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
         }
         float cx = gw / 2f, cy = gh / 2f;
         float erx = gw * LIMIT_RX, ery = Math.max(SIZE, Math.min(gh * LIMIT_RY, gh - HOTBAR_CLEARANCE - cy));
-        boolean inside = front && sq((sx - cx) / erx) + sq((sy - cy) / ery) <= 1f;
+        float ellipse = sq((sx - cx) / erx) + sq((sy - cy) / ery);
+        boolean inside = front && ellipse <= 1f;
         boolean inView = inside && !inHud(sx, sy);
         glyphInView = inView;
+        edgeFade = inView ? MarkerTiming.edgeFade(ellipse) : 0f;
 
         float dirX = 0, dirY = 0;
         if (!inView) {
@@ -395,7 +400,7 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
         double dx = t.x() - px, dy = ty - py, dz = t.z() - pz;
         float dist = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (dist >= BEAM_FAR) return;
-        float a = shown * nearFade * smooth((BEAM_FAR - dist) / BEAM_FADE);
+        float a = shown * nearFade * edgeFade * smooth((BEAM_FAR - dist) / BEAM_FADE);
         if (a <= 0.01f) return;
 
         Vec3 cam = event.getCamera().getPosition();
