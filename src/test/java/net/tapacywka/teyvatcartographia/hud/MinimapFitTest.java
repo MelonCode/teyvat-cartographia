@@ -3,6 +3,7 @@ package net.tapacywka.teyvatcartographia.hud;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** The minimap stays on screen: a large one is drawn smaller (B23), a wide pill at the edge is shifted inward (B22). */
@@ -61,5 +62,21 @@ class MinimapFitTest {
     @Test
     void aWidePillAtTheLeftEdgeIsShiftedInward() {
         assertEquals(MinimapFit.EDGE, MinimapFit.pillLeft(90, 27, 640));
+    }
+
+    @Test
+    void theRealTimeStaysBesideTheClockWhileTheRowFits() {
+        // "Day 12 · 14:35" and "09:12" with a gap of 4, under maps 128 and 80 units wide.
+        assertFalse(MinimapFit.clockWraps(70, 4, 30, 128));
+        assertFalse(MinimapFit.clockWraps(70, 4, 30, 104), "exactly the map's width still fits");
+        assertTrue(MinimapFit.clockWraps(70, 4, 30, 80));
+    }
+
+    @Test
+    void daysCountFromOneAndTurnAt6() {
+        assertEquals(1, MinimapFit.day(0));
+        assertEquals(1, MinimapFit.day(23999));
+        assertEquals(2, MinimapFit.day(24000));
+        assertEquals(12, MinimapFit.day(11 * 24000L + 18000));
     }
 }

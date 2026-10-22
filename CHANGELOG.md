@@ -25,6 +25,9 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   screen pixels per font pixel at GUI scale 3, about the size of other minimaps) or a whole number of pixels, so the
   pixel font stays sharp. The lines shrink with their text.
 * The clock can show **Both** game and real time: two pills side by side, game time on the left.
+* **Day counter** (Extra information, off by default): the day of the world, in one pill
+  with the game time ("Day 12 · 14:35") or in a pill of its own when the clock shows no game time. When the row is
+  wider than the minimap, the real time moves to a line of its own.
 * Settings that were a switch with sub-settings are one slider in steps now: the **Clock** (Off, Game, Real, Both),
   each kind of **pins** (Off, Map, Both maps, Everywhere with the beam) and the **path** to each kind (Off, Map, Both
   maps, Everywhere with the stars). Older settings files keep working.

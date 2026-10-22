@@ -95,11 +95,19 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         // show changes, so their identity tells when the layer must be redrawn.
         Component coordsLine = MapConfig.get(MapConfig.MINIMAP_SHOW_COORDS) ? coordsText(player) : null;
         Component biomeLine = MapConfig.get(MapConfig.MINIMAP_SHOW_BIOME) ? biomeText(player) : null;
-        // The clock: game or real time, or both side by side (game on the left).
+        // The clock row: game or real time, or both side by side (game on the left). The day counter joins the game
+        // time in one pill ("Day 12 · 14:35"), or stands in its own pill on the left without it.
         MapConfig.TimeSource source = MapConfig.get(MapConfig.MINIMAP_TIME_SOURCE);
         boolean clockOn = MapConfig.get(MapConfig.MINIMAP_SHOW_TIME);
-        Component timeLine = !clockOn ? null : source == MapConfig.TimeSource.REAL_TIME ? realTimeText() : gameTimeText(mc);
-        Component time2Line = clockOn && source == MapConfig.TimeSource.BOTH ? realTimeText() : null;
+        boolean game = clockOn && source != MapConfig.TimeSource.REAL_TIME, real = clockOn && source != MapConfig.TimeSource.GAME_TIME;
+        Component timeLine, time2Line;
+        if (MapConfig.get(MapConfig.MINIMAP_SHOW_DAY)) {
+            timeLine = dayText(mc, game);
+            time2Line = real ? realTimeText() : null;
+        } else {
+            timeLine = game ? gameTimeText(mc) : real ? realTimeText() : null;
+            time2Line = game && real ? realTimeText() : null;
+        }
         // Text size: whole screen pixels per font pixel (always sharp), "Auto" a step below the GUI scale.
         pillScale = MinimapFit.textScale(MapConfig.get(MapConfig.MINIMAP_TEXT_SIZE), mc.getWindow().getGuiScale());
         int textBlock = layoutPills(coordsLine, biomeLine, timeLine, time2Line, r);
@@ -165,8 +173,9 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         int route = path ? Route.version() : Integer.MIN_VALUE;
         // The layer spans the map and the pills (shifted inward at the screen edge).
         Component[] cl = coordsLine == null ? null : coordsLines, bl = biomeLine == null ? null : biomeLines, tl = timeLine == null ? null : timeLines;
-        float left = Math.min(cx - r - 4, Math.min(pillLeft(cl, cx), Math.min(pillLeft(bl, cx), pillLeft(tl, cx))));
-        float right = Math.max(cx + r + 4, Math.max(pillRight(cl, cx), Math.max(pillRight(bl, cx), pillRight(tl, cx))));
+        Component[] t2 = timeWrap && time2Line != null ? time2Lines : null;
+        float left = Math.min(Math.min(cx - r - 4, pillLeft(t2, cx)), Math.min(pillLeft(cl, cx), Math.min(pillLeft(bl, cx), pillLeft(tl, cx))));
+        float right = Math.max(Math.max(cx + r + 4, pillRight(t2, cx)), Math.max(pillRight(cl, cx), Math.max(pillRight(bl, cx), pillRight(tl, cx))));
         int bx0 = (int) Math.floor(left), bx1 = (int) Math.ceil(right);
         int by0 = (int) Math.floor(textBelow ? cy - r - 4 : cy - r - 4 - textBlock);
         int by1 = (int) Math.ceil(textBelow ? cy + r + 4 + textBlock : cy + r + 4);
@@ -236,10 +245,11 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     private Component[] coordsLines, biomeLines, timeLines, time2Lines;
     private int pillR, pillGap = -1, screenW;
     private float coordsW, biomeW, timeW, time1W, time2W, pillScale = 1, laidScale;
+    private boolean timeWrap; // the real time in a row of its own
 
     /** Width of one of the laid-out pill rows (measured in {@link #layoutPills}), in GUI units. */
     private float widthOf(Component[] lines) {
-        return lines == coordsLines ? coordsW : lines == biomeLines ? biomeW : timeW;
+        return lines == coordsLines ? coordsW : lines == biomeLines ? biomeW : lines == time2Lines ? time2W : timeW;
     }
 
     /** Height of a pill with {@code lines} text lines at the text scale (0 for none), in GUI units. */
@@ -272,10 +282,13 @@ public final class MinimapLayer implements LayeredDraw.Layer {
             biomeW = pillWidth(biomeLines) * pillScale;
             time1W = pillWidth(timeLines) * pillScale;
             time2W = pillWidth(time2Lines) * pillScale;
-            timeW = time2Lines == null ? time1W : time1W + infoGap + time2W;
+            // Wider than the map, the real time goes to a row of its own under the clock row.
+            timeWrap = time2Lines != null && MinimapFit.clockWraps(time1W, infoGap, time2W, 2 * r);
+            timeW = time2Lines == null || timeWrap ? time1W : time1W + infoGap + time2W;
         }
-        int pills = (coordsLine != null ? 1 : 0) + (biomeLine != null ? 1 : 0) + (timeLine != null ? 1 : 0);
-        return pills == 0 ? 0 : (int) Math.ceil(infoGap + heightOf(coordsLines) + heightOf(biomeLines) + heightOf(timeLines) + (pills - 1) * infoGap);
+        int pills = (coordsLine != null ? 1 : 0) + (biomeLine != null ? 1 : 0) + (timeLine != null ? 1 : 0) + (timeWrap ? 1 : 0);
+        return pills == 0 ? 0 : (int) Math.ceil(infoGap + heightOf(coordsLines) + heightOf(biomeLines) + heightOf(timeLines)
+                + (timeWrap ? heightOf(time2Lines) : 0) + (pills - 1) * infoGap);
     }
 
     /** Left edge of a pill: centred under the map, shifted inward at the screen edge; on the pixel grid. */
@@ -358,7 +371,8 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         float ty = textBelow ? cy + r + 3 + infoGap : cy - r - 3 - textBlock + infoGap;
         ty = pill(g, cx, ty, coordsLine == null ? null : coordsLines, Theme.WHITE, alpha);
         ty = pill(g, cx, ty, biomeLine == null ? null : biomeLines, Theme.WHITE, alpha);
-        pill(g, cx, ty, timeLine == null ? null : timeLines, Theme.WHITE, alpha);
+        ty = pill(g, cx, ty, timeLine == null ? null : timeLines, Theme.WHITE, alpha);
+        if (timeWrap && timeLine != null) pill(g, cx, ty, time2Lines, Theme.WHITE, alpha);
     }
     // Screen points of the path inside the map, one piece at a time, reused.
     private float[] routeXY = new float[512];
@@ -472,6 +486,26 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         return gameClock;
     }
 
+    private long dayShown = -1;
+    private Component dayLine, dayClock, dayFor;
+
+    /** "Day 12", or with the game time "Day 12 · 14:35": rebuilt only when the day or the minute changes. */
+    private Component dayText(Minecraft mc, boolean withTime) {
+        long day = MinimapFit.day(mc.level.getDayTime());
+        if (day != dayShown) {
+            dayShown = day;
+            dayLine = Component.translatable("teyvatcartographia.minimap.day", day);
+            dayClock = null;
+        }
+        if (!withTime) return dayLine;
+        Component clock = gameTimeText(mc);
+        if (dayClock == null || clock != dayFor) {
+            dayFor = clock;
+            dayClock = Component.translatable("teyvatcartographia.minimap.day_time", day, clock);
+        }
+        return dayClock;
+    }
+
     /** "HH:MM": the computer's local time. */
     private Component realTimeText() {
         long now = System.currentTimeMillis();
@@ -521,7 +555,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     private float pill(GuiGraphics g, float cx, float y, Component[] lines, int color, float alpha) {
         if (lines == null) return y;
         float x = pillX(lines, cx);
-        if (lines == timeLines && time2Lines != null) {
+        if (lines == timeLines && time2Lines != null && !timeWrap) {
             pillAt(g, x, y, lines, time1W, color, alpha);
             pillAt(g, Draw.snap(x + time1W + infoGap), y, time2Lines, time2W, color, alpha);
         } else {

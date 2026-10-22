@@ -59,6 +59,7 @@ public final class MapConfig {
     public static final ModConfigSpec.BooleanValue MINIMAP_SHOW_BIOME;
     public static final ModConfigSpec.BooleanValue MINIMAP_SHOW_TIME;
     public static final ModConfigSpec.EnumValue<TimeSource> MINIMAP_TIME_SOURCE;
+    public static final ModConfigSpec.BooleanValue MINIMAP_SHOW_DAY;
 
     // World map
     public static final ModConfigSpec.BooleanValue MAP_SHOW_LABELS;
@@ -176,6 +177,7 @@ public final class MapConfig {
         MINIMAP_SHOW_BIOME = b.comment("Show the biome you are in under the minimap").translation("teyvatcartographia.config.minimap_biome").define("showBiome", true);
         MINIMAP_SHOW_TIME = b.comment("Show a clock under the minimap").translation("teyvatcartographia.config.minimap_time").define("showTime", true);
         MINIMAP_TIME_SOURCE = b.comment("Clock under the minimap: GAME_TIME = time of day in the world, REAL_TIME = your computer's clock, BOTH = both side by side (game on the left)").translation("teyvatcartographia.config.minimap_time_source").defineEnum("timeSource", TimeSource.GAME_TIME);
+        MINIMAP_SHOW_DAY = b.comment("Show the day of the world under the minimap, with the game time when the clock shows it").translation("teyvatcartographia.config.minimap_day").define("showDay", false);
         b.pop();
 
         // Below scale 1 the maps show only the tracked target; the tracked target is always shown on them.
@@ -214,7 +216,7 @@ public final class MapConfig {
         resetValue(MINIMAP_OFFSET_X); resetValue(MINIMAP_OFFSET_Y); resetValue(MINIMAP_OPACITY);
         resetValue(MINIMAP_PADDING); resetValue(MINIMAP_FADE_WIDTH); resetValue(MINIMAP_FADE_STRENGTH); resetValue(MINIMAP_INFO_GAP); resetValue(MINIMAP_TEXT_SIZE);
         resetValue(MINIMAP_ZOOM); resetValue(MINIMAP_ORIENTATION); resetValue(MINIMAP_UPDATE_RATE); resetValue(MINIMAP_SHOW_COORDS);
-        resetValue(MINIMAP_SHOW_BIOME); resetValue(MINIMAP_SHOW_TIME); resetValue(MINIMAP_TIME_SOURCE);
+        resetValue(MINIMAP_SHOW_BIOME); resetValue(MINIMAP_SHOW_TIME); resetValue(MINIMAP_TIME_SOURCE); resetValue(MINIMAP_SHOW_DAY);
         for (PinOptions o : PINS) o.reset();
         resetValue(MAP_SHOW_LABELS); resetValue(MAP_SHOW_GRID); resetValue(MAP_DEFAULT_ZOOM);
         resetValue(CHUNKS_PER_TICK); resetValue(SCAN_RADIUS); resetValue(MAX_CACHED_TILES); resetValue(DETAIL); resetValue(CAVES_ENABLED);

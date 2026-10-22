@@ -34,4 +34,17 @@ final class MinimapFit {
     static float pillLeft(float w, float cx, int guiW) {
         return Math.max(EDGE, Math.min(guiW - EDGE - w, cx - w / 2f));
     }
+
+    /**
+     * Whether the second pill of the clock row (the real time) goes to a row of its own: when the two pills
+     * ({@code w1} and {@code w2}, {@code gap} apart) are wider than the minimap ({@code mapW}).
+     */
+    static boolean clockWraps(float w1, float gap, float w2, float mapW) {
+        return w1 + gap + w2 > mapW;
+    }
+
+    /** The day of the world for a day time in ticks: 1 on the first day, the next one at 06:00 (tick 0 of a day). */
+    static long day(long dayTime) {
+        return Math.floorDiv(dayTime, 24000L) + 1;
+    }
 }
