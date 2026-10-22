@@ -369,15 +369,21 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         // Vanilla-font letters in the frame's colour, with a faint dark outline so they stay readable on light ground
         // and stand apart from the (dark) pin tiles. Drawn last, above the markers. Left batched: the layer is flushed
         // once at the end (the pills below never overlap them). North only while north is up; on a map turning with
-        // the camera also east, south and west, fainter, so north still stands out.
+        // the camera also east, south and west, fainter, so north still stands out. At the text size of the lines under
+        // the map (whole screen pixels per font pixel, so they stay sharp).
         for (int i = 0; i < (rotating ? 4 : 1); i++) {
             double angle = view.rotation + i * Math.PI / 2; // screen angle of the direction, clockwise from up
             float ns = (float) Math.sin(angle), nc = (float) Math.cos(angle);
             // On the inner circle, or (square map) on the inner square's edge.
             float nk = Theme.Style.squareMap ? inner / Math.max(Math.abs(ns), Math.abs(nc)) : inner;
             float a = i == 0 ? alpha : alpha * SIDE_LETTER_ALPHA;
-            DrawText.textOutlined(g, COMPASS[i], cx + ns * nk, cy - nc * nk, Theme.withAlpha(Theme.MINIMAP_NORTH, a),
+            float half = Math.max(0, DrawText.width(COMPASS[i]) - 1) / 2f; // half the visible glyph, font units
+            g.pose().pushPose();
+            g.pose().translate(Draw.snap(cx + ns * nk - half * pillScale), Draw.snap(cy - nc * nk - 4 * pillScale), 0);
+            g.pose().scale(pillScale, pillScale, 1f);
+            DrawText.textOutlined(g, COMPASS[i], half, 4, Theme.withAlpha(Theme.MINIMAP_NORTH, a),
                     Theme.withAlpha(Theme.MINIMAP_NORTH_OUTLINE, a), false);
+            g.pose().popPose();
         }
 
         // Pills: coordinates, biome, clock

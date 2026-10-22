@@ -23,7 +23,7 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   under it and between them.
 * **Text size** of the lines under the minimap (Extra information): Auto (one step smaller than the interface, so 2
   screen pixels per font pixel at GUI scale 3, about the size of other minimaps) or a whole number of pixels, so the
-  pixel font stays sharp. The lines shrink with their text.
+  pixel font stays sharp. The lines shrink with their text, and so do the N, E, S, W on the minimap.
 * The clock can show **Both** game and real time: two pills side by side, game time on the left.
 * When the minimap turns with the camera, it shows **E**, **S** and **W** too, fainter than **N** so north still stands
   out; with north up it shows only **N**, as before.
