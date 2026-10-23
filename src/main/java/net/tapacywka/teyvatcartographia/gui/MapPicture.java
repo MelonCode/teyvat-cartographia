@@ -56,7 +56,8 @@ final class MapPicture {
             layer.bind(g, w.getWidth(), w.getHeight(), false);
             Draw.beginLayer();
             try {
-                FogTexture.draw(g, 0, 0, width, height, (float) fogOffsetX, (float) fogOffsetZ, Theme.Style.FOG_TILE, Theme.WHITE);
+                // The dimension's own fog (the Aether's sea of clouds), not under a cave layer.
+                FogTexture.draw(g, store == null || store.cave ? null : store.dimension, 0, 0, width, height, (float) fogOffsetX, (float) fogOffsetZ, Theme.WHITE);
                 complete = MapLayerRenderer.drawRect(g, store, view, 0, 0, width, height, tint, night);
                 g.flush();
             } finally {

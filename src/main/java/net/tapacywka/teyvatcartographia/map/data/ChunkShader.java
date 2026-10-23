@@ -45,7 +45,9 @@ public final class ChunkShader {
                 }
                 int h = H[p];
                 int color;
-                if ((F[p] & MapTile.FLAG_WATER) != 0) {
+                if (s.keepColour()[i]) {
+                    color = s.color()[i]; // a shimmer of its own: no depth gradient, no relief
+                } else if ((F[p] & MapTile.FLAG_WATER) != 0) {
                     float t = Math.min(1f, (s.waterDepth()[i] & 0xFF) / 12f);
                     t = (float) Math.pow(t, 0.7);
                     // Shallow water near the shore is already lighter through the depth gradient; no extra rim

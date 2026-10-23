@@ -6,7 +6,6 @@ import net.minecraft.resources.ResourceKey;
 import net.tapacywka.teyvatcartographia.map.MapView;
 import net.tapacywka.teyvatcartographia.map.data.LodStore;
 import net.tapacywka.teyvatcartographia.map.data.MapTile;
-import net.tapacywka.teyvatcartographia.map.data.PaletteTuning;
 import net.tapacywka.teyvatcartographia.map.data.TileStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -44,7 +43,6 @@ public final class MapLayerRenderer {
      *         picture is incomplete and should be drawn again (the minimap cache relies on this)
      */
     public static boolean drawRect(GuiGraphics g, TileStore store, MapView view, float x0, float y0, float x1, float y1, int tint, float lightAlpha) {
-        PaletteTuning.refresh(); // a changed palette or slider: the regions are drawn again in it
         if (store == null) return true;
         int tx0 = MapView.blockToTile((int) Math.floor(view.worldX(x0, y0)));
         int tz0 = MapView.blockToTile((int) Math.floor(view.worldZ(x0, y0)));
@@ -55,6 +53,16 @@ public final class MapLayerRenderer {
         int lightColor = Theme.withAlpha(Theme.WHITE, lightAlpha);
         int uploads = UPLOADS_PER_CALL;
         boolean blur = blurFor(view);
+        if (!store.cave && FogTexture.shadow(store.dimension)) {
+            // Floating land: its shadow on the fog below, the regions drawn dark and shifted down-right first.
+            for (int tz = tz0; tz <= tz1; tz++) {
+                for (int tx = tx0; tx <= tx1; tx++) {
+                    MapTile t = store.exists(tx, tz) ? store.peek(tx, tz) : null;
+                    int id = t == null ? -1 : t.textureId(false);
+                    if (id >= 0) shadow(g, id, view, t.blockX0(), t.blockZ0(), MapTile.SIZE, x0, y0, x1, y1, 0f, 0f, 1f, 1f);
+                }
+            }
+        }
         for (int tz = tz0; tz <= tz1; tz++) {
             for (int tx = tx0; tx <= tx1; tx++) {
                 if (!store.exists(tx, tz)) continue;
@@ -101,6 +109,29 @@ public final class MapLayerRenderer {
         return complete;
     }
 
+    /** How far the land's shadow falls on the fog (GUI units, down and right) and how dark it is. */
+    private static final float SHADOW_OFFSET = 4f;
+    private static final int SHADOW = 0x50000000, SHADOW_SOFT = 0x28000000;
+
+    /**
+     * The shadow of one texture (a region or a LOD tile, {@code size} blocks from block (bx0, bz0), texture part u0..u1,
+     * v0..v1): drawn black with its alpha, twice (a softer, farther copy for a blurred edge), clipped to the rectangle.
+     */
+    private static void shadow(GuiGraphics g, int id, MapView view, int bx0, int bz0, int size, float x0, float y0, float x1, float y1,
+                               float u0, float v0, float u1, float v1) {
+        float sx0 = view.screenX(bx0, bz0), sy0 = view.screenY(bx0, bz0);
+        float sx1 = view.screenX(bx0 + size, bz0 + size), sy1 = view.screenY(bx0 + size, bz0 + size);
+        float w = sx1 - sx0, h = sy1 - sy0;
+        for (int pass = 0; pass < 2; pass++) {
+            float d = SHADOW_OFFSET * (pass == 0 ? 1f : 1.6f);
+            float ax0 = sx0 + d, ay0 = sy0 + d, ax1 = sx1 + d, ay1 = sy1 + d;
+            float cx0 = Math.max(ax0, x0), cy0 = Math.max(ay0, y0), cx1 = Math.min(ax1, x1), cy1 = Math.min(ay1, y1);
+            if (cx1 <= cx0 || cy1 <= cy0) continue;
+            Draw.texturedQuad(g, id, cx0, cy0, cx1, cy1, u0 + (u1 - u0) * (cx0 - ax0) / w, v0 + (v1 - v0) * (cy0 - ay0) / h,
+                    u0 + (u1 - u0) * (cx1 - ax0) / w, v0 + (v1 - v0) * (cy1 - ay0) / h, pass == 0 ? SHADOW : SHADOW_SOFT);
+        }
+    }
+
     /** Draws region (tx, tz) from its cell of the LOD tile, clipped to the rectangle; returns the uploads left. */
     private static int drawLodCell(GuiGraphics g, LodStore lod, MapView view, int tx, int tz, float x0, float y0, float x1, float y1,
                                    int tint, int uploads) {
@@ -140,6 +171,16 @@ public final class MapLayerRenderer {
         int lx1 = Math.floorDiv((int) Math.floor(view.worldX(x1, y1)), LodStore.BLOCKS);
         int lz1 = Math.floorDiv((int) Math.floor(view.worldZ(x1, y1)), LodStore.BLOCKS);
         if ((long) (lx1 - lx0 + 1) * (lz1 - lz0 + 1) > 1024) return true; // safety: absurd zoom-out
+        if (!store.cave && FogTexture.shadow(store.dimension)) {
+            for (int lz = lz0; lz <= lz1; lz++) {
+                for (int lx = lx0; lx <= lx1; lx++) {
+                    if (!lod.any(lx, lz)) continue;
+                    LodStore.LodTile t = lod.get(lx, lz);
+                    int id = t.textureId(false);
+                    if (id >= 0) shadow(g, id, view, t.blockX0(), t.blockZ0(), LodStore.BLOCKS, x0, y0, x1, y1, 0f, 0f, 1f, 1f);
+                }
+            }
+        }
         for (int lz = lz0; lz <= lz1; lz++) {
             for (int lx = lx0; lx <= lx1; lx++) {
                 if (!lod.any(lx, lz)) continue;

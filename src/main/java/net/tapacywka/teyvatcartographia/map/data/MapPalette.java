@@ -3,16 +3,14 @@ package net.tapacywka.teyvatcartographia.map.data;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.material.MapColor;
 
 import java.util.Map;
 
 /**
- * The map's colours. The regions are mapped in the standard colours, those of the block textures
- * ({@link TextureColors}, like Xaero's Minimap), with the game's own map colour for a block whose texture was not read;
- * the Teyvat Cartographia palette is applied when they are shown ({@link PaletteTuning}). Also the colour helpers of the
- * shading (water depth, relief). All colours ARGB.
+ * The map's colours: those of the block textures ({@link TextureColors}, like Xaero's Minimap), with the game's own map
+ * colour for a block whose texture was not read; also the colour helpers of the shading (water depth, relief). All
+ * colours ARGB.
  */
 public final class MapPalette {
     private MapPalette() {}
@@ -40,30 +38,6 @@ public final class MapPalette {
     /** The theme's palette of this dimension, or null when it has none. */
     public static Map<Block, Integer> dimension(ResourceKey<Level> dimension) {
         return dimensions.get(dimension);
-    }
-
-    /** Plains grass and leaves, ocean water: the tints of the samples. */
-    private static final int PLAINS_GRASS = 0x91BD59, PLAINS_FOLIAGE = 0x77AB2F, OCEAN_WATER = 0x3F76E4;
-
-    /**
-     * Samples of the map colours for the settings, as the map draws them now: plains grass, plains leaves, sand,
-     * stone, ocean water and snow, in the palette and tuning chosen.
-     */
-    public static int[] samples() {
-        PaletteTuning.refresh();
-        int water = TextureColors.water() == 0 ? 0xFF000000 | OCEAN_WATER : TextureColors.multiply(TextureColors.water(), OCEAN_WATER);
-        int[] c = {texture(Blocks.GRASS_BLOCK, PLAINS_GRASS, MapColor.GRASS), texture(Blocks.OAK_LEAVES, PLAINS_FOLIAGE, MapColor.PLANT),
-                texture(Blocks.SAND, 0, MapColor.SAND), texture(Blocks.STONE, 0, MapColor.STONE), water,
-                TextureColors.snow() != 0 ? TextureColors.snow() : standard(MapColor.SNOW)};
-        for (int i = 0; i < c.length; i++) c[i] = PaletteTuning.tune(c[i]);
-        return c;
-    }
-
-    /** A block's texture colour with its biome tint ({@code tint}, used only if the block takes one), else its map colour. */
-    private static int texture(Block block, int tint, MapColor fallback) {
-        TextureColors.Entry e = TextureColors.get(block);
-        if (e == null) return standard(fallback);
-        return e.tint() == TextureColors.Tint.NONE ? e.argb() : TextureColors.multiply(e.argb(), tint);
     }
 
     /** Deep variant of a (biome-tinted) water colour: darker, pulled a little towards the shared deep tone. */

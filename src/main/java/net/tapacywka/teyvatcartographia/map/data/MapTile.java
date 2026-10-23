@@ -42,13 +42,8 @@ public final class MapTile {
     private DynamicTexture lightTexture;
     private boolean lightDirty;
     private int litColumns;
-    /**
-     * Per chunk: bit 0..3 = neighbour N/S/W/E was known when the chunk was shaded; bit 6 = {@link #STANDARD}; bit 7 =
-     * chunk present.
-     */
+    /** Per chunk: bit 0..3 = neighbour N/S/W/E was known when the chunk was shaded; bit 7 = chunk present. */
     final byte[] chunkState;
-    /** Chunk state bit: the chunk's pixels are in the standard colours (mapped since 0.1.3), so they can be tuned. */
-    static final byte STANDARD = 0x40;
     /** Per chunk: index into {@link #biomePalette} (-1 = unknown). */
     final short[] chunkBiome;
     final List<ResourceKey<Biome>> biomePalette = new ArrayList<>();
@@ -59,13 +54,6 @@ public final class MapTile {
     public int labelForCount = -1;
 
     private DynamicTexture texture;
-    /**
-     * The pixels as shown with the Teyvat Cartographia palette ({@link PaletteTuning}), only while it is on; the texture
-     * is made from it then, else from {@link #image}.
-     */
-    private NativeImage shown;
-    private int shownGeneration = -1, lightGeneration = -1;
-    private boolean textureTuned;
     boolean gpuDirty = true;
     boolean diskDirty;
     long lastUsedMs = System.currentTimeMillis();
@@ -176,7 +164,7 @@ public final class MapTile {
         }
         int ci = lcz * CHUNKS + lcx;
         if ((chunkState[ci] & 0x80) == 0) chunkCount++;
-        byte state = (byte) (0x80 | STANDARD | (neighbourMask & 0x0F));
+        byte state = (byte) (0x80 | (neighbourMask & 0x0F));
         if (chunkState[ci] != state) {
             chunkState[ci] = state;
             data = true;
@@ -204,28 +192,9 @@ public final class MapTile {
     /** Returns the GL texture id, uploading pending changes if {@code allowUpload}. -1 if not yet available. */
     public int textureId(boolean allowUpload) {
         RenderSystem.assertOnRenderThread();
-        boolean tuned = PaletteTuning.active();
-        if (texture != null && tuned != textureTuned) {
-            // Switched between the palettes: the texture is made again from the other image.
-            if (!allowUpload) return texture.getId();
-            texture.close();
-            texture = null;
-        }
-        if (tuned && (shown == null || shownGeneration != PaletteTuning.generation() || gpuDirty)) {
-            if (!allowUpload) return texture == null ? -1 : texture.getId();
-            if (shown == null) shown = new NativeImage(SIZE, SIZE, true);
-            PaletteTuning.apply(image, shown, chunkState);
-            shownGeneration = PaletteTuning.generation();
-            gpuDirty = true;
-        }
-        if (!tuned && shown != null) {
-            shown.close();
-            shown = null;
-        }
         if (texture == null) {
             if (!allowUpload) return -1;
-            textureTuned = tuned;
-            texture = new DynamicTexture(tuned ? shown : image) {
+            texture = new DynamicTexture(image) {
                 @Override
                 public void close() {
                     // The NativeImage is owned by the tile; only release the GL texture here.
@@ -246,8 +215,7 @@ public final class MapTile {
     }
 
     public boolean needsUpload() {
-        boolean tuned = PaletteTuning.active();
-        return texture == null || gpuDirty || tuned != textureTuned || tuned && shownGeneration != PaletteTuning.generation();
+        return texture == null || gpuDirty;
     }
 
     public void setFilter(boolean blur) {
@@ -260,7 +228,7 @@ public final class MapTile {
 
     /** Whether {@link #lightTextureId} would build or upload the light texture. */
     public boolean lightNeedsUpload() {
-        return litColumns > 0 && (lightTexture == null || lightDirty || lightGeneration != PaletteTuning.generation());
+        return litColumns > 0 && (lightTexture == null || lightDirty);
     }
 
     /**
@@ -270,11 +238,9 @@ public final class MapTile {
     public int lightTextureId(boolean allowUpload) {
         RenderSystem.assertOnRenderThread();
         if (litColumns <= 0) return -1;
-        if (lightTexture != null && !lightDirty && lightGeneration == PaletteTuning.generation()) return lightTexture.getId();
+        if (lightTexture != null && !lightDirty) return lightTexture.getId();
         if (!allowUpload) return lightTexture == null ? -1 : lightTexture.getId();
         if (lightImage == null) lightImage = new NativeImage(SIZE, SIZE, true);
-        lightGeneration = PaletteTuning.generation();
-        boolean tuned = PaletteTuning.active();
         for (int z = 0; z < SIZE; z++) {
             for (int x = 0; x < SIZE; x++) {
                 int lv = light[idx(x, z)];
@@ -283,7 +249,6 @@ public final class MapTile {
                     continue;
                 }
                 int c = image.getPixelRGBA(x, z); // ABGR
-                if (tuned && (chunkState[(z >> 4) * CHUNKS + (x >> 4)] & STANDARD) != 0) c = MapPalette.toAbgr(PaletteTuning.tune(MapPalette.toAbgr(c)));
                 float a = LIGHT_ALPHA[Math.min(15, lv)] * ((c >>> 24) / 255f);
                 int r = c & 0xFF, gr = (c >> 8) & 0xFF, b = (c >> 16) & 0xFF;
                 float warm = 0.26f * a; // torch-light warmth
@@ -334,10 +299,6 @@ public final class MapTile {
         if (lightImage != null) {
             lightImage.close();
             lightImage = null;
-        }
-        if (shown != null) {
-            shown.close();
-            shown = null;
         }
         image.close();
     }

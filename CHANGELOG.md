@@ -88,7 +88,8 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * The settings have a **Compatibility** tab with a part for each supported mod that is in the game (no tab
   without them).
 * **The Aether**: no cave layers in the Aether by default (its islands float over the void, so the space under them
-  read as caves; a switch turns them back on).
+  read as caves; a switch turns them back on). Its map has a fog of its own: a sea of white and blue clouds seen
+  from above, on the world map and the minimap, with the islands casting a soft shadow on it.
 * **Xaero's Minimap**: the import settings moved to its part: the type the waypoints get (Star by default), whether
   hidden waypoints come too (yes by default) and death points (no by default). Without Xaero's Minimap and its
   waypoints, Import in the pin list opens the file dialog at once instead of asking where from.
@@ -98,22 +99,28 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   texture colours.
 
 ### Map colours
-* The settings have tabs: **General** (everything as before); **Colours**, with all about the map colours and a
-  strip of samples (grass, leaves, sand, stone, water, snow) that change at once with the palette and its sliders;
-  and **Compatibility** (with a supported mod in the game). A thin scrollbar at the right of the list shows where
-  you are; drag it, or click its track to jump.
 * New map colours: every block is drawn in the colour of its texture, like Xaero's Minimap (the average of the
   texture on its top, with the biome tint of grass, leaves and water), in every dimension and for the blocks of any
   mod. Basalt no longer looks like blackstone, and modded worlds look like themselves. Read again when resource
-  packs change.
-* **Colour palette** in **Settings > Colours**: **Standard** (those colours, the default) or **Teyvat
-  Cartographia**: the same colours, softened by two sliders, **Mute** (how much colour it takes away, 25%; 0% the
-  full colours, 100% grey) and **Warm haze** (how much the colours lean to a warm beige, like old paper, 15%). The
-  sliders are grey while the Standard palette is on.
-* A change of the palette or its sliders repaints the whole explored map at once. Places mapped with an earlier
-  version keep their old colours until you pass by again.
+  packs change. Places mapped with an earlier version keep their old colours until you pass by again.
+* The settings have tabs when a supported mod is in the game: **General** (everything as before) and
+  **Compatibility**. A thin scrollbar at the right of the list shows where you are; drag it, or click its track to
+  jump.
 * Leaves and plants of other mods that the game does not tint with the biome keep their own colour (the cyan
   willows of The Sift).
+* Fixed: where two biomes met on a chunk border, their water, grass or leaf colours changed in a sharp straight
+  line; the blend now goes on across chunk borders.
+* Plants show on the map, like on Xaero's Minimap: flowers, cherry petals, mushrooms, crops, dead bushes, sugar cane,
+  chorus and the plants of other mods colour their spot (grass and ferns are left out, so meadows stay calm). The
+  relief under them is unchanged.
+* The Sift's rainbow ichor and its snow shimmer on the map as they do in the world (a still pattern of their own
+  colours) instead of plain water blue and white.
+* The fog of war is redrawn in every dimension, softer and finer, after the fog of Genshin Impact's map: slow wisps
+  and softly glowing motes. It repeats every 512 GUI units (was 440); a theme may set its own `"repeat"` in the fog's
+  `.json`.
+* Fog of war of its own in the Nether (smoke and glowing embers), the End (a void with a violet nebula and stars;
+  its islands cast a shadow on it, like the Aether's) and The Sift (a pearly haze in the colours of its ichor), on the
+  world map and the minimap. The overworld keeps the night clouds.
 
 ## 0.1.2+mc1.21.1-neoforge
 

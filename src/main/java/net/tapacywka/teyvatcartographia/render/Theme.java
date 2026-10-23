@@ -66,9 +66,6 @@ public final class Theme {
         public static boolean squareMap = true;
         /** Rectangular widgets: panels, buttons, tiles, pills, rings (else rounded). */
         public static boolean squareUi = true;
-        /** On-screen size (GUI units) of one repeat of the fog texture, whatever its resolution. */
-        public static final int FOG_TILE = 440;
-
         /** Reads both from the settings; a change counts as a new theme {@link #generation()}, so caches redraw. */
         public static void update() {
             boolean map = MapConfig.get(MapConfig.MINIMAP_SHAPE) == MapConfig.MinimapShape.SQUARE;
@@ -264,11 +261,6 @@ public final class Theme {
     /** Changes every time the theme is (re)applied. */
     public static int generation() {
         return generation;
-    }
-
-    /** Something drawn into the cached layers changed outside the theme (the map palette): they redraw. */
-    public static void invalidate() {
-        generation++;
     }
 
     /** Resets all colours to their defaults and applies {@code colors} (JSON key -> ARGB) on top. */

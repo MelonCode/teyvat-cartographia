@@ -19,6 +19,7 @@ import net.tapacywka.teyvatcartographia.nav.Route;
 import net.tapacywka.teyvatcartographia.render.DayLight;
 import net.tapacywka.teyvatcartographia.render.CachedLayer;
 import net.tapacywka.teyvatcartographia.render.Draw;
+import net.tapacywka.teyvatcartographia.render.FogTexture;
 import net.tapacywka.teyvatcartographia.render.DrawText;
 import net.tapacywka.teyvatcartographia.render.MapLayerRenderer;
 import net.tapacywka.teyvatcartographia.render.MarkerRenderer;
@@ -683,7 +684,13 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         float guiW = (float) (w.getWidth() / w.getGuiScale()), guiH = (float) (w.getHeight() / w.getGuiScale());
         g.pose().pushPose();
         g.pose().scale(guiW / (2f * cR), guiH / (2f * cR), 1f);
-        Draw.rect(g, 0, 0, 2 * cR, 2 * cR, store != null && store.cave ? Theme.MINIMAP_CAVE_BACKDROP : DayLight.apply(Theme.MINIMAP_BACKDROP, tint));
+        if (store != null && !store.cave && FogTexture.hasOwn(store.dimension)) {
+            // A dimension with a fog of its own (the Aether's clouds): it fills the minimap too, fixed to the world (the cached
+            // square moves with the map between redraws, so the fog must too).
+            FogTexture.draw(g, store.dimension, 0, 0, 2 * cR, 2 * cR, (float) (px * zoom), (float) (pz * zoom), tint);
+        } else {
+            Draw.rect(g, 0, 0, 2 * cR, 2 * cR, store != null && store.cave ? Theme.MINIMAP_CAVE_BACKDROP : DayLight.apply(Theme.MINIMAP_BACKDROP, tint));
+        }
         boolean complete = true;
         if (store != null) {
             cacheView.set(px, pz, zoom, 0, cR, cR);
