@@ -22,6 +22,8 @@ import java.util.List;
 public final class MapTile {
     public static final int SIZE = MapView.TILE_SIZE;
     public static final int CHUNKS = MapView.CHUNKS_PER_TILE;
+    /** About the memory of a region: per pixel its colour, height, flags, light, and the colour again on the GPU. */
+    public static final int BYTES = SIZE * SIZE * 12;
     public static final short UNKNOWN_HEIGHT = Short.MIN_VALUE;
 
     public static final byte FLAG_KNOWN = 1;

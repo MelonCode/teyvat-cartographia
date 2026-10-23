@@ -5,7 +5,7 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 ## 0.1.3-dev+mc1.21.1-neoforge (in development)
 
 ### Shapes as settings, one built-in theme
-* **Settings > Appearance** has two new choices: **Minimap shape** (Square or Round) and **Interface style**
+* Two new choices: **Settings > Minimap > Minimap shape** (Square or Round) and **Settings > Map > Interface style**
   (Rectangular or Rounded). They are independent: a round minimap with rectangular menus works, and so does the other
   way round. Both start square, as before.
 * The built-in theme is now called **Default** (it was Minecraft). A theme sets only colours, icons and the fog of
@@ -17,7 +17,7 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   switches, sliders and tiles; it is the Rounded style with square corners.
 
 ### Minimap
-* New sliders in **Settings > Minimap > Size and position**: **Inner padding** (a gap between the frame and the map),
+* New sliders in **Settings > Minimap > Look**: **Inner padding** (a gap between the frame and the map),
   **Edge fade width** (how much of the radius fades out, 0% for a sharp edge) and **Edge fade strength** (how
   transparent the very edge gets); and in **Extra information**: **Line spacing**, the gap from the map to the lines
   under it and between them.
@@ -103,21 +103,39 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   texture on its top, with the biome tint of grass, leaves and water), in every dimension and for the blocks of any
   mod. Basalt no longer looks like blackstone, and modded worlds look like themselves. Read again when resource
   packs change. Places mapped with an earlier version keep their old colours until you pass by again.
-* The settings have tabs when a supported mod is in the game: **General** (everything as before) and
-  **Compatibility**. A thin scrollbar at the right of the list shows where you are; drag it, or click its track to
+* The settings are rearranged into tabs, each about one thing: **Map** (appearance, what the map shows, the world
+  map), **Minimap**, **Pins**, **System** (performance) and, with a supported mod in the game, **Compatibility**,
+  where everything made for one mod is (its fog of war too). A thin scrollbar at the right of the list shows where you are; drag it, or click its track to
   jump.
 * Leaves and plants of other mods that the game does not tint with the biome keep their own colour (the cyan
   willows of The Sift).
 * Fixed: where two biomes met on a chunk border, their water, grass or leaf colours changed in a sharp straight
   line; the blend now goes on across chunk borders.
 * Plants show on the map, like on Xaero's Minimap: flowers, cherry petals, mushrooms, crops, dead bushes, sugar cane,
-  chorus and the plants of other mods colour their spot (grass and ferns are left out, so meadows stay calm). The
-  relief under them is unchanged.
+  chorus and the plants of other mods colour their spot, on land and on the water (lily pads); grass and ferns are left out, so meadows
+  stay calm. The relief under them is unchanged.
+* Blocks that their own colour handler tints in the world (lily pads, stems, redstone, the leaf litter and bushes of
+  Vanilla Backport, leaves and grass of other mods with a palette of their own) take the colour it gives at their
+  place, like on Xaero's Minimap: leaf litter is red brown, not dark. Mangrove leaves have their own green, not the
+  biome's.
 * The Sift's rainbow ichor and its snow shimmer on the map as they do in the world (a still pattern of their own
   colours) instead of plain water blue and white.
 * The fog of war is redrawn in every dimension, softer and finer, after the fog of Genshin Impact's map: slow wisps
   and softly glowing motes. It repeats every 512 GUI units (was 440); a theme may set its own `"repeat"` in the fog's
   `.json`.
+* A live **Preview** beside the settings: the map around you on the Map tab, the minimap (where it sits on the
+  screen, and at its real size) on the Minimap tab, the row you point at on the Pins tab (on the world map, the
+  minimap and in the world: the beam or the stars, darkened where the setting leaves them off), the mapping speed,
+  regions and memory on the System tab, and samples of the mods' fogs, The Sift's ichor and the Xaero waypoints to
+  import on the Compatibility tab, all changing as you change a setting. Without room beside the panel (a small
+  screen or a large interface) a button in the header shows it over the list.
+* A **Colours** section in **Settings > Map**: terrain detail, **Biome blending** (off: each biome in its own
+  colour, sharp borders), **Block colours from the world** (off: one colour per block, the same everywhere), **Deep
+  water shading** (how much deep water darkens) and **Clear shallow water** (how much of the ground shows through
+  shallow water; off by default).
+* New switches: **Map > Plants** and **Map > Nether and End fog**; in **Compatibility**, The Aether's **Sea of
+  clouds**, and Mielon's The Sift's **Pearly haze** and **Rainbow ichor and snow** (off: the average colour of
+  their textures, like Xaero's Minimap). A dimension of another mod has no fog of its own unless made for it.
 * Fog of war of its own in the Nether (smoke and glowing embers), the End (a void with a violet nebula and stars;
   its islands cast a shadow on it, like the Aether's) and The Sift (a pearly haze in the colours of its ichor), on the
   world map and the minimap. The overworld keeps the night clouds.

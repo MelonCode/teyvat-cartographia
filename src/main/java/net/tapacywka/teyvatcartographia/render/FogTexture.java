@@ -13,6 +13,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.world.level.Level;
 import net.tapacywka.teyvatcartographia.TeyvatCartographia;
+import net.tapacywka.teyvatcartographia.compat.ModCompat;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -52,9 +53,9 @@ public final class FogTexture {
         return base;
     }
 
-    /** The fog of a dimension: its own, else the theme's. */
+    /** The fog of a dimension: its own (unless its switch is off, {@link ModCompat#ownFog}), else the theme's. */
     private static Fog of(ResourceKey<Level> dimension) {
-        if (dimension == null) return base();
+        if (dimension == null || !ModCompat.ownFog(dimension)) return base();
         if (!dimensions.containsKey(dimension)) {
             ResourceLocation id = dimension.location();
             String path = "fog/" + id.getNamespace() + "/" + id.getPath();

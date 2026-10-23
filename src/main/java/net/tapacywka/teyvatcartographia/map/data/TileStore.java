@@ -104,6 +104,11 @@ public final class TileStore {
     }
 
 
+    /** Regions held in memory now. */
+    public int regions() {
+        return tiles.size();
+    }
+
     public int exploredChunks() {
         int sum = 0;
         for (Long2IntMap.Entry e : diskChunkCounts.long2IntEntrySet()) {

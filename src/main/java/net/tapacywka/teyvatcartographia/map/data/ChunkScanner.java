@@ -20,6 +20,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.MapColor;
+import net.tapacywka.teyvatcartographia.config.MapConfig;
 
 import java.util.Map;
 
@@ -35,10 +36,14 @@ public final class ChunkScanner {
 
     /**
      * Immutable sampled data of one chunk, safe to hand to worker threads. {@code keepColour}: columns whose colour is
-     * final (no depth gradient), such as a {@link Shimmer}.
+     * final (no depth gradient), such as a {@link Shimmer}; {@code bottom}: the colour of the ground under shallow water
+     * (0 elsewhere), seen through it.
      */
     public record Snapshot(int cx, int cz, int[] color, short[] height, byte[] waterDepth, boolean[] isVoid, byte[] blockLight,
-                           boolean[] keepColour, ResourceKey<Biome> biome) {}
+                           boolean[] keepColour, int[] bottom, ResourceKey<Biome> biome) {}
+
+    /** Water up to this deep shows its bottom (when the setting is on). */
+    public static final int SHALLOW = 10;
 
     private static final int MAX_WATER_DEPTH = 24;
     /** {@link Snapshot#waterDepth} of a lava column (no water there, but not walkable either). */
@@ -50,14 +55,19 @@ public final class ChunkScanner {
         short[] height = new short[256];
         byte[] depth = new byte[256];
         boolean[] isVoid = new boolean[256], keep = new boolean[256];
+        int[] bottom = new int[256];
         int minY = level.getMinBuildHeight();
         int ceilingStart = Math.min(level.getMaxBuildHeight() - 1, minY + level.dimensionType().logicalHeight() - 1);
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        TintGrid water = TintGrid.of(level, cx, cz, BiomeColors.WATER_COLOR_RESOLVER), grass = TintGrid.of(level, cx, cz, BiomeColors.GRASS_COLOR_RESOLVER),
-                foliageTint = TintGrid.of(level, cx, cz, BiomeColors.FOLIAGE_COLOR_RESOLVER);
+        boolean blend = MapConfig.get(MapConfig.BIOME_BLEND), worldTints = MapConfig.get(MapConfig.WORLD_TINTS);
+        boolean shallow = MapConfig.get(MapConfig.SHALLOW_WATER) > 0;
+        TintGrid water = TintGrid.of(level, cx, cz, BiomeColors.WATER_COLOR_RESOLVER, blend),
+                grass = TintGrid.of(level, cx, cz, BiomeColors.GRASS_COLOR_RESOLVER, blend),
+                foliageTint = TintGrid.of(level, cx, cz, BiomeColors.FOLIAGE_COLOR_RESOLVER, blend);
         // The colours of the block textures (like Xaero's Minimap), in every dimension; the theme's own colours for
         // this dimension's blocks come first.
         Map<Block, Integer> own = MapPalette.dimension(level.dimension());
+        boolean plants = MapConfig.get(MapConfig.MAP_PLANTS), shimmer = MapConfig.get(MapConfig.SIFT_SHIMMER);
 
         for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
@@ -81,6 +91,21 @@ public final class ChunkScanner {
                 }
                 height[i] = (short) y;
                 FluidState fluid = state.getFluidState();
+                // Plants over the ground or the water (flowers, petals, mushrooms, crops, dead bushes, cane, chorus, lily
+                // pads), like Xaero's Minimap: the highest one up to the world surface colours the column; the height stays
+                // the ground's (relief, contours and paths unchanged). The motion-blocking height skips them all.
+                BlockState shown = state;
+                int shownY = y;
+                if (!ceiling && plants) {
+                    for (int py = chunk.getHeight(Heightmap.Types.WORLD_SURFACE, x, z); py > y; py--) {
+                        BlockState s = chunk.getBlockState(pos.set(wx, py, wz));
+                        if (plant(s, level, pos)) {
+                            shown = s;
+                            shownY = py;
+                            break;
+                        }
+                    }
+                }
                 if (fluid.is(FluidTags.WATER)) {
                     int d = 1;
                     while (d < MAX_WATER_DEPTH && y - d >= minY) {
@@ -89,10 +114,25 @@ public final class ChunkScanner {
                         d++;
                     }
                     depth[i] = (byte) d;
+                    if (shallow && d <= SHALLOW && y - d >= minY) {
+                        // The ground under the water, seen through it where it is shallow.
+                        BlockState floor = chunk.getBlockState(pos.set(wx, y - d, wz));
+                        TextureColors.Entry fe = TextureColors.get(floor.getBlock());
+                        bottom[i] = fe != null ? tinted(level, floor, pos, fe, grass, foliageTint, x, y - d, z, worldTints)
+                                : MapPalette.standard(floor.getMapColor(level, pos));
+                    }
                     pos.set(wx, y, wz);
                     if (Sift.ichor(fluid)) {
-                        // The Sift's rainbow water is in the water tag: walked around like water, drawn as itself.
-                        color[i] = 0xFF000000 | Shimmer.ichor(wx, wz);
+                        // The Sift's rainbow water is in the water tag: walked around like water, drawn as itself (its
+                        // shimmer, or the average of its texture when that is off).
+                        color[i] = shimmer || TextureColors.ichor() == 0 ? 0xFF000000 | Shimmer.ichor(wx, wz) : TextureColors.ichor();
+                        keep[i] = true;
+                        continue;
+                    }
+                    TextureColors.Entry floating = shown == state ? null : TextureColors.get(shown.getBlock());
+                    if (floating != null) {
+                        // A plant on the water (lily pads): its colour, no depth gradient; still water for the paths.
+                        color[i] = tinted(level, shown, pos.set(wx, shownY, wz), floating, grass, foliageTint, x, y, z, worldTints);
                         keep[i] = true;
                         continue;
                     }
@@ -107,33 +147,19 @@ public final class ChunkScanner {
                 }
                 pos.set(wx, y + 1, wz);
                 BlockState above = chunk.getBlockState(pos);
-                // Plants over the ground (flowers, petals, mushrooms, crops, dead bushes, cane, chorus), like Xaero's
-                // Minimap: the highest one up to the world surface colours the column; the height stays the ground's
-                // (relief, contours and paths unchanged). The motion-blocking height skips them all.
-                Block shown = state.getBlock();
-                if (!ceiling) {
-                    for (int py = chunk.getHeight(Heightmap.Types.WORLD_SURFACE, x, z); py > y; py--) {
-                        BlockState s = chunk.getBlockState(pos.set(wx, py, wz));
-                        if (plant(s, level, pos)) {
-                            shown = s.getBlock();
-                            break;
-                        }
-                    }
-                }
                 pos.set(wx, y, wz);
-                Integer mine = own == null ? null : own.get(shown);
-                TextureColors.Entry tex = TextureColors.get(shown);
+                Integer mine = own == null ? null : own.get(shown.getBlock());
+                TextureColors.Entry tex = TextureColors.get(shown.getBlock());
                 if (Sift.snow(state.getBlock()) || Sift.snow(above.getBlock())) {
-                    color[i] = 0xFF000000 | Shimmer.ichorSnow(wx, wz); // before vanilla snow: it is a snow layer too
+                    // Before vanilla snow (it is a snow layer too): its shimmer, or its texture colour when that is off.
+                    TextureColors.Entry s = TextureColors.get(Sift.snow(above.getBlock()) ? above.getBlock() : state.getBlock());
+                    color[i] = shimmer || s == null ? 0xFF000000 | Shimmer.ichorSnow(wx, wz) : s.argb();
                 } else if (above.getBlock() instanceof SnowLayerBlock) {
                     color[i] = TextureColors.snow() != 0 ? TextureColors.snow() : MapPalette.standard(MapColor.SNOW);
                 } else if (mine != null) {
                     color[i] = mine; // before the biome tints: the theme gives the block's whole colour
                 } else if (tex != null) {
-                    int c = tex.argb();
-                    if (tex.tint() == TextureColors.Tint.GRASS) c = TextureColors.multiply(c, grass.at(x, y, z));
-                    else if (tex.tint() == TextureColors.Tint.FOLIAGE) c = TextureColors.multiply(c, foliageTint.at(x, y, z));
-                    color[i] = c;
+                    color[i] = tinted(level, shown, pos.set(wx, shownY, wz), tex, grass, foliageTint, x, y, z, worldTints);
                 } else {
                     color[i] = MapPalette.standard(mc); // no texture read (yet): the game's own map colour
                 }
@@ -155,7 +181,7 @@ public final class ChunkScanner {
         }
         pos.set((cx << 4) + 8, height[8 * 16 + 8], (cz << 4) + 8);
         Holder<Biome> biome = level.getBiome(pos);
-        return new Snapshot(cx, cz, color, height, depth, isVoid, blockLight, keep, biome.unwrapKey().orElse(null));
+        return new Snapshot(cx, cz, color, height, depth, isVoid, blockLight, keep, bottom, biome.unwrapKey().orElse(null));
     }
 
     /**
@@ -188,6 +214,11 @@ public final class ChunkScanner {
     interface TintSource {
         int tint(int wx, int y, int wz);
 
+        /** The colour of the biome at a block alone, not blended with its neighbours. */
+        default int raw(int wx, int y, int wz) {
+            return tint(wx, y, wz);
+        }
+
         boolean loaded(int cx, int cz);
     }
 
@@ -201,18 +232,25 @@ public final class ChunkScanner {
     static final class TintGrid {
         private final TintSource source;
         private final int cx, cz;
+        /** Blend between the quarts (else each quart in its own biome's colour, sharp at biome borders). */
+        private final boolean blend;
         /** 6 x 6 cells: index g is quart g - 1 (-1 and 4 lie in the neighbouring chunks). */
         private final int[] cells = new int[36];
         /** Bit per cell already sampled. */
         private long sampled;
 
         TintGrid(TintSource source, int cx, int cz) {
+            this(source, cx, cz, true);
+        }
+
+        TintGrid(TintSource source, int cx, int cz, boolean blend) {
             this.source = source;
             this.cx = cx;
             this.cz = cz;
+            this.blend = blend;
         }
 
-        static TintGrid of(ClientLevel level, int cx, int cz, ColorResolver resolver) {
+        static TintGrid of(ClientLevel level, int cx, int cz, ColorResolver resolver, boolean blend) {
             BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
             return new TintGrid(new TintSource() {
                 @Override
@@ -221,13 +259,19 @@ public final class ChunkScanner {
                 }
 
                 @Override
+                public int raw(int wx, int y, int wz) {
+                    return resolver.getColor(level.getBiome(pos.set(wx, y, wz)).value(), wx, wz);
+                }
+
+                @Override
                 public boolean loaded(int ncx, int ncz) {
                     return level.hasChunk(ncx, ncz);
                 }
-            }, cx, cz);
+            }, cx, cz, blend);
         }
 
         int at(int x, int y, int z) {
+            if (!blend) return cell((x >> 2) + 1, (z >> 2) + 1, y);
             // Quart q (blocks 4q to 4q + 3) is centred at 4q + 1.5: columns 0 and 1 lie between quarts -1 and 0.
             float fx = (x - 1.5f) / 4f + 1, fz = (z - 1.5f) / 4f + 1;
             int x0 = (int) fx, z0 = (int) fz;
@@ -250,7 +294,8 @@ public final class ChunkScanner {
             }
             int k = gz * 6 + gx;
             if ((sampled & (1L << k)) == 0) {
-                cells[k] = source.tint((cx << 4) + (gx - 1) * 4 + 2, y, (cz << 4) + (gz - 1) * 4 + 2);
+                int wx = (cx << 4) + (gx - 1) * 4 + 2, wz = (cz << 4) + (gz - 1) * 4 + 2;
+                cells[k] = blend ? source.tint(wx, y, wz) : source.raw(wx, y, wz);
                 sampled |= 1L << k;
             }
             return cells[k];
@@ -260,6 +305,34 @@ public final class ChunkScanner {
             float top = (c00 & 0xFF) + ((c10 & 0xFF) - (c00 & 0xFF)) * tx;
             float bottom = (c01 & 0xFF) + ((c11 & 0xFF) - (c01 & 0xFF)) * tx;
             return Math.round(top + (bottom - top) * tz);
+        }
+    }
+
+    /**
+     * A block's texture colour with the tint it needs (biome grass or foliage at the column, or its handler at pos, or
+     * without {@code world} the colour the handler gives without a world).
+     */
+    private static int tinted(ClientLevel level, BlockState state, BlockPos pos, TextureColors.Entry tex, TintGrid grass, TintGrid foliage,
+                              int x, int y, int z, boolean world) {
+        return switch (tex.tint()) {
+            case GRASS -> TextureColors.multiply(tex.argb(), grass.at(x, y, z));
+            case FOLIAGE -> TextureColors.multiply(tex.argb(), foliage.at(x, y, z));
+            case WORLD -> world ? worldTint(level, state, pos, tex) : tex.argb();
+            case NONE -> tex.argb();
+        };
+    }
+
+    /**
+     * A block tinted by its own colour handler ({@link TextureColors.Tint#WORLD}): its texture times what the handler gives
+     * at its place, as the game colours it (leaf litter takes the dry foliage of its biome). The colour without a world
+     * when the handler cannot answer here.
+     */
+    private static int worldTint(ClientLevel level, BlockState state, BlockPos pos, TextureColors.Entry tex) {
+        try {
+            int c = net.minecraft.client.Minecraft.getInstance().getBlockColors().getColor(state, level, pos, tex.tintIndex());
+            return c == -1 ? tex.texture() : TextureColors.multiply(tex.texture(), c);
+        } catch (RuntimeException e) {
+            return tex.argb();
         }
     }
 

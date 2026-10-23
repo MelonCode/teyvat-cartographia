@@ -30,6 +30,8 @@ public final class ChunkShader {
     }
 
     public static Result shade(ChunkScanner.Snapshot s, Neighbourhood n, MapConfig.Detail detail) {
+        // How much deep water darkens and how much ground shows through shallow water (settings, 0 to 1).
+        float depthShading = MapConfig.get(MapConfig.WATER_DEPTH) / 100f, clear = MapConfig.get(MapConfig.SHALLOW_WATER) / 100f;
         short[] H = n.heights();
         byte[] F = n.flags();
         int[] out = new int[256];
@@ -48,11 +50,14 @@ public final class ChunkShader {
                 if (s.keepColour()[i]) {
                     color = s.color()[i]; // a shimmer of its own: no depth gradient, no relief
                 } else if ((F[p] & MapTile.FLAG_WATER) != 0) {
-                    float t = Math.min(1f, (s.waterDepth()[i] & 0xFF) / 12f);
+                    int d = s.waterDepth()[i] & 0xFF;
+                    float t = Math.min(1f, d / 12f);
                     t = (float) Math.pow(t, 0.7);
                     // Shallow water near the shore is already lighter through the depth gradient; no extra rim
                     // highlight (Genshin's coasts have none, and it made small swamp pools glow).
-                    color = MapPalette.lerp(s.color()[i], MapPalette.deepWater(s.color()[i]), t);
+                    color = MapPalette.lerp(s.color()[i], MapPalette.deepWater(s.color()[i]), t * depthShading);
+                    int floor = s.bottom()[i];
+                    if (clear > 0 && floor != 0) color = MapPalette.lerp(color, floor, seeThrough(clear, d));
                 } else {
                     color = s.color()[i];
                     if (detail != MapConfig.Detail.LOW) {
@@ -77,6 +82,16 @@ public final class ChunkShader {
         short[] heights = new short[256];
         for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) heights[z * 16 + x] = H[pidx(x, z)];
         return new Result(s.cx(), s.cz(), out, heights, flags, s.blockLight(), n.neighbourMask(), s.biome(), false);
+    }
+
+    /**
+     * How much of the ground shows through water {@code depth} blocks deep (0 to 1) at the setting {@code clear} (0 to
+     * 1): at most 85% under one block of water at full strength, less by a block deeper, faster when the setting is low
+     * (about 43%, 64% and 85% under one block at 50%, 75% and 100%; gone by 5, 8 and 11 blocks, the last one past
+     * {@link ChunkScanner#SHALLOW}, so the shallows fade out without a step where the bottom is no longer read).
+     */
+    static float seeThrough(float clear, int depth) {
+        return Math.max(0f, 0.85f * clear - (0.15f - 0.065f * clear) * (depth - 1));
     }
 
     private static boolean known(byte[] F, int p) {

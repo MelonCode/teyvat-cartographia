@@ -12,7 +12,9 @@ import net.tapacywka.teyvatcartographia.config.MapConfig;
  * sub-section only while that mod is in the game):
  * <ul>
  *   <li>The Aether: its islands float over the void, so the cave map (under an island counts as underground) is off
- *       there unless asked for.</li>
+ *       there unless asked for; its fog of war, a sea of clouds.</li>
+ *   <li>Mielon's The Sift: its rainbow ichor and ichor snow shimmer on the map, or show their texture colour; its fog
+ *       of war, a pearly haze.</li>
  *   <li>Xaero's Minimap: the import of its waypoints (which type they get, hidden ones, death points).</li>
  * </ul>
  */
@@ -27,9 +29,28 @@ public final class ModCompat {
         return loaded(AETHER);
     }
 
+    public static boolean sift() {
+        return loaded("the_sift");
+    }
+
     /** Xaero's Minimap or Xaero's World Map in the game, or the waypoints Xaero's Minimap left in it. */
     public static boolean xaero() {
         return loaded("xaerominimap") || loaded("xaeroworldmap") || !XaeroWaypoints.roots().isEmpty();
+    }
+
+    public static final ResourceKey<Level> SIFT_DIMENSION =
+            ResourceKey.create(Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath("the_sift", "the_sift"));
+
+    /**
+     * Whether a dimension's own fog of war may show: the Nether's and the End's by the general switch, the Aether's and
+     * The Sift's (made for those mods) by their switch in Compatibility. Fogs a theme brings for other dimensions
+     * always show.
+     */
+    public static boolean ownFog(ResourceKey<Level> dimension) {
+        if (dimension == Level.NETHER || dimension == Level.END) return MapConfig.get(MapConfig.VANILLA_FOGS);
+        if (dimension == AETHER_DIMENSION) return MapConfig.get(MapConfig.AETHER_FOG);
+        if (dimension == SIFT_DIMENSION) return MapConfig.get(MapConfig.SIFT_FOG);
+        return true;
     }
 
     /** Whether the cave map works in this dimension (the general switch aside). */

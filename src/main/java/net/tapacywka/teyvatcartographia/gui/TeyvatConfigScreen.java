@@ -4,6 +4,7 @@ import net.tapacywka.teyvatcartographia.compat.ModCompat;
 import net.tapacywka.teyvatcartographia.config.MapConfig;
 import net.tapacywka.teyvatcartographia.config.StepChoice;
 import net.tapacywka.teyvatcartographia.gui.Ui.Grid;
+import net.tapacywka.teyvatcartographia.hud.MinimapLayer;
 import net.tapacywka.teyvatcartographia.map.MapView;
 import net.tapacywka.teyvatcartographia.map.data.MapDataManager;
 import net.tapacywka.teyvatcartographia.marker.MarkerType;
@@ -42,13 +43,13 @@ public final class TeyvatConfigScreen extends Screen {
 
     private final Screen parent;
     /**
-     * The tabs: the general settings and (with a supported mod in the game) the other mods; {@link #rows}
-     * is the one shown.
+     * The tabs: Map, Minimap, Pins, System and (with a supported mod in the game) Compatibility, built in the
+     * constructor; {@link #rows} is the one shown.
      */
-    private final List<Row> general = new ArrayList<>(), compat = new ArrayList<>();
+    private final List<Row> compat = new ArrayList<>();
     private record Tab(String key, List<Row> rows) {}
     private final List<Tab> tabs = new ArrayList<>();
-    private List<Row> rows = general;
+    private List<Row> rows;
     /** The tab shown: kept while the game runs, like the open sub-sections. */
     private static int tab;
     private static final int TAB_H = Grid.ROW;
@@ -59,6 +60,16 @@ public final class TeyvatConfigScreen extends Screen {
     private float barGrab;
     private static final float BAR_W = 3;
     private float panelX, panelY, panelW, panelH, listTop, listBottom;
+    /**
+     * The live preview beside the panel: a card on the right when the screen has room for it ({@link #PREVIEW_MIN} GUI
+     * units beside the panel, which keeps its width), else behind a button in the header, over the list.
+     */
+    private static final int PREVIEW_MIN = 200, PREVIEW_MAX = 300;
+    private boolean previewCard, previewOpen;
+    private float previewX, previewW;
+    private final MapView previewView = new MapView();
+    /** The pin row (its key) the Pins preview shows: the last one pointed at on that tab, null before any. */
+    private String pinFocus;
     private int blurW = -1, blurH = -1, blurTheme = -1, blurFrames;
 
     private abstract static class Row {
@@ -184,10 +195,17 @@ public final class TeyvatConfigScreen extends Screen {
 
     private static final class BoolRow extends Row {
         final ModConfigSpec.BooleanValue value;
+        /** Run after a change (the map drawn again), or null. */
+        Runnable onChange;
 
         BoolRow(String key, ModConfigSpec.BooleanValue value) {
             super(key);
             this.value = value;
+        }
+
+        BoolRow then(Runnable onChange) {
+            this.onChange = onChange;
+            return this;
         }
 
         private float tx(float x, float w) {
@@ -209,6 +227,7 @@ public final class TeyvatConfigScreen extends Screen {
             if (!Ui.toggleHit(tx(x, w), ty(), mx, my)) return false;
             value.set(!MapConfig.get(value));
             MapConfig.save();
+            if (onChange != null) onChange.run();
             return true;
         }
     }
@@ -227,6 +246,8 @@ public final class TeyvatConfigScreen extends Screen {
         String[] stepKeys;
         /** Width of the value column right of the track. */
         float valueW = VALUE_W;
+        /** Run once the slider is let go (the map drawn again), or null. */
+        Runnable onRelease;
 
         SliderRow(String key, double min, double max, boolean log, boolean integer, String format, DoubleSupplier getter, DoubleConsumer setter) {
             super(key);
@@ -237,6 +258,11 @@ public final class TeyvatConfigScreen extends Screen {
             this.format = format;
             this.getter = getter;
             this.setter = setter;
+        }
+
+        SliderRow then(Runnable onRelease) {
+            this.onRelease = onRelease;
+            return this;
         }
 
         static SliderRow ofInt(String key, ModConfigSpec.IntValue v, int min, int max) {
@@ -510,78 +536,94 @@ public final class TeyvatConfigScreen extends Screen {
     public TeyvatConfigScreen(Screen parent) {
         super(Component.translatable("teyvatcartographia.config.title"));
         this.parent = parent;
-        // Appearance
-        rows.add(new Section("teyvatcartographia.config.section.appearance"));
-        rows.add(new ThemeRow());
-        rows.add(new EnumRow<>("teyvatcartographia.config.minimap_shape", MapConfig.MINIMAP_SHAPE, MapConfig.MinimapShape.values(), Theme.Style::update));
-        rows.add(new EnumRow<>("teyvatcartographia.config.interface_style", MapConfig.INTERFACE_STYLE, MapConfig.InterfaceStyle.values(), Theme.Style::update));
-        // World map
-        rows.add(new Section("teyvatcartographia.config.section.worldmap"));
-        rows.add(SliderRow.ofZoom("teyvatcartographia.config.map_zoom", MapConfig.MAP_DEFAULT_ZOOM));
-        rows.add(new BoolRow("teyvatcartographia.config.map_labels", MapConfig.MAP_SHOW_LABELS));
-        rows.add(new BoolRow("teyvatcartographia.config.map_grid", MapConfig.MAP_SHOW_GRID));
-        // Minimap: what it shows, its size and place on the screen, the information under it
-        rows.add(new Section("teyvatcartographia.config.section.minimap"));
-        rows.add(new SubSection("teyvatcartographia.config.subsection.minimap_display"));
-        rows.add(new BoolRow("teyvatcartographia.config.minimap_enabled", MapConfig.MINIMAP_ENABLED));
-        rows.add(SliderRow.ofZoom("teyvatcartographia.config.minimap_zoom", MapConfig.MINIMAP_ZOOM));
-        rows.add(new EnumRow<>("teyvatcartographia.config.minimap_orientation", MapConfig.MINIMAP_ORIENTATION, MapConfig.Orientation.values(), null));
-        rows.add(new EnumRow<>("teyvatcartographia.config.minimap_rate", MapConfig.MINIMAP_UPDATE_RATE, MapConfig.UpdateRate.values(), null));
-        rows.add(new SubSection("teyvatcartographia.config.subsection.minimap_layout"));
-        rows.add(SliderRow.ofInt("teyvatcartographia.config.minimap_radius", MapConfig.MINIMAP_RADIUS, 24, 110));
-        rows.add(new EnumRow<>("teyvatcartographia.config.minimap_corner", MapConfig.MINIMAP_CORNER, MapConfig.Corner.values(), null));
-        rows.add(SliderRow.ofInt("teyvatcartographia.config.minimap_offset_x", MapConfig.MINIMAP_OFFSET_X, 0, 300));
-        rows.add(SliderRow.ofInt("teyvatcartographia.config.minimap_offset_y", MapConfig.MINIMAP_OFFSET_Y, 0, 300));
-        rows.add(SliderRow.ofDouble("teyvatcartographia.config.minimap_opacity", MapConfig.MINIMAP_OPACITY, 0.2, 1.0, false, "%.2f"));
-        rows.add(SliderRow.ofInt("teyvatcartographia.config.minimap_padding", MapConfig.MINIMAP_PADDING, 0, 16));
-        rows.add(SliderRow.ofPercent("teyvatcartographia.config.minimap_fade_width", MapConfig.MINIMAP_FADE_WIDTH, 0, 50));
-        rows.add(SliderRow.ofPercent("teyvatcartographia.config.minimap_fade_strength", MapConfig.MINIMAP_FADE_STRENGTH, 0, 100));
-        rows.add(new SubSection("teyvatcartographia.config.subsection.minimap_info"));
-        rows.add(SliderRow.ofInt("teyvatcartographia.config.minimap_info_gap", MapConfig.MINIMAP_INFO_GAP, 0, 16));
-        rows.add(SliderRow.ofAuto("teyvatcartographia.config.minimap_text_size", MapConfig.MINIMAP_TEXT_SIZE, 6));
-        rows.add(SliderRow.ofPercent("teyvatcartographia.config.minimap_pill_opacity", MapConfig.MINIMAP_PILL_OPACITY, 0, 100));
-        rows.add(new BoolRow("teyvatcartographia.config.minimap_coords", MapConfig.MINIMAP_SHOW_COORDS));
-        rows.add(new BoolRow("teyvatcartographia.config.minimap_biome", MapConfig.MINIMAP_SHOW_BIOME));
+        // Five tabs, each answering one question: how the map looks and what it shows (Map), the minimap, the pins,
+        // how much work the mapping may take (System), and what was made for other mods (Compatibility).
+        List<Row> map = new ArrayList<>(), minimap = new ArrayList<>(), pins = new ArrayList<>(), system = new ArrayList<>();
+        // Map: the look of the interface, what is drawn on both maps, the world map itself.
+        map.add(new Section("teyvatcartographia.config.section.appearance"));
+        map.add(new ThemeRow());
+        map.add(new EnumRow<>("teyvatcartographia.config.interface_style", MapConfig.INTERFACE_STYLE, MapConfig.InterfaceStyle.values(), Theme.Style::update));
+        Runnable remap = () -> MapDataManager.get().remapLoaded(); // the chunks around mapped again in the new way
+        map.add(new Section("teyvatcartographia.config.section.map_content"));
+        map.add(new BoolRow("teyvatcartographia.config.plants", MapConfig.MAP_PLANTS).then(remap));
+        map.add(new BoolRow("teyvatcartographia.config.caves", MapConfig.CAVES_ENABLED));
+        map.add(new BoolRow("teyvatcartographia.config.vanilla_fogs", MapConfig.VANILLA_FOGS).then(Theme.Style::update));
+        // How the map is coloured: relief, biome colours, blocks coloured in the world, water.
+        map.add(new Section("teyvatcartographia.config.section.colours"));
+        map.add(new EnumRow<>("teyvatcartographia.config.detail", MapConfig.DETAIL, MapConfig.Detail.values(), remap));
+        map.add(new BoolRow("teyvatcartographia.config.biome_blend", MapConfig.BIOME_BLEND).then(remap));
+        map.add(new BoolRow("teyvatcartographia.config.world_tints", MapConfig.WORLD_TINTS).then(remap));
+        map.add(SliderRow.ofPercent("teyvatcartographia.config.water_depth", MapConfig.WATER_DEPTH, 0, 100).then(remap));
+        map.add(SliderRow.ofPercent("teyvatcartographia.config.shallow_water", MapConfig.SHALLOW_WATER, 0, 100).then(remap));
+        map.add(new Section("teyvatcartographia.config.section.worldmap"));
+        map.add(SliderRow.ofZoom("teyvatcartographia.config.map_zoom", MapConfig.MAP_DEFAULT_ZOOM));
+        map.add(new BoolRow("teyvatcartographia.config.map_labels", MapConfig.MAP_SHOW_LABELS));
+        map.add(new BoolRow("teyvatcartographia.config.map_grid", MapConfig.MAP_SHOW_GRID));
+        // Minimap: whether and how it shows, its size and place, its look, the lines under it.
+        minimap.add(new Section("teyvatcartographia.config.subsection.minimap_display"));
+        minimap.add(new BoolRow("teyvatcartographia.config.minimap_enabled", MapConfig.MINIMAP_ENABLED));
+        minimap.add(new EnumRow<>("teyvatcartographia.config.minimap_shape", MapConfig.MINIMAP_SHAPE, MapConfig.MinimapShape.values(), Theme.Style::update));
+        minimap.add(SliderRow.ofZoom("teyvatcartographia.config.minimap_zoom", MapConfig.MINIMAP_ZOOM));
+        minimap.add(new EnumRow<>("teyvatcartographia.config.minimap_orientation", MapConfig.MINIMAP_ORIENTATION, MapConfig.Orientation.values(), null));
+        minimap.add(new Section("teyvatcartographia.config.subsection.minimap_layout"));
+        minimap.add(SliderRow.ofInt("teyvatcartographia.config.minimap_radius", MapConfig.MINIMAP_RADIUS, 24, 110));
+        minimap.add(new EnumRow<>("teyvatcartographia.config.minimap_corner", MapConfig.MINIMAP_CORNER, MapConfig.Corner.values(), null));
+        minimap.add(SliderRow.ofInt("teyvatcartographia.config.minimap_offset_x", MapConfig.MINIMAP_OFFSET_X, 0, 300));
+        minimap.add(SliderRow.ofInt("teyvatcartographia.config.minimap_offset_y", MapConfig.MINIMAP_OFFSET_Y, 0, 300));
+        minimap.add(new Section("teyvatcartographia.config.section.minimap_look"));
+        minimap.add(SliderRow.ofDouble("teyvatcartographia.config.minimap_opacity", MapConfig.MINIMAP_OPACITY, 0.2, 1.0, false, "%.2f"));
+        minimap.add(SliderRow.ofInt("teyvatcartographia.config.minimap_padding", MapConfig.MINIMAP_PADDING, 0, 16));
+        minimap.add(SliderRow.ofPercent("teyvatcartographia.config.minimap_fade_width", MapConfig.MINIMAP_FADE_WIDTH, 0, 50));
+        minimap.add(SliderRow.ofPercent("teyvatcartographia.config.minimap_fade_strength", MapConfig.MINIMAP_FADE_STRENGTH, 0, 100));
+        minimap.add(new Section("teyvatcartographia.config.subsection.minimap_info"));
+        minimap.add(SliderRow.ofInt("teyvatcartographia.config.minimap_info_gap", MapConfig.MINIMAP_INFO_GAP, 0, 16));
+        minimap.add(SliderRow.ofAuto("teyvatcartographia.config.minimap_text_size", MapConfig.MINIMAP_TEXT_SIZE, 6));
+        minimap.add(SliderRow.ofPercent("teyvatcartographia.config.minimap_pill_opacity", MapConfig.MINIMAP_PILL_OPACITY, 0, 100));
+        minimap.add(new BoolRow("teyvatcartographia.config.minimap_coords", MapConfig.MINIMAP_SHOW_COORDS));
+        minimap.add(new BoolRow("teyvatcartographia.config.minimap_biome", MapConfig.MINIMAP_SHOW_BIOME));
         // The clock as one choice: off, game time, real time, both.
-        rows.add(SliderRow.ofSteps("teyvatcartographia.config.minimap_time", CLOCK_STEPS,
+        minimap.add(SliderRow.ofSteps("teyvatcartographia.config.minimap_time", CLOCK_STEPS,
                 () -> StepChoice.clock(MapConfig.get(MapConfig.MINIMAP_SHOW_TIME), MapConfig.get(MapConfig.MINIMAP_TIME_SOURCE)),
                 s -> {
                     MapConfig.MINIMAP_SHOW_TIME.set(s > 0);
                     if (s > 0) MapConfig.MINIMAP_TIME_SOURCE.set(StepChoice.clockSource(s));
                 }));
         // The time format only matters while the clock shows a time.
-        rows.add(new EnumRow<>("teyvatcartographia.config.minimap_time_format", MapConfig.MINIMAP_TIME_FORMAT, MapConfig.TimeFormat.values(), null,
+        minimap.add(new EnumRow<>("teyvatcartographia.config.minimap_time_format", MapConfig.MINIMAP_TIME_FORMAT, MapConfig.TimeFormat.values(), null,
                 () -> MapConfig.get(MapConfig.MINIMAP_SHOW_TIME)));
-        rows.add(new BoolRow("teyvatcartographia.config.minimap_day", MapConfig.MINIMAP_SHOW_DAY));
+        minimap.add(new BoolRow("teyvatcartographia.config.minimap_day", MapConfig.MINIMAP_SHOW_DAY));
         // Pins: each kind as one choice (off, the map, both maps, everywhere with the beam); then the path to a tracked
         // pin of each kind the same way (everywhere with the stars).
-        rows.add(new Section("teyvatcartographia.config.section.pins"));
-        rows.add(new SubSection("teyvatcartographia.config.subsection.pins_display"));
+        pins.add(new Section("teyvatcartographia.config.subsection.pins_display"));
         for (MapConfig.PinKind kind : MapConfig.PinKind.values()) {
             MapConfig.PinOptions o = MapConfig.pins(kind);
-            rows.add(SliderRow.ofSteps("teyvatcartographia.config.pins." + kind.id, PIN_STEPS,
+            pins.add(SliderRow.ofSteps("teyvatcartographia.config.pins." + kind.id, PIN_STEPS,
                     () -> StepChoice.level(MapConfig.get(o.enabled), MapConfig.get(o.map), MapConfig.get(o.minimap), MapConfig.get(o.beam)),
                     s -> setSteps(s, o.enabled, o.map, o.minimap, o.beam)));
         }
-        rows.add(new SubSection("teyvatcartographia.config.subsection.pins_path"));
+        pins.add(new Section("teyvatcartographia.config.subsection.pins_path"));
         for (MapConfig.PinKind kind : MapConfig.PinKind.values()) {
             MapConfig.PinOptions o = MapConfig.pins(kind);
-            rows.add(SliderRow.ofSteps("teyvatcartographia.config.path." + kind.id, PATH_STEPS,
+            pins.add(SliderRow.ofSteps("teyvatcartographia.config.path." + kind.id, PATH_STEPS,
                     () -> StepChoice.level(MapConfig.get(o.path), MapConfig.get(o.pathMap), MapConfig.get(o.pathMinimap), MapConfig.get(o.pathWorld)),
                     s -> setSteps(s, o.path, o.pathMap, o.pathMinimap, o.pathWorld)));
         }
-        // Cartography: how the map is drawn and how much work it may take
-        rows.add(new Section("teyvatcartographia.config.section.cartography"));
-        rows.add(new EnumRow<>("teyvatcartographia.config.detail", MapConfig.DETAIL, MapConfig.Detail.values(), () -> MapDataManager.get().remapLoaded()));
-        rows.add(new BoolRow("teyvatcartographia.config.caves", MapConfig.CAVES_ENABLED));
-        rows.add(SliderRow.ofInt("teyvatcartographia.config.scan_radius", MapConfig.SCAN_RADIUS, 2, 32));
-        rows.add(SliderRow.ofInt("teyvatcartographia.config.chunks_per_tick", MapConfig.CHUNKS_PER_TICK, 1, 32));
-        rows.add(SliderRow.ofInt("teyvatcartographia.config.max_tiles", MapConfig.MAX_CACHED_TILES, 32, 1024));
-        // The compatibility tab: a sub-section per mod, only for the mods in the game (no tab without any), in the
-        // alphabetical order of their names like the modded dimensions of the dimensions panel.
+        // System: how much work the mapping and the minimap may take.
+        system.add(new Section("teyvatcartographia.config.section.performance"));
+        system.add(SliderRow.ofInt("teyvatcartographia.config.scan_radius", MapConfig.SCAN_RADIUS, 2, 32));
+        system.add(SliderRow.ofInt("teyvatcartographia.config.chunks_per_tick", MapConfig.CHUNKS_PER_TICK, 1, 32));
+        system.add(SliderRow.ofInt("teyvatcartographia.config.max_tiles", MapConfig.MAX_CACHED_TILES, 32, 1024));
+        system.add(new EnumRow<>("teyvatcartographia.config.minimap_rate", MapConfig.MINIMAP_UPDATE_RATE, MapConfig.UpdateRate.values(), null));
+        // Compatibility: a sub-section per mod, only for the mods in the game (no tab without any), in the alphabetical
+        // order of their names like the modded dimensions of the dimensions panel; everything made for one mod is there,
+        // its fog of war too.
         List<ModPart> mods = new ArrayList<>();
         if (ModCompat.aether()) mods.add(new ModPart("teyvatcartographia.config.subsection.compat_aether", List.of(
+                new BoolRow("teyvatcartographia.config.compat.aether_fog", MapConfig.AETHER_FOG).then(Theme.Style::update),
                 new BoolRow("teyvatcartographia.config.compat.aether_caves", MapConfig.AETHER_CAVES))));
+        if (ModCompat.sift()) mods.add(new ModPart("teyvatcartographia.config.subsection.compat_sift", List.of(
+                new BoolRow("teyvatcartographia.config.compat.sift_fog", MapConfig.SIFT_FOG).then(Theme.Style::update),
+                new BoolRow("teyvatcartographia.config.compat.sift_shimmer", MapConfig.SIFT_SHIMMER).then(() -> MapDataManager.get().remapLoaded()))));
         if (ModCompat.xaero()) mods.add(new ModPart("teyvatcartographia.config.subsection.compat_xaero", List.of(
                 new EnumRow<>("teyvatcartographia.config.compat.xaero_type", MapConfig.XAERO_PIN_TYPE,
                         MarkerType.customTypes().toArray(new MarkerType[0]), null).named(t -> Component.translatable(t.langKey())),
@@ -593,7 +635,10 @@ public final class TeyvatConfigScreen extends Screen {
             compat.addAll(m.rows());
         }
         // Rows after a sub-heading (up to the next heading) fold with it.
-        tabs.add(new Tab("teyvatcartographia.config.tab.general", general));
+        tabs.add(new Tab("teyvatcartographia.config.tab.map", map));
+        tabs.add(new Tab("teyvatcartographia.config.tab.minimap", minimap));
+        tabs.add(new Tab("teyvatcartographia.config.tab.pins", pins));
+        tabs.add(new Tab("teyvatcartographia.config.tab.system", system));
         if (!compat.isEmpty()) tabs.add(new Tab("teyvatcartographia.config.tab.compat", compat));
         for (Tab t : tabs) {
             SubSection current = null;
@@ -614,7 +659,12 @@ public final class TeyvatConfigScreen extends Screen {
 
     private void layout() {
         panelW = Math.min(360, (width - 2 * 2 * Grid.MARGIN) / Grid.STEP * Grid.STEP);
-        panelX = Math.round((width - panelW) / 2f);
+        float rest = width - 2 * Grid.MARGIN - panelW - Grid.MARGIN;
+        previewCard = rest >= PREVIEW_MIN;
+        previewW = previewCard ? Math.min(PREVIEW_MAX, rest) : 0;
+        float both = panelW + (previewCard ? Grid.MARGIN + previewW : 0);
+        panelX = Math.round((width - both) / 2f);
+        previewX = panelX + panelW + Grid.MARGIN;
         panelY = Grid.MARGIN;
         panelH = height - 2 * Grid.MARGIN;
         // The tab strip only with more than one tab (the compatibility tab needs a supported mod in the game).
@@ -637,6 +687,51 @@ public final class TeyvatConfigScreen extends Screen {
         return total;
     }
 
+    // The list scrolls only to the top of a row and draws only the rows it holds whole: no row is cut at its edges.
+
+    /** The furthest scroll: the first row top from which the rest of the list fits. */
+    private float maxScroll() {
+        float total = total(), view = listBottom - listTop, at = 0;
+        if (total <= view) return 0;
+        for (Row r : rows) {
+            if (total - at <= view) return at;
+            at += r.listHeight();
+        }
+        return at;
+    }
+
+    /** The row top at or above {@code s} ({@code nearest}: the closest one), within the furthest scroll. */
+    private float snap(float s, boolean nearest) {
+        float max = maxScroll(), at = 0, best = 0;
+        for (Row r : rows) {
+            if (at > max) break;
+            if (r.listHeight() > 0) {
+                if (at <= s || nearest && at - s < s - best) best = at;
+                else break;
+            }
+            at += r.listHeight();
+        }
+        return Math.min(best, max);
+    }
+
+    /** The next row top below the scroll ({@code down}) or above it. */
+    private float step(boolean down) {
+        float max = maxScroll(), at = 0, before = 0;
+        for (Row r : rows) {
+            if (r.listHeight() > 0) {
+                if (down && at > scroll) return Math.min(at, max);
+                if (!down && at >= scroll) return before;
+                before = at;
+            }
+            at += r.listHeight();
+        }
+        return down ? max : before;
+    }
+
+    private boolean inView(Row r) {
+        return r.shown() && r.y >= listTop - 0.5f && r.y + r.height() <= listBottom + 0.5f;
+    }
+
     // ------------------------------------------------------------------ scrollbar: in the right margin beside the list
 
     private float barX() {
@@ -650,7 +745,7 @@ public final class TeyvatConfigScreen extends Screen {
 
     private float thumbY(float total) {
         float view = listBottom - listTop, th = thumbH(total);
-        return listTop + (view - th) * scroll / (total - view);
+        return listTop + (view - th) * Math.min(1, scroll / Math.max(1, maxScroll()));
     }
 
     /** A little wider than the bar, so it is easy to take; only while the list is longer than its room. */
@@ -661,7 +756,7 @@ public final class TeyvatConfigScreen extends Screen {
     private void dragBar(double my) {
         float total = total(), view = listBottom - listTop, th = thumbH(total);
         float t = (float) ((my - barGrab - listTop) / (view - th));
-        scroll = Math.max(0, Math.min(1, t)) * (total - view);
+        scroll = snap(Math.max(0, Math.min(1, t)) * maxScroll(), true);
     }
 
     /** The track along the list and the thumb over the part shown; lit while pointed at or dragged. */
@@ -681,32 +776,193 @@ public final class TeyvatConfigScreen extends Screen {
         }
     }
 
-    /** The tab strip under the header: General and Compatibility (with a supported mod), sharing the width. */
+    /** The tab strip under the header. */
     private float tabY() {
         return panelY + Grid.HEADER_H + Grid.GAP;
     }
 
-    private float tabW() {
-        return (contentW() - (tabs.size() - 1) * Grid.GAP) / tabs.size();
+    /**
+     * A tab's width: its title plus a small margin on each side, the room left over shared equally (so short titles do not
+     * get wide tabs while a long one is cut); when the titles do not fit, all shrink in proportion and get shortened.
+     */
+    private float tabW(int i) {
+        float gaps = (tabs.size() - 1) * Grid.GAP, need = 0;
+        for (Tab t : tabs) need += tabNeed(t);
+        float room = contentW() - gaps;
+        return room >= need ? tabNeed(tabs.get(i)) + (room - need) / tabs.size() : tabNeed(tabs.get(i)) * room / need;
+    }
+
+    private static float tabNeed(Tab t) {
+        return DrawText.width(Component.translatable(t.key())) + 4 * Grid.GAP;
     }
 
     private float tabX(int i) {
-        return contentX() + i * (tabW() + Grid.GAP);
+        float x = contentX();
+        for (int k = 0; k < i; k++) x += tabW(k) + Grid.GAP;
+        return x;
     }
 
     /** One tab: the shown one in the button colour with a gold title, the other a darker button (lit under the pointer). */
     private void renderTab(GuiGraphics g, int i, String key, boolean shown, int mx, int my) {
-        float x = tabX(i), y = tabY(), w = tabW();
+        float x = tabX(i), y = tabY(), w = tabW(i);
         boolean hover = !shown && Draw.inRect(mx, my, x, y, w, TAB_H);
         if (hover) Cursors.want(Cursors.Shape.HAND);
         int fill = shown || hover ? Theme.BUTTON : Ui.inactive(Theme.BUTTON);
         if (Theme.Style.squareUi) Draw.rect(g, x, y, x + w, y + TAB_H, fill);
         else Draw.capsule(g, x, y, w, TAB_H, fill);
-        Component t = Component.translatable(key);
-        DrawText.room(t, w - 2 * Grid.GAP);
+        Component t = Component.literal(DrawText.fit(Component.translatable(key).getString(), (int) (w - 2 * Grid.GAP)));
         DrawText.textCentered(g, t, x + w / 2f, DrawText.textY(y, TAB_H), shown ? Theme.GOLD : Theme.CREAM, false);
     }
 
+    // ------------------------------------------------------------------ live preview
+
+    /** The header button that opens the preview over the list (only without room for the card). */
+    private float previewButtonX() {
+        return panelX + panelW - Grid.HEADER_H - Grid.TOOL;
+    }
+
+    private float previewButtonY() {
+        return panelY + (Grid.HEADER_H - Grid.TOOL) / 2f;
+    }
+
+    private String shownTabKey() {
+        return tabs.get(tab).key();
+    }
+
+    /** The card: a dark panel with its title, the preview of the tab shown inside. */
+    private void renderPreview(GuiGraphics g, float x, float y, float w, float h, float pt) {
+        Draw.rect(g, x, y, x + w, y + h, Theme.PANEL_DARK);
+        Draw.rect(g, x, y, x + w, y + Grid.HEADER_H, Theme.PANEL_DARK_HEADER);
+        Draw.rect(g, x, y + Grid.HEADER_H - 1, x + w, y + Grid.HEADER_H, Theme.PANEL_HEADER_LINE);
+        Component title = Component.translatable("teyvatcartographia.config.preview");
+        DrawText.room(title, w - 2 * Grid.PAD);
+        DrawText.text(g, title, x + Grid.PAD, DrawText.textY(y, Grid.HEADER_H), Theme.GOLD, false);
+        float cx = x + Grid.PAD, cy = y + Grid.HEADER_H + Grid.PAD, cw = w - 2 * Grid.PAD, ch = h - Grid.HEADER_H - 2 * Grid.PAD;
+        Minecraft mc = Minecraft.getInstance();
+        String key = shownTabKey();
+        boolean world = mc.player != null && mc.level != null;
+        // The minimap's layers are brought up to date before any clipping (they draw off screen).
+        boolean minimap = world && (key.equals("teyvatcartographia.config.tab.minimap") || key.equals("teyvatcartographia.config.tab.pins") && pinFocus != null)
+                && MinimapLayer.preparePreview(g, mc.getTimer());
+        g.enableScissor((int) cx, (int) cy, (int) (cx + cw), (int) (cy + ch)); // nothing spills out of the card
+        if (key.equals("teyvatcartographia.config.tab.map")) {
+            if (world) previewMap(g, cx, cy, cw, ch, MapView.snapZoom(MapConfig.get(MapConfig.MAP_DEFAULT_ZOOM)), pt);
+            else previewNote(g, cx, cy, cw, ch, "teyvatcartographia.config.preview.no_world");
+        } else if (key.equals("teyvatcartographia.config.tab.minimap")) {
+            if (!world) previewNote(g, cx, cy, cw, ch, "teyvatcartographia.config.preview.no_world");
+            else if (!minimap) previewNote(g, cx, cy, cw, ch, "teyvatcartographia.config.preview.minimap_off");
+            else previewMinimap(g, cx, cy, cw, ch);
+        } else if (key.equals("teyvatcartographia.config.tab.pins")) {
+            SettingsPreview.pins(g, cx, cy, cw, ch, (g2, mx, my, mw, mh, zoom) -> previewMap(g2, mx, my, mw, mh, zoom, pt), pinFocus, minimap);
+        } else if (key.equals("teyvatcartographia.config.tab.system")) {
+            if (world) SettingsPreview.system(g, cx, cy, cw, ch);
+            else previewNote(g, cx, cy, cw, ch, "teyvatcartographia.config.preview.no_world");
+        } else {
+            List<SettingsPreview.ModSample> mods = new ArrayList<>();
+            for (Row r : compat) if (r instanceof SubSection s) mods.add(new SettingsPreview.ModSample(s.key, s.label));
+            SettingsPreview.compat(g, cx, cy, cw, ch, mods);
+        }
+        g.disableScissor();
+    }
+
+    /** A short note in the middle of the area (no world, the minimap off, no preview yet). */
+    private static void previewNote(GuiGraphics g, float x, float y, float w, float h, String key) {
+        Component t = Component.literal(DrawText.fit(Component.translatable(key).getString(), (int) w));
+        DrawText.textCentered(g, t, Draw.snap(x + w / 2f), Draw.snap(y + h / 2f - 4), Theme.TEXT_MUTED, false);
+    }
+
+    /**
+     * The map around the player over the whole area, as the world map draws it at {@code zoom}: fog, regions, the grid
+     * and the biome names when they are on, the player in the middle.
+     */
+    private void previewMap(GuiGraphics g, float x, float y, float w, float h, double zoom, float pt) {
+        Minecraft mc = Minecraft.getInstance();
+        net.tapacywka.teyvatcartographia.map.data.TileStore store = MapDataManager.get().shownStore();
+        net.minecraft.world.phys.Vec3 pos = mc.player.getPosition(pt);
+        float mx = Draw.snap(x + w / 2f), my = Draw.snap(y + h / 2f);
+        previewView.set(pos.x, pos.z, zoom, 0, mx, my);
+        boolean cave = store != null && store.cave;
+        g.enableScissor((int) x, (int) y, (int) (x + w), (int) (y + h));
+        FogTexture.draw(g, store == null || cave ? null : store.dimension, x, y, x + w, y + h, (float) (pos.x * zoom), (float) (pos.z * zoom), Theme.WHITE);
+        net.tapacywka.teyvatcartographia.render.MapLayerRenderer.drawRect(g, store, previewView, x, y, x + w, y + h,
+                cave ? 0xFFFFFFFF : net.tapacywka.teyvatcartographia.render.DayLight.tint(pt), cave ? 0f : net.tapacywka.teyvatcartographia.render.DayLight.night(pt));
+        if (MapConfig.get(MapConfig.MAP_SHOW_GRID)) previewGrid(g, x, y, w, h, zoom);
+        if (MapConfig.get(MapConfig.MAP_SHOW_LABELS)) {
+            net.tapacywka.teyvatcartographia.render.MapLayerRenderer.drawBiomeLabels(g, store, previewView, x, y, x + w, y + h, List.of());
+        }
+        float heading = (float) previewView.headingOnScreen(mc.player.getViewYRot(pt));
+        Draw.sector(g, mx, my, 24, heading, 0.7f, Theme.VIEW_CONE, Theme.withAlpha(Theme.VIEW_CONE, 0f));
+        net.tapacywka.teyvatcartographia.render.MarkerRenderer.player(g, mx, my, 16, heading, 1f);
+        g.disableScissor();
+        Draw.frame(g, x, y, w, h, 1, Theme.PANEL_LINE);
+    }
+
+    /** The chunk and region grid, as the world map draws it (from zoom 1; chunks from 2). */
+    private void previewGrid(GuiGraphics g, float x, float y, float w, float h, double zoom) {
+        if (zoom < 1.0) return;
+        int step = zoom >= 2 ? 16 : 256;
+        double wx0 = previewView.worldX(x, y), wz0 = previewView.worldZ(x, y), wx1 = previewView.worldX(x + w, y + h), wz1 = previewView.worldZ(x + w, y + h);
+        for (long gx = (long) Math.floor(wx0 / step) * step; gx <= wx1; gx += step) {
+            float sx = previewView.screenX(gx, 0);
+            Draw.rect(g, sx, y, sx + 0.5f, y + h, gx % 256 == 0 ? Theme.GRID_LINE_MAJOR : Theme.GRID_LINE_MINOR);
+        }
+        for (long gz = (long) Math.floor(wz0 / step) * step; gz <= wz1; gz += step) {
+            float sy = previewView.screenY(0, gz);
+            Draw.rect(g, x, sy, x + w, sy + 0.5f, gz % 256 == 0 ? Theme.GRID_LINE_MAJOR : Theme.GRID_LINE_MINOR);
+        }
+    }
+
+    /** Height of the smallest picture of the screen (GUI units): still shows the corner the minimap is in. */
+    private static final float PICTURE_MIN = 40;
+
+    /**
+     * The minimap as the HUD shows it: a picture of the screen (where it sits) and the minimap at its real size (smaller
+     * only without room for it), as one group centred in the area on both axes, on the pixel grid. In a wide area (over
+     * the list) side by side, each centred in its half; else one over the other, the minimap given its room first.
+     */
+    private void previewMinimap(GuiGraphics g, float x, float y, float w, float h) {
+        int[] b = MinimapLayer.preparedBounds();
+        float bw = b[2] - b[0], bh = b[3] - b[1];
+        if (w > h * 1.3f) {
+            float half = (w - Grid.PAD) / 2f;
+            float s = Math.min(1f, Math.min(half / bw, h / bh));
+            float ph = Math.min(half * height / width, h), pw = ph * width / height;
+            screenPicture(g, x + (half - pw) / 2f, y + (h - ph) / 2f, pw, ph);
+            float rx = x + half + Grid.PAD;
+            realMinimap(g, b, rx + (half - bw * s) / 2f, y + (h - bh * s) / 2f, s);
+            return;
+        }
+        float s = Math.min(1f, Math.min(w / bw, (h - PICTURE_MIN - Grid.PAD) / bh));
+        float rh = bh * s;
+        float ph = Math.max(PICTURE_MIN, Math.min(Math.min(w * height / width, h * 0.4f), h - rh - Grid.PAD)), pw = ph * width / height;
+        float top = y + (h - (ph + Grid.PAD + rh)) / 2f;
+        screenPicture(g, x + (w - pw) / 2f, top, pw, ph);
+        realMinimap(g, b, x + (w - bw * s) / 2f, top + ph + Grid.PAD, s);
+    }
+
+    /** A picture of the screen at (x, y), {@code w} x {@code h}, with the minimap where it sits on it. */
+    private void screenPicture(GuiGraphics g, float x, float y, float w, float h) {
+        float sx = Draw.snap(x), sy = Draw.snap(y), sw = Draw.snap(w), sh = Draw.snap(h);
+        Draw.rect(g, sx, sy, sx + sw, sy + sh, Theme.PANEL_DARK_HEADER);
+        g.enableScissor((int) sx, (int) sy, (int) Math.ceil(sx + sw), (int) Math.ceil(sy + sh));
+        g.pose().pushPose();
+        g.pose().translate(sx, sy, 0);
+        g.pose().scale(sw / width, sh / height, 1f);
+        MinimapLayer.drawPrepared(g);
+        g.pose().popPose();
+        g.disableScissor();
+        Draw.frame(g, sx, sy, sw, sh, 1, Theme.PANEL_LINE);
+    }
+
+    /** The minimap with its lines (bounds {@code b}) with its top left at (x, y), at scale {@code s}. */
+    private static void realMinimap(GuiGraphics g, int[] b, float x, float y, float s) {
+        g.pose().pushPose();
+        g.pose().translate(Draw.snap(x), Draw.snap(y), 0);
+        g.pose().scale(s, s, 1f);
+        g.pose().translate(-b[0], -b[1], 0);
+        MinimapLayer.drawPrepared(g);
+        g.pose().popPose();
+    }
     private float footerY() {
         return panelY + panelH - Grid.PAD - Grid.ACTION_H;
     }
@@ -735,21 +991,37 @@ public final class TeyvatConfigScreen extends Screen {
         blurTheme = Theme.generation();
         Draw.rect(g, 0, 0, width, height, Theme.SETTINGS_DIM);
         Ui.panel(g, panelX, panelY, panelW, panelH, true, title, Icon.GEAR, mx, my);
+        if (previewCard) Backdrop.draw(g, previewX, panelY, previewX + previewW, panelY + panelH);
         Backdrop.release();
+        if (!previewCard) Ui.toolButton(g, previewButtonX(), previewButtonY(), Icon.EARTH, mx, my);
+        // Over the list, the preview hides it (and takes its clicks) until the button is pressed again.
+        boolean overlay = !previewCard && previewOpen;
         if (tabs.size() > 1) for (int i = 0; i < tabs.size(); i++) renderTab(g, i, tabs.get(i).key(), i == tab, mx, my);
         float total = total();
-        scroll = Math.max(0, Math.min(Math.max(0, total - (listBottom - listTop)), scroll));
+        scroll = snap(scroll, false);
 
         g.enableScissor((int) panelX, (int) listTop, (int) (panelX + panelW), (int) listBottom);
         float yy = listTop - scroll;
-        int rowMy = my >= listTop && my < listBottom ? my : -10_000; // rows cut off by the list edge take no hover
+        int rowMy = my >= listTop && my < listBottom && !overlay ? my : -10_000;
         for (Row r : rows) {
             r.y = yy;
-            if (r.shown() && yy + r.height() >= listTop && yy <= listBottom) r.render(g, contentX(), contentW(), mx, rowMy);
+            if (!overlay && inView(r)) r.render(g, contentX(), contentW(), mx, rowMy);
             yy += r.listHeight();
         }
         g.disableScissor();
-        renderBar(g, total, mx, my);
+        // The Pins preview follows the pin row last pointed at (it stays when the pointer moves on to the preview).
+        if (!overlay && shownTabKey().equals("teyvatcartographia.config.tab.pins")) {
+            for (Row r : rows) {
+                if (!inView(r) || my < r.y || my >= r.y + r.height() || mx < contentX() || mx >= contentX() + contentW()) continue;
+                if (r.label.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc
+                        && (tc.getKey().startsWith("teyvatcartographia.config.pins.") || tc.getKey().startsWith("teyvatcartographia.config.path."))) {
+                    pinFocus = tc.getKey();
+                }
+            }
+        }
+        if (overlay) renderPreview(g, contentX(), listTop, contentW(), listBottom - listTop, pt);
+        else renderBar(g, total, mx, my);
+        if (previewCard) renderPreview(g, previewX, panelY, previewW, panelH, pt);
 
         float bw = footerButtonW(), by = footerY();
         Ui.actionButton(g, footerButtonX(0), by, bw, Component.translatable("teyvatcartographia.config.keybinds"), Icon.KEYBOARD, true, mx, my);
@@ -757,10 +1029,11 @@ public final class TeyvatConfigScreen extends Screen {
         Ui.actionButton(g, footerButtonX(2), by, bw, Component.translatable("gui.done"), Icon.CHECK, true, mx, my);
 
         // Tooltip for the setting whose label is under the cursor.
-        if (my >= listTop && my < listBottom && mx >= contentX() && mx < contentX() + contentW() / 2) {
+        if (!overlay && my >= listTop && my < listBottom && mx >= contentX() && mx < contentX() + contentW() / 2) {
             for (Row r : rows) {
-                if (r.tooltip != null && r.shown() && my >= r.y && my < r.y + r.height()) {
-                    Ui.wrappedTooltip(g, r.label, r.tooltip, mx, my, width, height);
+                if (r.tooltip != null && inView(r) && my >= r.y && my < r.y + r.height()) {
+                    // Above the pointer where below it would cover the buttons under the list.
+                    Ui.wrappedTooltip(g, r.label, r.tooltip, mx, my, width, (int) listBottom);
                     break;
                 }
             }
@@ -777,10 +1050,17 @@ public final class TeyvatConfigScreen extends Screen {
             onClose();
             return true;
         }
+        if (!previewCard && Draw.inRect(mx, my, previewButtonX(), previewButtonY(), Grid.TOOL, Grid.TOOL)) {
+            previewOpen = !previewOpen;
+            return true;
+        }
+        if (!previewCard && previewOpen && my >= listTop && my < listBottom && mx >= contentX() && mx < contentX() + contentW()) return true;
         for (int i = 0; tabs.size() > 1 && i < tabs.size(); i++) {
-            if (Draw.inRect(mx, my, tabX(i), tabY(), tabW(), TAB_H)) {
+            if (Draw.inRect(mx, my, tabX(i), tabY(), tabW(i), TAB_H)) {
                 tab = i;
                 rows = tabs.get(i).rows();
+                previewOpen = false;
+                pinFocus = null;
                 scroll = 0;
                 return true;
             }
@@ -809,7 +1089,7 @@ public final class TeyvatConfigScreen extends Screen {
         }
         if (my >= listTop && my < listBottom) {
             for (Row r : rows) {
-                if (r.shown() && r.click(mx, my, contentX(), contentW())) {
+                if (inView(r) && r.click(mx, my, contentX(), contentW())) {
                     if (r instanceof SliderRow) draggingRow = r;
                     return true;
                 }
@@ -833,6 +1113,7 @@ public final class TeyvatConfigScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
+        if (draggingRow instanceof SliderRow s && s.onRelease != null) s.onRelease.run();
         draggingRow = null;
         draggingBar = false;
         return super.mouseReleased(mx, my, button);
@@ -840,7 +1121,8 @@ public final class TeyvatConfigScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double sx, double sy) {
-        scroll -= (float) sy * Grid.ROW;
+        layout();
+        for (int i = 0; i < Math.max(1, Math.round(Math.abs(sy))) && sy != 0; i++) scroll = step(sy < 0);
         return true;
     }
 

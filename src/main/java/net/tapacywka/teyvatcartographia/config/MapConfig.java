@@ -144,9 +144,18 @@ public final class MapConfig {
     public static final ModConfigSpec.IntValue MAX_CACHED_TILES;
     public static final ModConfigSpec.EnumValue<Detail> DETAIL;
     public static final ModConfigSpec.BooleanValue CAVES_ENABLED;
+    public static final ModConfigSpec.BooleanValue MAP_PLANTS;
+    public static final ModConfigSpec.BooleanValue BIOME_BLEND;
+    public static final ModConfigSpec.BooleanValue WORLD_TINTS;
+    public static final ModConfigSpec.IntValue WATER_DEPTH;
+    public static final ModConfigSpec.IntValue SHALLOW_WATER;
+    public static final ModConfigSpec.BooleanValue VANILLA_FOGS;
 
     // Compatibility with other mods (shown in the settings only while that mod is there).
     public static final ModConfigSpec.BooleanValue AETHER_CAVES;
+    public static final ModConfigSpec.BooleanValue SIFT_SHIMMER;
+    public static final ModConfigSpec.BooleanValue SIFT_FOG;
+    public static final ModConfigSpec.BooleanValue AETHER_FOG;
     public static final ModConfigSpec.EnumValue<net.tapacywka.teyvatcartographia.marker.MarkerType> XAERO_PIN_TYPE;
     public static final ModConfigSpec.BooleanValue XAERO_HIDDEN;
     public static final ModConfigSpec.BooleanValue XAERO_DEATHS;
@@ -211,11 +220,22 @@ public final class MapConfig {
         MAX_CACHED_TILES = b.comment("Maximum number of 256x256 map regions kept in memory").translation("teyvatcartographia.config.max_tiles").defineInRange("maxCachedTiles", 160, 32, 1024);
         DETAIL = b.comment("Terrain detail: LOW = flat colours, MEDIUM = relief shading, HIGH = relief + contour lines").translation("teyvatcartographia.config.detail").defineEnum("detail", Detail.HIGH);
         CAVES_ENABLED = b.comment("Map the caves around you while underground, in layers of 16 blocks; the world map and the minimap switch to the layer you are in").translation("teyvatcartographia.config.caves").define("caves", true);
+        MAP_PLANTS = b.comment("Show plants on the map (flowers, petals, mushrooms, crops, lily pads; not grass or ferns)").translation("teyvatcartographia.config.plants").define("plants", true);
+        BIOME_BLEND = b.comment("Blend the biome colours of grass, leaves and water smoothly across biome borders (else each 4 x 4 block area in its own biome's colour)").translation("teyvatcartographia.config.biome_blend").define("biomeBlending", true);
+        WORLD_TINTS = b.comment("Blocks tinted by their own colour handler (lily pads, stems, leaf litter, modded leaves with a palette of their own) take the colour it gives at their place (else the colour it gives without a world)").translation("teyvatcartographia.config.world_tints").define("blockColourHandlers", true);
+        WATER_DEPTH = b.comment("How much deep water darkens, in percent (0: all water the same colour)").translation("teyvatcartographia.config.water_depth").defineInRange("waterDepthShading", 100, 0, 100);
+        SHALLOW_WATER = b.comment("How much of the ground shows through shallow water, in percent (0: none)").translation("teyvatcartographia.config.shallow_water").defineInRange("shallowWater", 0, 0, 100);
+        VANILLA_FOGS = b.comment("A fog of war of their own in the Nether (smoke and embers) and the End (a starry void); else the theme fog").translation("teyvatcartographia.config.vanilla_fogs").define("netherEndFogs", true);
         b.pop();
 
         b.push("compat");
         b.push("aether");
         AETHER_CAVES = b.comment("The Aether: map caves in the Aether too (its islands float over the void, so under an island counts as underground)").translation("teyvatcartographia.config.compat.aether_caves").define("caves", false);
+        AETHER_FOG = b.comment("The Aether: its own fog of war, a sea of clouds the islands cast a shadow on (else the theme fog)").translation("teyvatcartographia.config.compat.aether_fog").define("fog", true);
+        b.pop();
+        b.push("the_sift");
+        SIFT_SHIMMER = b.comment("The Sift: its rainbow ichor and ichor snow shimmer on the map (else the average colour of their textures)").translation("teyvatcartographia.config.compat.sift_shimmer").define("shimmer", true);
+        SIFT_FOG = b.comment("The Sift: its own fog of war, a pearly haze in the colours of its ichor (else the theme fog)").translation("teyvatcartographia.config.compat.sift_fog").define("fog", true);
         b.pop();
         b.push("xaero");
         XAERO_PIN_TYPE = b.comment("Xaero's Minimap: the pin type imported waypoints get (a custom type)").translation("teyvatcartographia.config.compat.xaero_type").defineEnum("pinType", net.tapacywka.teyvatcartographia.marker.MarkerType.STAR, net.tapacywka.teyvatcartographia.marker.MarkerType.customTypes());
@@ -244,7 +264,10 @@ public final class MapConfig {
         for (PinOptions o : PINS) o.reset();
         resetValue(MAP_SHOW_LABELS); resetValue(MAP_SHOW_GRID); resetValue(MAP_DEFAULT_ZOOM);
         resetValue(CHUNKS_PER_TICK); resetValue(SCAN_RADIUS); resetValue(MAX_CACHED_TILES); resetValue(DETAIL); resetValue(CAVES_ENABLED);
-        resetValue(AETHER_CAVES); resetValue(XAERO_PIN_TYPE); resetValue(XAERO_HIDDEN); resetValue(XAERO_DEATHS);
+        resetValue(MAP_PLANTS); resetValue(VANILLA_FOGS);
+        resetValue(BIOME_BLEND); resetValue(WORLD_TINTS); resetValue(WATER_DEPTH); resetValue(SHALLOW_WATER);
+        resetValue(AETHER_CAVES); resetValue(AETHER_FOG); resetValue(SIFT_SHIMMER); resetValue(SIFT_FOG);
+        resetValue(XAERO_PIN_TYPE); resetValue(XAERO_HIDDEN); resetValue(XAERO_DEATHS);
         save();
     }
 

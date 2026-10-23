@@ -50,6 +50,17 @@ class TintGridTest {
     }
 
     @Test
+    void withoutBlendingEachQuartKeepsItsBiome() {
+        // Blending off: the edge at x 16 stays a sharp step, every column in its own biome's colour.
+        ChunkScanner.TintSource source = edgeAt16(cx -> true);
+        ChunkScanner.TintGrid left = new ChunkScanner.TintGrid(source, 0, 0, false), right = new ChunkScanner.TintGrid(source, 1, 0, false);
+        for (int x = 0; x < 16; x++) {
+            assertEquals(A, left.at(x, 64, 8), "left column " + x);
+            assertEquals(B, right.at(x, 64, 8), "right column " + x);
+        }
+    }
+
+    @Test
     void anUnloadedNeighbourIsNotAsked() {
         // Chunk 1 not loaded: chunk 0 must not mix in what the game would say there (its default biome), but keep
         // its own edge.

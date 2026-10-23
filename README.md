@@ -109,8 +109,8 @@ Place pins, search for them and for biomes, track them, follow the path and find
   <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/world-map-genshin.jpg" alt="Rounded interface" width="49%">
   <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/hud-genshin.jpg" alt="Round minimap" width="49%">
   <br>
-  <sub><b>Left:</b> Rounded interface (Settings > Appearance > Interface style).<br>
-  <b>Right:</b> Round minimap (Settings > Appearance > Minimap shape).</sub>
+  <sub><b>Left:</b> Rounded interface (Settings > Map > Interface style).<br>
+  <b>Right:</b> Round minimap (Settings > Minimap > Minimap shape).</sub>
 </p>
 
 <h2 id="installation">📥 Installation</h2>
@@ -121,7 +121,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
    [latest GitHub release](https://github.com/Tapacywka/teyvat-cartographia/releases/latest) and put it into your
    `mods/` folder.
 3. Launch the game and press **M** in a world.
-4. Optional: make the minimap round or the interface rounded in **Settings > Appearance**.
+4. Optional: make the minimap round (**Settings > Minimap**) or the interface rounded (**Settings > Map**).
 
 <h2 id="controls">🎮 Controls</h2>
 
@@ -175,11 +175,11 @@ Place pins, search for them and for biomes, track them, follow the path and find
   surface, a click opens the cave layers in height order around it (at most 5, scrolled with the wheel or the small
   arrows), a click on the large button goes back to the surface, and another click closes the field.
 * Pins made on a cave layer belong to it; pins of other layers are fainter with a small arrow up or down. Cave layers
-  can be switched off in *Cartography*.
+  can be switched off in *Settings > Map*.
 
 <h3 id="minimap">Minimap</h3>
 
-* Square or round (**Settings > Appearance > Minimap shape**), with "N" on the rim (and a fainter E, S and W while
+* Square or round (**Settings > Minimap > Minimap shape**), with "N" on the rim (and a fainter E, S and W while
   it turns with the view), the player arrow and view cone, pins, the walking path and the tracked pin held on the rim
   when it is far.
 * North up or rotating with the view; size, corner, offsets, opacity, zoom and update rate (30 redraws a second while
@@ -236,18 +236,20 @@ Place pins, search for them and for biomes, track them, follow the path and find
 <h3 id="settings">Settings</h3>
 
 * The gear on the map holds quick switches: the three pin kinds, the path to the target, biome names, chunk grid.
-* The full settings screen (also from the NeoForge mod list) has *Appearance*, *World map*, *Minimap* (display, size
-  and position, extra information), *Pins* (display and path to the target for each kind) and
-  *Cartography*. Sub-sections fold and unfold with a click. With a
-  supported mod in the game, the *Compatibility* tab has its settings (The Aether: caves there; Xaero's Minimap: the
-  import).
+* The full settings screen (also from the NeoForge mod list) has a tab for each part: *Map* (appearance; what the
+  map shows: plants, caves, the Nether and End fog; colours: terrain detail, biome blending, block colours from the
+  world, deep water shading, clear shallow water; the world map), *Minimap* (display, size and
+  position, look, extra information), *Pins* (display and path to the target for each kind) and *System*
+  (performance). With a supported mod in the game, the *Compatibility* tab has a part for each, with everything made
+  for it: The Aether (its sea of clouds, caves there), Mielon's The Sift (its pearly haze, the rainbow ichor and
+  snow), Xaero's Minimap (the import). Its parts fold and unfold with a click.
 * A setting with parts is one slider in steps: each pin kind and its path go Off, Map, Both maps, Everywhere (the
   beam, or the stars, in the world too), and the clock Off, Game, Real, Both.
 * Reset to defaults and a shortcut to key binds. Stored in `config/teyvatcartographia-client.toml`.
 
 <h2 id="themes">🎨 Themes</h2>
 
-**Settings > Appearance** has three choices, each on its own:
+Three choices, each on its own (**Settings > Map > Appearance**, and the shape in **Settings > Minimap**):
 
 * **Theme**: colours, icons and the fog of war. **Default** (`default`) is built in and always available; a resource
   pack may add more, and the list shows only themes whose pack is enabled. Other themes fall back to its assets.

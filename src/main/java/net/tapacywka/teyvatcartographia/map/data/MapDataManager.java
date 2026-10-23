@@ -97,6 +97,10 @@ public final class MapDataManager {
     private final NavigableSet<Integer> caveBandsView = java.util.Collections.unmodifiableNavigableSet(caveBands.descendingSet());
     private final Underground underground = new Underground();
 
+    // Mapping speed for the settings (System tab): chunks mapped in each of the last 100 ticks the game ran.
+    private final int[] mappedPerTick = new int[100];
+    private int mappedCursor, mappedNow;
+
     private MapDataManager() {}
 
     /**
@@ -201,6 +205,26 @@ public final class MapDataManager {
         return out;
     }
 
+    /** Chunks mapped per second over the last five seconds the game ran (a pause does not count). */
+    public float chunksPerSecond() {
+        int sum = 0;
+        for (int n : mappedPerTick) sum += n;
+        return sum * 20f / mappedPerTick.length;
+    }
+
+    /** Chunks waiting to be mapped: queued, and on the worker threads. */
+    public int waiting() {
+        return queue.size() + inFlight.get();
+    }
+
+    /** Regions in memory over every store: the dimension, its cave layers and the dimensions viewed on the map. */
+    public int regionsInMemory() {
+        int n = active == null ? 0 : active.regions();
+        for (TileStore s : caveStores.values()) n += s.regions();
+        for (TileStore s : viewStores.values()) if (s != active) n += s.regions();
+        return n;
+    }
+
     public void onChunkLoaded(LevelChunk chunk) {
         if (active == null || chunk.getLevel() != level) return;
         enqueue(chunk.getPos().x, chunk.getPos().z, false);
@@ -227,6 +251,11 @@ public final class MapDataManager {
         for (TileStore s : viewStores.values()) s.drainLoaded();
         for (TileStore s : caveStores.values()) s.drainLoaded();
         applyResults();
+        if (!mc.isPaused()) {
+            mappedPerTick[mappedCursor] = mappedNow;
+            mappedCursor = (mappedCursor + 1) % mappedPerTick.length;
+        }
+        mappedNow = 0;
         updateUnderground(player);
         if (underground.current() != null && cavesSupported() && tickCounter % CAVE_TICKS == 0) scanCaves(player, underground.current());
 
@@ -544,6 +573,7 @@ public final class MapDataManager {
             }
             ChunkShader.Result r = (ChunkShader.Result) e[1];
             active.apply(r);
+            mappedNow++;
             // Neighbours shaded before this chunk existed lack correct edges (coast rim, contours): redo them.
             for (int[] d : DIRS) {
                 int nx = r.cx() + d[0], nz = r.cz() + d[1];

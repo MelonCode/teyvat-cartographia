@@ -13,13 +13,13 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.FoliageColor;
 import net.minecraft.world.level.GrassColor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.MapColor;
@@ -37,20 +37,28 @@ import java.util.Set;
  * The colour of each block as its texture shows it, like Xaero's Minimap in its default mode: the average of the
  * non-transparent pixels of the texture on the block's top face. Read again after every resource reload: the models
  * are looked at on the main thread (a few milliseconds), the textures are read and averaged on a background thread.
- * A block whose top face is tinted (grass, leaves) keeps the tint to apply ({@link Tint}); a fixed tint (redstone,
- * stems, lily pads) is already in its colour. Blocks without a model (air, chests) have none: the usual map colour.
+ * A block whose top face is tinted (grass, leaves) keeps the tint to apply ({@link Tint}); any other tinted block asks
+ * its colour handler in the world when mapped ({@link Tint#WORLD}: lily pads, stems, redstone, the leaf litter of Vanilla
+ * Backport, the blocks of other mods), as Xaero's Minimap does. Blocks without a model (air, chests) have none: the usual map colour.
  */
 public final class TextureColors {
     private TextureColors() {}
 
-    /** Which biome tint a block's texture still needs. */
-    public enum Tint { NONE, GRASS, FOLIAGE }
+    /**
+     * Which tint a block's texture still needs: none, the biome's grass or foliage colour (sampled per chunk), or
+     * {@code WORLD}: what the block's colour handler gives at its place (asked per column).
+     */
+    public enum Tint { NONE, GRASS, FOLIAGE, WORLD }
 
-    /** One block: its texture colour (ARGB) and the biome tint to multiply it by. */
-    public record Entry(int argb, Tint tint) {}
+    /**
+     * One block: its colour (ARGB; for {@code WORLD} with the tint its handler gives without a world, used where the
+     * world cannot be asked, as in caves), the tint to apply, and for {@code WORLD} the untinted texture colour and the
+     * tint index to ask the handler for.
+     */
+    public record Entry(int argb, Tint tint, int texture, int tintIndex) {}
 
     private static volatile Map<Block, Entry> blocks = Map.of();
-    private static volatile int water, lava, snow;
+    private static volatile int water, lava, snow, ichor;
     /** A reload happened: read again once the game is out of its loading screen (the models are baked by then). */
     private static volatile boolean pending = true;
     /** New colours arrived: the map draws the loaded chunks again. */
@@ -72,6 +80,11 @@ public final class TextureColors {
 
     public static int snow() {
         return snow;
+    }
+
+    /** The Sift's ichor (its still texture, ARGB), 0 without the mod. */
+    public static int ichor() {
+        return ichor;
     }
 
     /** Called after a resource reload (packs, F3+T). */
@@ -96,7 +109,7 @@ public final class TextureColors {
         return false;
     }
 
-    private record Found(ResourceLocation texture, Tint tint, int fixedTint) {}
+    private record Found(ResourceLocation texture, Tint tint, int fixedTint, int index) {}
 
     private static void start(Minecraft mc) {
         RandomSource random = RandomSource.create(42L);
@@ -117,12 +130,14 @@ public final class TextureColors {
                 Found f = e.getValue();
                 int argb = averages.computeIfAbsent(f.texture(), t -> read(rm, t));
                 if (argb == 0) continue;
+                int texture = argb;
                 if (f.fixedTint() != -1) argb = multiply(argb, f.fixedTint());
-                out.put(e.getKey(), new Entry(argb, f.tint()));
+                out.put(e.getKey(), new Entry(argb, f.tint(), texture, f.index()));
             }
             water = averages.computeIfAbsent(ResourceLocation.withDefaultNamespace("block/water_still"), t -> read(rm, t));
             lava = averages.computeIfAbsent(ResourceLocation.withDefaultNamespace("block/lava_still"), t -> read(rm, t));
             snow = averages.computeIfAbsent(ResourceLocation.withDefaultNamespace("block/snow"), t -> read(rm, t));
+            ichor = averages.computeIfAbsent(ResourceLocation.fromNamespaceAndPath("the_sift", "block/ichor_still"), t -> read(rm, t));
             blocks = out;
             fresh = true;
             TeyvatCartographia.LOGGER.info("Teyvat Cartographia: texture colours of {} blocks ({} textures)", out.size(), averages.size());
@@ -142,31 +157,37 @@ public final class TextureColors {
         Tint tint = Tint.NONE;
         int fixed = -1;
         MapColor mc0 = state.getMapColor(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
-        if (index >= 0 && BuiltInRegistries.BLOCK.getKey(state.getBlock()).getNamespace().equals("minecraft")) {
-            // Vanilla: leaves and plants take the foliage tint, grass the grass tint, spruce and birch their own.
-            if (state.is(Blocks.SPRUCE_LEAVES)) fixed = 0x619961;
-            else if (state.is(Blocks.BIRCH_LEAVES)) fixed = 0x80A755;
-            else if (state.is(BlockTags.LEAVES) || mc0 == MapColor.PLANT && !GRASSY.contains(state.getBlock())) tint = Tint.FOLIAGE;
-            else if (mc0 == MapColor.GRASS || GRASSY.contains(state.getBlock())) tint = Tint.GRASS;
-            else {
-                int c = fixedTint(mc, state, index);
-                fixed = c == NEEDS_WORLD ? -1 : c;
-            }
-        } else if (index >= 0) {
-            // A mod's block: what its colour handler gives without a world tells the kind of tint. No handler: the game
-            // does not tint it (the willow leaves of The Sift keep their cyan texture); the default foliage or grass
-            // colour: a biome tint; a handler that needs a world: as vanilla leaves and grass; else its own colour.
+        boolean vanilla = BuiltInRegistries.BLOCK.getKey(state.getBlock()).getNamespace().equals("minecraft");
+        if (index >= 0 && vanilla && state.is(Blocks.SPRUCE_LEAVES)) fixed = 0x619961;
+        else if (index >= 0 && vanilla && state.is(Blocks.BIRCH_LEAVES)) fixed = 0x80A755;
+        else if (index >= 0 && vanilla && state.is(Blocks.MANGROVE_LEAVES)) fixed = FoliageColor.getMangroveColor(); // not the biome's
+        // The game's own leaves, vines and grass: the biome's colour, sampled per chunk (fast). Asked per column they
+        // gave the same colour at twice the scan time (other mods, like Vanilla Backport, replace their handlers). By class,
+        // not tag: the colours are read at the title screen, before the world brings the block tags.
+        else if (index >= 0 && vanilla && (state.getBlock() instanceof LeavesBlock || state.is(Blocks.VINE))) tint = Tint.FOLIAGE;
+        else if (index >= 0 && vanilla && (mc0 == MapColor.GRASS || GRASSY.contains(state.getBlock()))) tint = Tint.GRASS;
+        else if (index >= 0) {
+            // What the block's colour handler gives without a world tells the kind of tint. No handler: the game does
+            // not tint it (the willow leaves of The Sift keep their cyan texture). The default foliage or grass colour
+            // (oak leaves, vines, grass, sugar cane): the biome's, sampled per chunk. A handler that needs a world: a
+            // vanilla leaf, plant or grass block takes the biome's; anything else (leaves and grass of mods with a palette
+            // of their own, seasons) asks the handler at its place. Any other colour (lily pads, stems, redstone, leaf
+            // litter): the handler at its place too, that colour as the fallback.
             int c = fixedTint(mc, state, index);
             int rgb = c & 0xFFFFFF;
             if (c == NEEDS_WORLD) {
-                if (state.is(BlockTags.LEAVES) || mc0 == MapColor.PLANT) tint = Tint.FOLIAGE;
-                else if (mc0 == MapColor.GRASS) tint = Tint.GRASS;
+                if (vanilla && (state.getBlock() instanceof LeavesBlock || mc0 == MapColor.PLANT && !GRASSY.contains(state.getBlock()))) tint = Tint.FOLIAGE;
+                else if (vanilla && (mc0 == MapColor.GRASS || GRASSY.contains(state.getBlock()))) tint = Tint.GRASS;
+                else tint = Tint.WORLD;
             } else if (c != -1 && rgb == FoliageColor.getDefaultColor()) tint = Tint.FOLIAGE;
             else if (c != -1 && rgb == GrassColor.getDefaultColor()) tint = Tint.GRASS;
-            else fixed = c;
+            else if (c != -1) {
+                fixed = c;
+                tint = Tint.WORLD;
+            }
         }
         ResourceLocation name = sprite.contents().name();
-        return name.equals(MissingTextureAtlasSprite.getLocation()) ? null : new Found(name, tint, fixed);
+        return name.equals(MissingTextureAtlasSprite.getLocation()) ? null : new Found(name, tint, fixed, index);
     }
 
     /** {@link #fixedTint}: the block's colour handler cannot answer without a world. */

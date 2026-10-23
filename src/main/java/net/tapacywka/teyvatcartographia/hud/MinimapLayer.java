@@ -74,15 +74,57 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     /** The map turns with the camera (east, south and west are shown too); read every frame, in the layer key. */
     private boolean rotating, kRotating;
 
+    /** The one minimap layer of the HUD, also drawn by the settings' preview. */
+    private static MinimapLayer instance;
+
+    public MinimapLayer() {
+        instance = this;
+    }
+
     @Override
     public void render(GuiGraphics g, DeltaTracker delta) {
         Minecraft mc = Minecraft.getInstance();
-        LocalPlayer player = mc.player;
         if (!visible(mc)) {
             shown = false;
             Navigation.setPathWanted(Navigation.PATH_MINIMAP, false);
             return;
         }
+        if (prepare(g, delta, false)) drawPrepared(g);
+    }
+
+    /**
+     * The settings' preview: brings the minimap up to date as the HUD would show it now (in the screen's GUI
+     * coordinates), and returns false without a world or with the minimap switched off. Then {@link #drawPrepared}
+     * draws it under any transform, and {@link #preparedBounds} tells where it is.
+     */
+    public static boolean preparePreview(GuiGraphics g, DeltaTracker delta) {
+        Minecraft mc = Minecraft.getInstance();
+        if (instance == null || mc.player == null || mc.level == null || !MapConfig.get(MapConfig.MINIMAP_ENABLED)) return false;
+        return instance.prepare(g, delta, true);
+    }
+
+    /** Draws the minimap prepared last (one textured quad, so the current pose may move and scale it). */
+    public static void drawPrepared(GuiGraphics g) {
+        MinimapLayer m = instance;
+        Draw.texturedQuadPremultiplied(g, m.layer.textureId(), m.kBx0, m.kBy0, m.kBx1, m.kBy1, 0f, 1f, 1f, 0f);
+    }
+
+    /** The area (GUI units: left, top, right, bottom) of the minimap prepared last, with its pills. */
+    public static int[] preparedBounds() {
+        MinimapLayer m = instance;
+        return new int[] {m.kBx0, m.kBy0, m.kBx1, m.kBy1};
+    }
+
+    /** The map of the minimap prepared last, with its frame: its centre and half its width (GUI units). */
+    public static float[] preparedMap() {
+        MinimapLayer m = instance;
+        return new float[] {m.kCx, m.kCy, m.kR + 4};
+    }
+
+    /** Brings both cached layers up to date; {@code preview}: for the settings, not the HUD (the HUD area is not touched). */
+    private boolean prepare(GuiGraphics g, DeltaTracker delta, boolean preview) {
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
 
         float pt = delta.getGameTimeDeltaPartialTick(true);
         Vec3 pos = player.getPosition(pt);
@@ -187,11 +229,13 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         int by0 = (int) Math.floor(textBelow ? cy - r - 4 : cy - r - 4 - textBlock);
         int by1 = (int) Math.ceil(textBelow ? cy + r + 4 + textBlock : cy + r + 4);
         float heading = (float) view.headingOnScreen(yaw);
-        shown = true;
-        shownX0 = bx0;
-        shownY0 = by0;
-        shownX1 = bx1;
-        shownY1 = by1;
+        if (!preview) {
+            shown = true;
+            shownX0 = bx0;
+            shownY0 = by0;
+            shownX1 = bx1;
+            shownY1 = by1;
+        }
 
         // Movement and turning (position, heading, the numbers in the pills and the map cache following the player)
         // redraw the layer at most at the chosen update rate; the old layer stays on screen in between, at its old
@@ -237,7 +281,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
             kPadding = padding; kRotating = rotating; kFadeStart = fadeStart; kFadeEdge = fadeEdge; kInfoGap = infoGap;
             kPillOpacity = pillOpacity;
         }
-        Draw.texturedQuadPremultiplied(g, layer.textureId(), kBx0, kBy0, kBx1, kBy1, 0f, 1f, 1f, 0f);
+        return true;
     }
 
     // Composite layer and the inputs it was drawn from.

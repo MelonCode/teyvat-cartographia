@@ -131,7 +131,7 @@ public final class PinTransfer {
     }
 
     /** What the import takes, from the Xaero's Minimap settings of the Compatibility section. */
-    private static XaeroWaypoints.Options xaeroOptions() {
+    static XaeroWaypoints.Options xaeroOptions() {
         return new XaeroWaypoints.Options(MapConfig.get(MapConfig.XAERO_PIN_TYPE), MapConfig.get(MapConfig.XAERO_HIDDEN),
                 MapConfig.get(MapConfig.XAERO_DEATHS), Component.translatable("teyvatcartographia.transfer.xaero.death").getString());
     }
