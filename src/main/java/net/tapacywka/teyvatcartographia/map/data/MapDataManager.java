@@ -212,6 +212,51 @@ public final class MapDataManager {
         return sum * 20f / mappedPerTick.length;
     }
 
+    /**
+     * The settings' preview of the terrain detail: the {@code (2 * radius + 1)}² loaded chunks around the player shaded
+     * in each detail mode (as the map would), handed to {@code done} as one ABGR picture per mode (indexed by
+     * {@link MapConfig.Detail#ordinal()}), side {@code 16 * (2 * radius + 1)}, on a worker thread. False without a
+     * world. The surface of the dimension only (not a cave layer).
+     */
+    public boolean sampleDetails(int radius, java.util.function.Consumer<int[][]> done) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (active == null || level == null || player == null) return false;
+        boolean ceiling = level.dimensionType().hasCeiling();
+        int side = 2 * radius + 1, pcx = player.chunkPosition().x, pcz = player.chunkPosition().z;
+        List<LevelChunk> chunks = new ArrayList<>();
+        List<ChunkShader.Neighbourhood> around = new ArrayList<>();
+        for (int dz = -radius; dz <= radius; dz++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                LevelChunk chunk = level.getChunkSource().getChunk(pcx + dx, pcz + dz, ChunkStatus.FULL, false);
+                if (chunk == null || chunk.isEmpty()) continue;
+                chunks.add(chunk);
+                around.add(neighbourhood(pcx + dx, pcz + dz));
+            }
+        }
+        ClientLevel lvl = level;
+        workers.execute(() -> {
+            MapConfig.Detail[] modes = MapConfig.Detail.values();
+            int[][] out = new int[modes.length][256 * side * side];
+            try {
+                for (int i = 0; i < chunks.size(); i++) {
+                    LevelChunk chunk = chunks.get(i);
+                    ChunkScanner.Snapshot snap = ChunkScanner.scan(lvl, chunk, ceiling);
+                    ChunkShader.Neighbourhood n = around.get(i);
+                    fillOwnColumns(snap, n);
+                    int ox = (chunk.getPos().x - pcx + radius) * 16, oz = (chunk.getPos().z - pcz + radius) * 16;
+                    for (MapConfig.Detail d : modes) {
+                        int[] abgr = ChunkShader.shade(snap, n, d).abgr();
+                        for (int z = 0; z < 16; z++) System.arraycopy(abgr, z * 16, out[d.ordinal()], (oz + z) * 16 * side + ox, 16);
+                    }
+                }
+                done.accept(out);
+            } catch (RuntimeException e) {
+                TeyvatCartographia.LOGGER.debug("The detail preview could not be sampled", e);
+            }
+        });
+        return true;
+    }
+
     /** Chunks waiting to be mapped: queued, and on the worker threads. */
     public int waiting() {
         return queue.size() + inFlight.get();

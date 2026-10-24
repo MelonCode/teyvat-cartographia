@@ -42,24 +42,21 @@ public final class ModCompat {
             ResourceKey.create(Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath("the_sift", "the_sift"));
 
     /**
-     * Whether a dimension's own fog of war may show: the Nether's and the End's by the general switch, the Aether's and
-     * The Sift's (made for those mods) by their switch in Compatibility. Fogs a theme brings for other dimensions
-     * always show.
+     * Whether a dimension's own fog of war may show: the Aether's and The Sift's (made for those mods) by their switch in
+     * Compatibility; the Nether's, the End's and the fogs a theme brings for other dimensions always show.
      */
     public static boolean ownFog(ResourceKey<Level> dimension) {
-        if (dimension == Level.NETHER || dimension == Level.END) return MapConfig.get(MapConfig.VANILLA_FOGS);
         if (dimension == AETHER_DIMENSION) return MapConfig.get(MapConfig.AETHER_FOG);
         if (dimension == SIFT_DIMENSION) return MapConfig.get(MapConfig.SIFT_FOG);
         return true;
     }
 
-    /** Whether the cave map works in this dimension (the general switch aside). */
+    /**
+     * Whether the cave map works in this dimension (the general switch aside): not in the Aether, whose islands float
+     * over the void, so under any island would count as underground.
+     */
     public static boolean caves(ResourceKey<Level> dimension) {
-        return caves(dimension, MapConfig.get(MapConfig.AETHER_CAVES));
-    }
-
-    static boolean caves(ResourceKey<Level> dimension, boolean aetherCaves) {
-        return dimension != AETHER_DIMENSION || aetherCaves;
+        return dimension != AETHER_DIMENSION;
     }
 
     /**

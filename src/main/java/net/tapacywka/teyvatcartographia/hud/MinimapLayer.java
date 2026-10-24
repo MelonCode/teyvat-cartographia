@@ -55,6 +55,13 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     private static final float ARROW = 16;
     /** Smallest radius a minimap shrunk to fit the screen gets (the setting's own minimum). */
     private static final int MIN_RADIUS = 24;
+    /** The pills' height at the last drawing, for the largest radius the settings offer. */
+    private int lastTextBlock;
+
+    /** The largest minimap radius that fits a {@code guiW} x {@code guiH} screen with its pills (at most 110). */
+    public static int maxRadius(int guiW, int guiH) {
+        return MinimapFit.radius(110, guiW, guiH, instance == null ? 0 : instance.lastTextBlock, MIN_RADIUS);
+    }
 
     private final MapView view = new MapView();
 
@@ -160,6 +167,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         // Text size: whole screen pixels per font pixel (always sharp), "Auto" a step below the GUI scale.
         pillScale = MinimapFit.textScale(MapConfig.get(MapConfig.MINIMAP_TEXT_SIZE), mc.getWindow().getGuiScale());
         int textBlock = layoutPills(coordsLine, biomeLine, timeLine, time2Line, r);
+        lastTextBlock = textBlock;
         // A minimap larger than the screen allows (with its pills, at a large GUI scale) is drawn smaller to fit; the
         // setting keeps its value. A smaller map may wrap the biome to more lines, so the fit is checked once more.
         for (int i = 0; i < 2; i++) {
@@ -430,13 +438,18 @@ public final class MinimapLayer implements LayeredDraw.Layer {
             g.pose().popPose();
         }
 
-        // Pills: coordinates, biome, clock
+        // Pills: coordinates, biome, clock, from the map outwards; over a map in a bottom corner mirrored (the
+        // coordinates nearest to it, the clock on top).
+        Component[][] order = pillOrder;
+        order[0] = coordsLine == null ? null : coordsLines;
+        order[1] = biomeLine == null ? null : biomeLines;
+        order[2] = timeLine == null ? null : timeLines;
+        order[3] = timeWrap && timeLine != null ? time2Lines : null;
         float ty = textBelow ? cy + r + 3 + infoGap : cy - r - 3 - textBlock + infoGap;
-        ty = pill(g, cx, ty, coordsLine == null ? null : coordsLines, Theme.WHITE, alpha);
-        ty = pill(g, cx, ty, biomeLine == null ? null : biomeLines, Theme.WHITE, alpha);
-        ty = pill(g, cx, ty, timeLine == null ? null : timeLines, Theme.WHITE, alpha);
-        if (timeWrap && timeLine != null) pill(g, cx, ty, time2Lines, Theme.WHITE, alpha);
+        for (int i = 0; i < order.length; i++) ty = pill(g, cx, ty, order[textBelow ? i : order.length - 1 - i], Theme.WHITE, alpha);
     }
+    /** The pill rows in their order from the map outwards, reused. */
+    private final Component[][] pillOrder = new Component[4][];
     // Screen points of the path inside the map, one piece at a time, reused.
     private float[] routeXY = new float[512];
     private boolean[] routeFog = new boolean[256];

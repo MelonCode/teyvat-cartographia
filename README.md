@@ -28,6 +28,8 @@
   &nbsp;&nbsp;|&nbsp;&nbsp;
   <a href="#controls"><b>🎮&nbsp;Controls</b></a>
   &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="#compatibility"><b>🧩&nbsp;Compatibility</b></a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
   <a href="#themes"><b>🎨&nbsp;Themes</b></a>
   &nbsp;&nbsp;|&nbsp;&nbsp;
   <a href="https://github.com/Tapacywka/teyvat-cartographia/issues/new/choose"><b>🐞&nbsp;Report a bug</b></a>
@@ -44,7 +46,8 @@
 - [Installation](#installation)
 - [Controls](#controls)
 - [Features](#features)
-  - [World map](#world-map) &middot; [Cave layers](#cave-layers) &middot; [Minimap](#minimap) &middot; [Pins and tracking](#pins-and-tracking) &middot; [Pin in the world](#pin-in-the-world) &middot; [Walking path](#walking-path) &middot; [Settings](#settings)
+  - [World map](#world-map) &middot; [Map colours](#map-colours) &middot; [Cave layers](#cave-layers) &middot; [Minimap](#minimap) &middot; [Pins and tracking](#pins-and-tracking) &middot; [Pin in the world](#pin-in-the-world) &middot; [Walking path](#walking-path) &middot; [Settings](#settings)
+- [Compatibility with mods](#compatibility)
 - [Themes](#themes)
 - [Performance](#performance)
 - [Where data is stored](#where-data-is-stored)
@@ -99,10 +102,10 @@ Place pins, search for them and for biomes, track them, follow the path and find
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/world-map-path.jpg" alt="The walking path goes round the water" width="49%">
-  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/settings.jpg" alt="Settings with foldable sections" width="49%">
+  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/settings.jpg" alt="Settings with a live preview of the setting under the mouse" width="49%">
   <br>
   <sub><b>Left:</b> The walking path goes round the water.<br>
-  <b>Right:</b> Settings with foldable sections.</sub>
+  <b>Right:</b> Settings with a live preview of the setting under the mouse.</sub>
 </p>
 
 <p align="center">
@@ -116,7 +119,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 <h2 id="installation">📥 Installation</h2>
 
 1. Install [NeoForge](https://neoforged.net) 21.1 for Minecraft 1.21.1.
-2. Download `teyvatcartographia-v0.1.2+mc1.21.1-neoforge.jar` from
+2. Download `teyvatcartographia-v0.1.3+mc1.21.1-neoforge.jar` from
    [Modrinth](https://modrinth.com/mod/teyvat-cartographia) or the
    [latest GitHub release](https://github.com/Tapacywka/teyvat-cartographia/releases/latest) and put it into your
    `mods/` folder.
@@ -152,8 +155,8 @@ Place pins, search for them and for biomes, track them, follow the path and find
   generated just for the map. Regions are cached in memory and on disk, so the map grows as you explore and survives
   restarts.
 * Fog of war over unexplored land, painted regions with relief shading and contour lines. The map darkens at night,
-  while torches, lava and other lights keep their colour.
-* Blocks in the colours of their textures, like Xaero's Minimap, also for the blocks of any mod.
+  while torches, lava and other lights keep their colour. The Nether (smoke and embers) and the End (a starry void)
+  have a fog of their own, soft wisps and glowing motes like the fog of the Genshin Impact map.
 * Biome name labels (zoom 1/4 to 4), biome under the cursor, player and cursor coordinates, explored chunk counter,
   zoom slider (1/16 to 16), optional chunk grid.
 * **Search** in the pin list (or **Ctrl+F**): pins of every dimension by name, and the explored biomes by name. A
@@ -165,6 +168,19 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * Its own mouse pointer in the theme's colours on the map and in the settings: a hand over what you can click, a
   text cursor in text fields, a move cross while you drag the map, arrows on the sliders. It is a system cursor, so it
   never lags behind the mouse.
+
+<h3 id="map-colours">Map colours</h3>
+
+* Every block is drawn in the colour of its texture, like Xaero's Minimap: the average of the texture on its top,
+  with the biome tint of grass, leaves and water, blended smoothly from one biome to the next. This works for the
+  blocks of any mod and in every dimension, and follows your resource packs.
+* Blocks that tint themselves in the world (lily pads, stems, redstone, leaf litter, the leaves and grass of mods
+  with a palette of their own) take the colour they have at their place.
+* **Plants** colour their spot on the map. The arrow next to **Settings > Map > Plants** opens the list of every
+  plant of the game and your mods, with a search field and a switch for each: at first only the cactus, the dead
+  bush and chorus show, so meadows stay calm. A solid plant switched off shows the ground under it.
+* **Terrain detail** (flat colours, shaded slopes, or slopes with contour lines), **Deep water shading** and **Clear
+  shallow water** (the ground seen through shallow water) in **Settings > Map > Colours**.
 
 <h3 id="cave-layers">Cave layers</h3>
 
@@ -182,8 +198,9 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * Square or round (**Settings > Minimap > Minimap shape**), with "N" on the rim (and a fainter E, S and W while
   it turns with the view), the player arrow and view cone, pins, the walking path and the tracked pin held on the rim
   when it is far.
-* North up or rotating with the view; size, corner, offsets, opacity, zoom and update rate (30 redraws a second while
-  you move by default). An inner padding between the frame and the map, and how wide and how strong its edge fades.
+* North up or rotating with the view; size (never larger than your screen holds), corner, offsets, opacity, zoom and
+  update rate (30 redraws a second while you move by default). An inner padding between the frame and the map, and
+  how wide and how strong its edge fades. In a bottom corner the lines go over it, mirrored.
 * Coordinates, biome (long names wrap onto two lines), a clock (game time, your computer's time marked "IRL", or
   both side by side; 24-hour, 12-hour or 12-hour with AM/PM) and a day counter under it, with their own spacing, text size (Auto: a step smaller than the interface, always
   sharp) and background opacity.
@@ -215,7 +232,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 
 <h3 id="pin-in-the-world">Pin in the world</h3>
 
-* The tracked pin is shown in the 3D world like a Genshin Impact waypoint for a minute after you start tracking or
+* The tracked pin is shown in the 3D world (from the *In the world* step of its kind) like a Genshin Impact waypoint for a minute after you start tracking or
   press the pulse key: constant size, visible through terrain, the distance in blocks under it.
 * Off screen it slides along an ellipse around the centre, above the hotbar and around the minimap.
 * Within 225 blocks a beam of light in the pin's colour rises from the target (hidden behind terrain, drawn after the
@@ -237,15 +254,36 @@ Place pins, search for them and for biomes, track them, follow the path and find
 
 * The gear on the map holds quick switches: the three pin kinds, the path to the target, biome names, chunk grid.
 * The full settings screen (also from the NeoForge mod list) has a tab for each part: *Map* (appearance; what the
-  map shows: plants, caves, the Nether and End fog; colours: terrain detail, biome blending, block colours from the
-  world, deep water shading, clear shallow water; the world map), *Minimap* (display, size and
-  position, look, extra information), *Pins* (display and path to the target for each kind) and *System*
-  (performance). With a supported mod in the game, the *Compatibility* tab has a part for each, with everything made
-  for it: The Aether (its sea of clouds, caves there), Mielon's The Sift (its pearly haze, the rainbow ichor and
-  snow), Xaero's Minimap (the import). Its parts fold and unfold with a click.
-* A setting with parts is one slider in steps: each pin kind and its path go Off, Map, Both maps, Everywhere (the
-  beam, or the stars, in the world too), and the clock Off, Game, Real, Both.
+  map shows: plants, caves; colours; the world map), *Minimap* (display, size and position, look, extra
+  information), *Pins* (display and path to the target for each kind), *System* (performance) and, with a supported
+  mod in the game, *Compatibility* (see [Compatibility with mods](#compatibility)).
+* **Live preview**: point at a setting and the card beside the list shows it, with what it does. The map around you
+  as it will look, the minimap where it sits and at its real size, the three terrain detail modes side by side, the
+  cave layers with their buttons to click, each pin kind on the world map, the minimap and in the world, the mapping
+  speed and memory, the mods' fogs and samples. It changes as you move a slider. (At a GUI scale too large for it, it
+  asks for a smaller one.)
+* A setting with parts is one slider in steps: each pin kind goes Off, Map, Both maps, In the world (the marker over a
+  tracked pin), Everywhere (its beam too); its path Off, Map, Both maps, Everywhere (the stars); the clock Off, Game,
+  Real, Both.
 * Reset to defaults and a shortcut to key binds. Stored in `config/teyvatcartographia-client.toml`.
+
+<h2 id="compatibility">🧩 Compatibility with mods</h2>
+
+Teyvat Cartographia draws the blocks of any mod in the colours of their textures and lists modded dimensions on the
+world map, so most mods work without anything special. A few get more: with one of them in the game,
+**Settings > Compatibility** has a part for it.
+
+| Mod | What it gets |
+|---|---|
+| [Xaero's Minimap](https://modrinth.com/mod/xaeros-minimap) | **Import** of its waypoints (also those of Xaero's World Map) into your pins: the current world's are found on their own. The pin type they get, and whether hidden waypoints and death points come too, are in its part. |
+| [The Aether](https://modrinth.com/mod/aether) | A fog of war of its own, a **sea of clouds** seen from above, with the floating islands casting a soft shadow on it (on the world map and the minimap). No cave layers under the islands. |
+| Mielon's The Sift | A **pearly haze** in the colours of its ichor as the fog of war; its **rainbow ichor** and **ichor snow** shimmer on the map in their own colours (each can be switched off); its cyan willows keep their colour. |
+| [Biomes O' Plenty](https://modrinth.com/mod/biomes-o-plenty), [Regions Unexplored](https://modrinth.com/mod/regions-unexplored) | Their biomes, leaves, grass and plants in their own colours (compared side by side with Xaero's Minimap in 16 places); their plants in the Plants list. |
+| [Vanilla Backport](https://github.com/ItsBlackGear/VanillaBackport), [Tiny Takeover Backport](https://github.com/evanbones/Tiny-Takeover-Backport) | The pale garden, leaf litter, bushes and the other new blocks in the colours the game gives them. |
+
+The Nether and the End have fogs of their own too; a resource pack theme can add a fog for any other dimension (see
+[Themes](#themes)). Players with other minimaps keep them: this mod changes nothing in the world and needs nothing
+from the server.
 
 <h2 id="themes">🎨 Themes</h2>
 

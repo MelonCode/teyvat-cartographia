@@ -206,6 +206,8 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
             starsShown = vis;
             Navigation.setPathWanted(Navigation.PATH_WORLD, true);
         }
+        // The marker (and its beam) only on the "In the world" step and above; the stars follow the path's setting.
+        if (!o.marker()) return;
         shown = vis;
         beamOn = o.beam();
 

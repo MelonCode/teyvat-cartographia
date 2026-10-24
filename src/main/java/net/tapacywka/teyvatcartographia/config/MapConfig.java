@@ -84,18 +84,19 @@ public final class MapConfig {
 
     /**
      * Settings of one kind of pins: the kind as a whole ({@code enabled}) and where its pins are drawn (the tracked pin
-     * is always drawn on the maps and as the marker in the world), and the path to a tracked pin of this kind
+     * is always drawn on the maps), and the path to a tracked pin of this kind
      * ({@code path}) and where it is drawn. The nested values count only while their switch is on: read them through
      * the methods.
      */
     public static final class PinOptions {
-        public final ModConfigSpec.BooleanValue enabled, map, minimap, beam, path, pathMap, pathMinimap, pathWorld;
+        public final ModConfigSpec.BooleanValue enabled, map, minimap, marker, beam, path, pathMap, pathMinimap, pathWorld;
 
         private PinOptions(ModConfigSpec.Builder b, PinKind kind) {
             b.push(kind.id);
             enabled = b.comment("Show these pins").translation("teyvatcartographia.config.pins." + kind.id).define("enabled", true);
             map = b.comment("On the world map").translation("teyvatcartographia.config.pins.map").define("map", true);
             minimap = b.comment("On the minimap").translation("teyvatcartographia.config.pins.minimap").define("minimap", true);
+            marker = b.comment("The marker over a tracked pin of this kind in the world (its glyph and distance)").translation("teyvatcartographia.config.pins.marker").define("marker", true);
             beam = b.comment("A beam of light over a tracked pin in the world").translation("teyvatcartographia.config.pins.beam").define("beam", true);
             path = b.comment("Show the path to a tracked pin of this kind").translation("teyvatcartographia.config.path." + kind.id).define("path", true);
             pathMap = b.comment("The path on the world map (dash-dot line)").translation("teyvatcartographia.config.path.map").define("pathMap", true);
@@ -112,8 +113,13 @@ public final class MapConfig {
             return get(enabled) && get(minimap);
         }
 
+        public boolean marker() {
+            return get(enabled) && get(marker);
+        }
+
+        /** The beam of light over the marker: only with the marker. */
         public boolean beam() {
-            return get(enabled) && get(beam);
+            return marker() && get(beam);
         }
 
         public boolean pathOnMap() {
@@ -129,7 +135,7 @@ public final class MapConfig {
         }
 
         private void reset() {
-            for (ModConfigSpec.BooleanValue v : new ModConfigSpec.BooleanValue[]{enabled, map, minimap, beam, path, pathMap, pathMinimap, pathWorld}) resetValue(v);
+            for (ModConfigSpec.BooleanValue v : new ModConfigSpec.BooleanValue[]{enabled, map, minimap, marker, beam, path, pathMap, pathMinimap, pathWorld}) resetValue(v);
         }
     }
     private static final PinOptions[] PINS = new PinOptions[PinKind.values().length];
@@ -145,15 +151,14 @@ public final class MapConfig {
     public static final ModConfigSpec.EnumValue<Detail> DETAIL;
     public static final ModConfigSpec.BooleanValue CAVES_ENABLED;
     public static final ModConfigSpec.BooleanValue MAP_PLANTS;
-    public static final ModConfigSpec.BooleanValue BIOME_BLEND;
+    public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> PLANTS_SHOWN;
     public static final ModConfigSpec.BooleanValue WORLD_TINTS;
     public static final ModConfigSpec.IntValue WATER_DEPTH;
     public static final ModConfigSpec.IntValue SHALLOW_WATER;
-    public static final ModConfigSpec.BooleanValue VANILLA_FOGS;
 
     // Compatibility with other mods (shown in the settings only while that mod is there).
-    public static final ModConfigSpec.BooleanValue AETHER_CAVES;
-    public static final ModConfigSpec.BooleanValue SIFT_SHIMMER;
+    public static final ModConfigSpec.BooleanValue SIFT_ICHOR_SHIMMER;
+    public static final ModConfigSpec.BooleanValue SIFT_SNOW_SHIMMER;
     public static final ModConfigSpec.BooleanValue SIFT_FOG;
     public static final ModConfigSpec.BooleanValue AETHER_FOG;
     public static final ModConfigSpec.EnumValue<net.tapacywka.teyvatcartographia.marker.MarkerType> XAERO_PIN_TYPE;
@@ -182,14 +187,14 @@ public final class MapConfig {
         MINIMAP_ENABLED = b.comment("Show the minimap on the HUD").translation("teyvatcartographia.config.minimap_enabled").define("enabled", true);
         MINIMAP_RADIUS = b.comment("Minimap radius in GUI pixels").translation("teyvatcartographia.config.minimap_radius").defineInRange("radius", 48, 24, 110);
         MINIMAP_CORNER = b.comment("Screen corner the minimap is anchored to").translation("teyvatcartographia.config.minimap_corner").defineEnum("corner", Corner.TOP_LEFT);
-        MINIMAP_OFFSET_X = b.comment("Horizontal distance from the anchored corner").translation("teyvatcartographia.config.minimap_offset_x").defineInRange("offsetX", 4, 0, 1000);
-        MINIMAP_OFFSET_Y = b.comment("Vertical distance from the anchored corner").translation("teyvatcartographia.config.minimap_offset_y").defineInRange("offsetY", 4, 0, 1000);
+        MINIMAP_OFFSET_X = b.comment("Horizontal distance from the anchored corner").translation("teyvatcartographia.config.minimap_offset_x").defineInRange("offsetX", 4, 0, 64);
+        MINIMAP_OFFSET_Y = b.comment("Vertical distance from the anchored corner").translation("teyvatcartographia.config.minimap_offset_y").defineInRange("offsetY", 4, 0, 64);
         MINIMAP_OPACITY = b.comment("Minimap opacity").translation("teyvatcartographia.config.minimap_opacity").defineInRange("opacity", 0.85, 0.2, 1.0);
         MINIMAP_PADDING = b.comment("Gap between the frame and the map inside it, in GUI pixels").translation("teyvatcartographia.config.minimap_padding").defineInRange("padding", 0, 0, 16);
         MINIMAP_FADE_WIDTH = b.comment("Width of the faded edge of the map, in percent of its radius (0: a sharp edge)").translation("teyvatcartographia.config.minimap_fade_width").defineInRange("fadeWidth", 15, 0, 50);
         MINIMAP_FADE_STRENGTH = b.comment("How transparent the very edge of the map gets, in percent (0: no fading)").translation("teyvatcartographia.config.minimap_fade_strength").defineInRange("fadeStrength", 100, 0, 100);
-        MINIMAP_INFO_GAP = b.comment("Gap between the minimap and the lines under it (coordinates, biome, clock, day) and between those lines, in GUI pixels").translation("teyvatcartographia.config.minimap_info_gap").defineInRange("infoGap", 2, 0, 16);
-        MINIMAP_TEXT_SIZE = b.comment("Size of the text under the minimap and of its compass letters: 0 = Auto (a step below the GUI scale), else screen pixels per font pixel, at most the GUI scale").translation("teyvatcartographia.config.minimap_text_size").defineInRange("textSize", 0, 0, 6);
+        MINIMAP_INFO_GAP = b.comment("Gap between the minimap and the lines under it (coordinates, biome, clock, day) and between those lines, in GUI pixels").translation("teyvatcartographia.config.minimap_info_gap").defineInRange("infoGap", 2, 0, 8);
+        MINIMAP_TEXT_SIZE = b.comment("Size of the text under the minimap and of its compass letters: 0 = Auto (a step below the GUI scale), else 1 to 4 screen pixels per font pixel, at most the GUI scale").translation("teyvatcartographia.config.minimap_text_size").defineInRange("textSize", 0, 0, 4);
         MINIMAP_PILL_OPACITY = b.comment("Opacity of the background of the lines under the minimap, in percent (0: text only)").translation("teyvatcartographia.config.minimap_pill_opacity").defineInRange("pillOpacity", 70, 0, 100);
         MINIMAP_ZOOM = b.comment("Minimap scale in GUI pixels per block: 1/16, 1/8, 1/4, 1/3, 1/2, 1, 2, 3, 4, 8 or 16 (other values snap to the nearest). Below 1 only the tracked target keeps its pin").translation("teyvatcartographia.config.minimap_zoom").defineInRange("zoom", 1.0, 1 / 16.0, 16.0);
         MINIMAP_ORIENTATION = b.comment("NORTH_UP: north is always up. PLAYER_UP: the map rotates with the view direction").translation("teyvatcartographia.config.minimap_orientation").defineEnum("orientation", Orientation.NORTH_UP);
@@ -220,21 +225,21 @@ public final class MapConfig {
         MAX_CACHED_TILES = b.comment("Maximum number of 256x256 map regions kept in memory").translation("teyvatcartographia.config.max_tiles").defineInRange("maxCachedTiles", 160, 32, 1024);
         DETAIL = b.comment("Terrain detail: LOW = flat colours, MEDIUM = relief shading, HIGH = relief + contour lines").translation("teyvatcartographia.config.detail").defineEnum("detail", Detail.HIGH);
         CAVES_ENABLED = b.comment("Map the caves around you while underground, in layers of 16 blocks; the world map and the minimap switch to the layer you are in").translation("teyvatcartographia.config.caves").define("caves", true);
-        MAP_PLANTS = b.comment("Show plants on the map (flowers, petals, mushrooms, crops, lily pads; not grass or ferns)").translation("teyvatcartographia.config.plants").define("plants", true);
-        BIOME_BLEND = b.comment("Blend the biome colours of grass, leaves and water smoothly across biome borders (else each 4 x 4 block area in its own biome's colour)").translation("teyvatcartographia.config.biome_blend").define("biomeBlending", true);
+        MAP_PLANTS = b.comment("Show plants on the map: those of plantsShown").translation("teyvatcartographia.config.plants").define("plants", true);
+        PLANTS_SHOWN = b.comment("The plants the map shows, by block id (Settings > Map > Plants, its list); the others are looked through to the ground").translation("teyvatcartographia.config.plants_list")
+                .defineListAllowEmpty("plantsShown", java.util.List.of("minecraft:cactus", "minecraft:dead_bush", "minecraft:chorus_plant", "minecraft:chorus_flower"), () -> "", o -> o instanceof String);
         WORLD_TINTS = b.comment("Blocks tinted by their own colour handler (lily pads, stems, leaf litter, modded leaves with a palette of their own) take the colour it gives at their place (else the colour it gives without a world)").translation("teyvatcartographia.config.world_tints").define("blockColourHandlers", true);
         WATER_DEPTH = b.comment("How much deep water darkens, in percent (0: all water the same colour)").translation("teyvatcartographia.config.water_depth").defineInRange("waterDepthShading", 100, 0, 100);
         SHALLOW_WATER = b.comment("How much of the ground shows through shallow water, in percent (0: none)").translation("teyvatcartographia.config.shallow_water").defineInRange("shallowWater", 0, 0, 100);
-        VANILLA_FOGS = b.comment("A fog of war of their own in the Nether (smoke and embers) and the End (a starry void); else the theme fog").translation("teyvatcartographia.config.vanilla_fogs").define("netherEndFogs", true);
         b.pop();
 
         b.push("compat");
         b.push("aether");
-        AETHER_CAVES = b.comment("The Aether: map caves in the Aether too (its islands float over the void, so under an island counts as underground)").translation("teyvatcartographia.config.compat.aether_caves").define("caves", false);
         AETHER_FOG = b.comment("The Aether: its own fog of war, a sea of clouds the islands cast a shadow on (else the theme fog)").translation("teyvatcartographia.config.compat.aether_fog").define("fog", true);
         b.pop();
         b.push("the_sift");
-        SIFT_SHIMMER = b.comment("The Sift: its rainbow ichor and ichor snow shimmer on the map (else the average colour of their textures)").translation("teyvatcartographia.config.compat.sift_shimmer").define("shimmer", true);
+        SIFT_ICHOR_SHIMMER = b.comment("The Sift: its rainbow ichor shimmers on the map (else the average colour of its texture)").translation("teyvatcartographia.config.compat.sift_ichor").define("ichorShimmer", true);
+        SIFT_SNOW_SHIMMER = b.comment("The Sift: its ichor snow shimmers on the map (else the average colour of its texture)").translation("teyvatcartographia.config.compat.sift_snow").define("snowShimmer", true);
         SIFT_FOG = b.comment("The Sift: its own fog of war, a pearly haze in the colours of its ichor (else the theme fog)").translation("teyvatcartographia.config.compat.sift_fog").define("fog", true);
         b.pop();
         b.push("xaero");
@@ -264,9 +269,9 @@ public final class MapConfig {
         for (PinOptions o : PINS) o.reset();
         resetValue(MAP_SHOW_LABELS); resetValue(MAP_SHOW_GRID); resetValue(MAP_DEFAULT_ZOOM);
         resetValue(CHUNKS_PER_TICK); resetValue(SCAN_RADIUS); resetValue(MAX_CACHED_TILES); resetValue(DETAIL); resetValue(CAVES_ENABLED);
-        resetValue(MAP_PLANTS); resetValue(VANILLA_FOGS);
-        resetValue(BIOME_BLEND); resetValue(WORLD_TINTS); resetValue(WATER_DEPTH); resetValue(SHALLOW_WATER);
-        resetValue(AETHER_CAVES); resetValue(AETHER_FOG); resetValue(SIFT_SHIMMER); resetValue(SIFT_FOG);
+        resetValue(MAP_PLANTS); resetValue(PLANTS_SHOWN);
+        resetValue(WORLD_TINTS); resetValue(WATER_DEPTH); resetValue(SHALLOW_WATER);
+        resetValue(AETHER_FOG); resetValue(SIFT_ICHOR_SHIMMER); resetValue(SIFT_SNOW_SHIMMER); resetValue(SIFT_FOG);
         resetValue(XAERO_PIN_TYPE); resetValue(XAERO_HIDDEN); resetValue(XAERO_DEATHS);
         save();
     }

@@ -9,8 +9,11 @@ package net.tapacywka.teyvatcartographia.config;
 public final class StepChoice {
     private StepChoice() {}
 
-    /** Pins of a kind: off, the map, both maps, everywhere (the beam too); the path: the same with the stars. */
-    public static final int OFF = 0, MAP = 1, BOTH_MAPS = 2, EVERYWHERE = 3;
+    /**
+     * Pins of a kind: off, the map, both maps, in the world (the marker over a tracked one), everywhere (its beam too);
+     * the path: off, the map, both maps, everywhere (the stars in the world).
+     */
+    public static final int OFF = 0, MAP = 1, BOTH_MAPS = 2, EVERYWHERE = 3, IN_WORLD = 3, BEAM = 4;
 
     /** The step for a kind switched {@code on} whose map, minimap and world (beam or stars) parts are as given. */
     public static int level(boolean on, boolean map, boolean minimap, boolean world) {
@@ -18,6 +21,12 @@ public final class StepChoice {
         if (world) return EVERYWHERE;
         if (minimap) return BOTH_MAPS;
         return MAP;
+    }
+
+    /** The step of pins whose kind is {@code on}, with its map, minimap, marker in the world and beam parts as given. */
+    public static int level(boolean on, boolean map, boolean minimap, boolean marker, boolean beam) {
+        if (on && marker && beam) return BEAM;
+        return level(on, map, minimap, marker);
     }
 
     /** The parts a step switches on: the kind itself, then the map, the minimap and the world in turn. */
@@ -35,6 +44,10 @@ public final class StepChoice {
 
     public static boolean world(int step) {
         return step >= EVERYWHERE;
+    }
+
+    public static boolean beam(int step) {
+        return step >= BEAM;
     }
 
     /** The clock: off, then each time source in order (game, real, both). */

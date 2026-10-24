@@ -53,7 +53,7 @@ class ConfigDefaultsTest {
     void everyPinKindAndItsPathAreOn() {
         for (MapConfig.PinKind kind : MapConfig.PinKind.values()) {
             MapConfig.PinOptions o = MapConfig.pins(kind);
-            for (var v : new net.neoforged.neoforge.common.ModConfigSpec.BooleanValue[]{o.enabled, o.map, o.minimap, o.beam, o.path, o.pathMap, o.pathMinimap, o.pathWorld}) {
+            for (var v : new net.neoforged.neoforge.common.ModConfigSpec.BooleanValue[]{o.enabled, o.map, o.minimap, o.marker, o.beam, o.path, o.pathMap, o.pathMinimap, o.pathWorld}) {
                 assertTrue(v.getDefault(), kind + " " + v.getPath());
             }
         }
@@ -66,6 +66,36 @@ class ConfigDefaultsTest {
         assertEquals(16, MapConfig.SCAN_RADIUS.getDefault());
         assertEquals(6, MapConfig.CHUNKS_PER_TICK.getDefault());
         assertEquals(160, MapConfig.MAX_CACHED_TILES.getDefault());
+    }
+
+    @Test
+    void colours() {
+        assertTrue(MapConfig.MAP_PLANTS.getDefault());
+        assertEquals(java.util.List.of("minecraft:cactus", "minecraft:dead_bush", "minecraft:chorus_plant", "minecraft:chorus_flower"),
+                MapConfig.PLANTS_SHOWN.getDefault(), "only the cactus, the dead bush and chorus at first (user decision 24.10.2026)");
+        assertTrue(MapConfig.WORLD_TINTS.getDefault());
+        assertEquals(100, MapConfig.WATER_DEPTH.getDefault());
+        assertEquals(0, MapConfig.SHALLOW_WATER.getDefault(), "clear shallow water off");
+    }
+
+    @Test
+    void otherMods() {
+        assertTrue(MapConfig.AETHER_FOG.getDefault());
+        assertTrue(MapConfig.SIFT_FOG.getDefault());
+        assertTrue(MapConfig.SIFT_ICHOR_SHIMMER.getDefault());
+        assertTrue(MapConfig.SIFT_SNOW_SHIMMER.getDefault());
+        assertEquals(net.tapacywka.teyvatcartographia.marker.MarkerType.STAR, MapConfig.XAERO_PIN_TYPE.getDefault());
+        assertTrue(MapConfig.XAERO_HIDDEN.getDefault());
+        assertFalse(MapConfig.XAERO_DEATHS.getDefault());
+    }
+
+    @Test
+    void rangesOfTheMinimapSliders() {
+        // Since 24.10.2026: offsets 0 to 64, the gap of the lines 0 to 8, the text size Auto and 1 to 4.
+        assertTrue(MapConfig.MINIMAP_OFFSET_X.getSpec().test(64) && !MapConfig.MINIMAP_OFFSET_X.getSpec().test(65));
+        assertTrue(MapConfig.MINIMAP_OFFSET_Y.getSpec().test(64) && !MapConfig.MINIMAP_OFFSET_Y.getSpec().test(65));
+        assertTrue(MapConfig.MINIMAP_INFO_GAP.getSpec().test(8) && !MapConfig.MINIMAP_INFO_GAP.getSpec().test(9));
+        assertTrue(MapConfig.MINIMAP_TEXT_SIZE.getSpec().test(4) && !MapConfig.MINIMAP_TEXT_SIZE.getSpec().test(5));
     }
 
     @Test

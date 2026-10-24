@@ -1121,18 +1121,11 @@ public final class WorldMapScreen extends Screen {
         java.util.NavigableSet<Integer> set = MapDataManager.get().caveBands();
         if (set.size() != layerBands.length) {
             layerBands = new int[set.size()];
-            layerItems = new int[set.size() + 1];
-            int i = 0, k = 0, sea = Minecraft.getInstance().level == null ? 63 : Minecraft.getInstance().level.getSeaLevel();
-            boolean surfacePlaced = false;
-            for (int b : set) { // highest first
-                layerBands[i++] = b;
-                if (!surfacePlaced && b * CaveScanner.BAND <= sea) {
-                    layerItems[k++] = SURFACE_ITEM;
-                    surfacePlaced = true;
-                }
-                layerItems[k++] = b;
-            }
-            if (!surfacePlaced) layerItems[k] = SURFACE_ITEM;
+            int i = 0, sea = Minecraft.getInstance().level == null ? 63 : Minecraft.getInstance().level.getSeaLevel();
+            for (int b : set) layerBands[i++] = b; // highest first
+            List<Integer> order = CaveScanner.layerOrder(set, sea);
+            layerItems = new int[order.size()];
+            for (int k = 0; k < order.size(); k++) layerItems[k] = order.get(k) == null ? SURFACE_ITEM : order.get(k);
         }
         return layerItems;
     }

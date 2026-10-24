@@ -2,7 +2,7 @@
 
 All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>-<loader>`.
 
-## 0.1.3-dev+mc1.21.1-neoforge (in development)
+## 0.1.3+mc1.21.1-neoforge (24.10.2026)
 
 ### Shapes as settings, one built-in theme
 * Two new choices: **Settings > Minimap > Minimap shape** (Square or Round) and **Settings > Map > Interface style**
@@ -28,6 +28,9 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   marked "IRL" so it is not taken for the game time.
 * **Time format** (Extra information): 24-hour (14:35), 12-hour (2:35) or 12-hour with AM/PM (2:35 PM), for both
   clocks (available while the clock is on).
+* In a bottom corner the lines over the minimap are mirrored: the coordinates nearest to the map, the clock on top.
+* The **Size** slider goes only as far as the minimap fits the screen with its lines at your GUI scale; the offsets go
+  from 0 to 64, the line spacing from 0 to 8, the text size is Auto, 1, 2, 3 or 4.
 * When the minimap turns with the camera, it shows **E**, **S** and **W** too, fainter than **N** so north still stands
   out; with north up it shows only **N**, as before.
 * **Background opacity** of the lines under the minimap (Extra information): 0% leaves the text only; the default
@@ -51,6 +54,9 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   follows the cursor at once.
 
 ### Pins
+* Each kind of pins has five steps (**Settings > Pins**): Off, Map, Both maps, **In the world** (the marker over a
+  tracked pin with its distance, which can now be switched off) and Everywhere (its beam of light too). The path to a
+  tracked pin keeps four: Off, Map, Both maps, Everywhere (the stars).
 * The interactive pins are now **Sign**, **Party** and **Structure** (they were Waypoint, Statue and Domain), with new
   icons; the boss pin has a horned demon. Pins saved, exported or shared by a server of 0.1.2 and earlier keep working:
   the old types are read as the new ones. A server and its players should update together: a 0.1.2 server does not
@@ -90,8 +96,8 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 ### Other mods
 * The settings have a **Compatibility** tab with a part for each supported mod that is in the game (no tab
   without them).
-* **The Aether**: no cave layers in the Aether by default (its islands float over the void, so the space under them
-  read as caves; a switch turns them back on). Its map has a fog of its own: a sea of white and blue clouds seen
+* **The Aether**: no cave layers in the Aether (its islands float over the void, so the space under them read as
+  caves). Its map has a fog of its own: a sea of white and blue clouds seen
   from above, on the world map and the minimap, with the islands casting a soft shadow on it.
 * **Xaero's Minimap**: the import settings moved to its part: the type the waypoints get (Star by default), whether
   hidden waypoints come too (yes by default) and death points (no by default). Without Xaero's Minimap and its
@@ -117,9 +123,10 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   chunk whose edge changes now has its neighbours on that side mapped again.
 * Fixed: where two biomes met on a chunk border, their water, grass or leaf colours changed in a sharp straight
   line; the blend now goes on across chunk borders.
-* Plants show on the map, like on Xaero's Minimap: flowers, cherry petals, mushrooms, crops, dead bushes, sugar cane,
-  chorus and the plants of other mods colour their spot, on land and on the water (lily pads); grass and ferns are left out, so meadows
-  stay calm. The relief under them is unchanged.
+* Plants show on the map, like on Xaero's Minimap: **Settings > Map > Plants** has an arrow that opens the list of
+  every plant of the game and your mods, with a search field and a switch for each. At first only the cactus, the
+  dead bush and chorus show; switch on flowers, crops, lily pads and the rest as you like. A solid plant switched off
+  (a cactus) shows the ground under it. The relief under plants is unchanged.
 * Blocks that their own colour handler tints in the world (lily pads, stems, redstone, the leaf litter and bushes of
   Vanilla Backport, leaves and grass of other mods with a palette of their own) take the colour it gives at their
   place, like on Xaero's Minimap: leaf litter is red brown, not dark. Mangrove leaves have their own green, not the
@@ -136,13 +143,13 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   regions and memory on the System tab, and samples of the mods' fogs, The Sift's ichor and the Xaero waypoints to
   import on the Compatibility tab, all changing as you change a setting. Without room beside the panel (a small
   screen or a large interface) a button in the header says to lower the GUI scale.
-* A **Colours** section in **Settings > Map**: terrain detail, **Biome blending** (off: each biome in its own
-  colour, sharp borders), **Block colours from the world** (off: one colour per block, the same everywhere), **Deep
+* A **Colours** section in **Settings > Map**: **Terrain detail** (a slider now; the preview shows the three modes
+  side by side), **Block colours from the world** (off: one colour per block, the same everywhere), **Deep
   water shading** (how much deep water darkens) and **Clear shallow water** (how much of the ground shows through
   shallow water; off by default).
-* New switches: **Map > Plants** and **Map > Nether and End fog**; in **Compatibility**, The Aether's **Sea of
-  clouds**, and Mielon's The Sift's **Pearly haze** and **Rainbow ichor and snow** (off: the average colour of
-  their textures, like Xaero's Minimap). A dimension of another mod has no fog of its own unless made for it.
+* New switches in **Compatibility**: **Fog of war: The Aether**, and for Mielon's The Sift **Fog of war: The Sift**,
+  **Rainbow ichor** and **Ichor snow** (off: the average colour of their textures, like Xaero's Minimap). The Nether
+  and the End always have their own fog. A dimension of another mod has no fog of its own unless made for it.
 * Fog of war of its own in the Nether (smoke and glowing embers), the End (a void with a violet nebula and stars;
   its islands cast a shadow on it, like the Aether's) and The Sift (a pearly haze in the colours of its ichor), on the
   world map and the minimap. The overworld keeps the night clouds.

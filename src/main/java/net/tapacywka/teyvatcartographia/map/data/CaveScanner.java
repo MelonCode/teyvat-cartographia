@@ -37,6 +37,24 @@ public final class CaveScanner {
         return Math.floorDiv(y, BAND);
     }
 
+    /**
+     * The layers of a layer field from top to bottom: the cave bands (given highest first) with the surface (null) among
+     * them, under the bands that start above the sea level.
+     */
+    public static java.util.List<Integer> layerOrder(Iterable<Integer> bandsHighestFirst, int seaLevel) {
+        java.util.List<Integer> out = new java.util.ArrayList<>();
+        boolean surfacePlaced = false;
+        for (int b : bandsHighestFirst) {
+            if (!surfacePlaced && b * BAND <= seaLevel) {
+                out.add(null);
+                surfacePlaced = true;
+            }
+            out.add(b);
+        }
+        if (!surfacePlaced) out.add(null);
+        return out;
+    }
+
     public static ChunkShader.Result scan(ClientLevel level, LevelChunk chunk, int band, double px, double pz, double radius) {
         int cx = chunk.getPos().x, cz = chunk.getPos().z;
         int yMin = band * BAND, yMax = yMin + BAND - 1, bottom = level.getMinBuildHeight();

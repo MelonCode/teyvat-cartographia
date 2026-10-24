@@ -106,8 +106,7 @@ final class SettingsPreview {
             a[2] = x1 - a[0];
             a[3] = y1 - a[1];
         }
-        // The marker in the world is always shown for now (a step of its own to come).
-        boolean[] on = path ? new boolean[] {o.pathOnMap(), o.pathOnMinimap(), o.pathInWorld()} : new boolean[] {o.onMap(), o.onMinimap(), true, o.beam()};
+        boolean[] on = path ? new boolean[] {o.pathOnMap(), o.pathOnMinimap(), o.pathInWorld()} : new boolean[] {o.onMap(), o.onMinimap(), o.marker(), o.beam()};
         String[] keys = path ? new String[] {"teyvatcartographia.config.preview.frame.map", "teyvatcartographia.config.preview.frame.minimap",
                 "teyvatcartographia.config.preview.frame.stars"}
                 : new String[] {"teyvatcartographia.config.preview.frame.map", "teyvatcartographia.config.preview.frame.minimap",
@@ -139,7 +138,7 @@ final class SettingsPreview {
      * The real minimap as the HUD draws it now (its shape, frame, zoom, "N" and pins; prepared by the screen before any
      * clipping), its map scaled to fill the largest square of the area, in the middle.
      */
-    private static void minimap(GuiGraphics g, float x, float y, float w, float h) {
+    static void minimap(GuiGraphics g, float x, float y, float w, float h) {
         float[] m = net.tapacywka.teyvatcartographia.hud.MinimapLayer.preparedMap();
         float side = Draw.snap(Math.min(w, h)), sx = Draw.snap(x + (w - side) / 2f), sy = Draw.snap(y + (h - side) / 2f), s = side / (2 * m[2]);
         Draw.rect(g, x, y, x + w, y + h, Theme.PANEL_DARK_HEADER);
@@ -242,6 +241,139 @@ final class SettingsPreview {
         Draw.triangle(g, cx, cy + s, cx - t, cy, cx + t, cy, argb);
         Draw.triangle(g, cx - s, cy, cx, cy - t, cx, cy + t, argb);
         Draw.triangle(g, cx + s, cy, cx, cy + t, cx, cy - t, argb);
+    }
+
+    // ------------------------------------------------------------------ Cave map
+
+    /** Draws a layer of the map around the player into an area: the surface (null) or a cave band. */
+    interface LayerArea {
+        void draw(GuiGraphics g, float x, float y, float w, float h, Integer band);
+    }
+
+    private static final int CAVE_BIG = 28, CAVE_SMALL_MAX = 5, CAVE_STEP = 28;
+    /** The layer the cave preview shows (null: the surface) and whether its field is open. */
+    private static Integer caveBand;
+    private static boolean caveOpen;
+    /** Where the field was drawn last, for clicks: its items (null for the surface) and their centres. */
+    private static final List<Integer> caveItems = new java.util.ArrayList<>();
+    private static float[] caveY = new float[0];
+    private static float caveX;
+
+    /**
+     * Cave map: the map around the player with the layer field at its right, as on the world map: the large button
+     * is the surface; a click opens the cave layers mapped in this dimension (at most five, in height order around the
+     * surface), a click on one shows it, a click on the large button goes back to the surface and then closes the
+     * field. Under the map the layer shown.
+     */
+    static void caves(GuiGraphics g, float x, float y, float w, float h, LayerArea map, int mx, int my) {
+        java.util.NavigableSet<Integer> bands = MapDataManager.get().caveBands();
+        if (caveBand != null && !bands.contains(caveBand)) caveBand = null;
+        float col = CAVE_BIG + 2 * Grid.GAP, label = Grid.GAP + DrawText.LINE;
+        float mw = w - col, mh = h - label;
+        map.draw(g, x, y, mw, mh, caveBand);
+        // The field's items from top to bottom: the bands above the sea level, the surface, the bands under it.
+        caveItems.clear();
+        var level = Minecraft.getInstance().level;
+        caveItems.addAll(net.tapacywka.teyvatcartographia.map.data.CaveScanner.layerOrder(bands, level == null ? 63 : level.getSeaLevel()));
+        // Closed: the large button alone; open: up to five layers around the surface.
+        int surface = caveItems.indexOf(null), from = surface, to = surface + 1;
+        if (caveOpen) {
+            from = Math.max(0, surface - CAVE_SMALL_MAX / 2);
+            to = Math.min(caveItems.size(), from + CAVE_SMALL_MAX + 1);
+            from = Math.max(0, to - CAVE_SMALL_MAX - 1);
+        }
+        caveItems.subList(to, caveItems.size()).clear();
+        caveItems.subList(0, from).clear();
+        caveX = Draw.snap(x + mw + col / 2f);
+        caveY = new float[caveItems.size()];
+        float total = 0;
+        for (Integer it : caveItems) total += it == null ? CAVE_BIG + 2 * Grid.GAP : CAVE_STEP;
+        float cy = Draw.snap(y + mh / 2f - total / 2f);
+        for (int i = 0; i < caveItems.size(); i++) {
+            float slot = caveItems.get(i) == null ? CAVE_BIG + 2 * Grid.GAP : CAVE_STEP;
+            caveY[i] = cy + slot / 2f;
+            cy += slot;
+        }
+        if (caveItems.size() > 1) Draw.rect(g, caveX - 0.75f, caveY[0], caveX + 0.75f, caveY[caveY.length - 1], Theme.PANEL_LINE);
+        for (int i = 0; i < caveItems.size(); i++) {
+            Integer it = caveItems.get(i);
+            if (it == null) Ui.iconButton(g, caveX, caveY[i], CAVE_BIG, Grid.ICON_L, net.tapacywka.teyvatcartographia.render.Icon.LAYERS, caveBand == null, mx, my);
+            else Ui.iconButton(g, caveX, caveY[i], net.tapacywka.teyvatcartographia.render.Icon.LAYERS, it.equals(caveBand), mx, my);
+        }
+        Component caption = bands.isEmpty() ? Component.translatable("teyvatcartographia.config.preview.caves_none")
+                : caveBand == null ? Component.translatable("teyvatcartographia.map.layer.surface")
+                : Component.translatable("teyvatcartographia.map.caves", caveBand * net.tapacywka.teyvatcartographia.map.data.CaveScanner.BAND,
+                caveBand * net.tapacywka.teyvatcartographia.map.data.CaveScanner.BAND + net.tapacywka.teyvatcartographia.map.data.CaveScanner.BAND - 1);
+        DrawText.room(caption, mw);
+        DrawText.textCentered(g, Component.literal(DrawText.fit(caption.getString(), (int) mw)), Draw.snap(x + mw / 2f), y + mh + Grid.GAP, Theme.CREAM, false);
+    }
+
+    /** A click on the cave preview's layer field (as laid out when last drawn); true when it took it. */
+    static boolean cavesClick(double mx, double my) {
+        for (int i = 0; i < caveItems.size(); i++) {
+            Integer it = caveItems.get(i);
+            if (it == null && Ui.buttonHit(caveX, caveY[i], CAVE_BIG, mx, my)) {
+                // Open the field; on a cave layer go back to the surface; on the surface close it.
+                if (!caveOpen) caveOpen = !MapDataManager.get().caveBands().isEmpty();
+                else if (caveBand != null) caveBand = null;
+                else caveOpen = false;
+                return true;
+            }
+            if (it != null && Ui.iconButtonHit(caveX, caveY[i], mx, my)) {
+                caveBand = it;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ------------------------------------------------------------------ Terrain detail
+
+    /** Chunks each side of the player's in the detail samples (5 x 5 chunks, 80 x 80 blocks). */
+    private static final int DETAIL_RADIUS = 2, DETAIL_SIDE = 16 * (2 * DETAIL_RADIUS + 1);
+    private static final net.minecraft.client.renderer.texture.DynamicTexture[] DETAIL_TEX =
+            new net.minecraft.client.renderer.texture.DynamicTexture[MapConfig.Detail.values().length];
+    private static volatile int[][] detailPixels;
+    private static int[][] detailShown;
+    private static long detailAsked;
+    private static final String[] DETAIL_KEYS = {"teyvatcartographia.config.value.low", "teyvatcartographia.config.value.medium",
+            "teyvatcartographia.config.value.high"};
+
+    /**
+     * Terrain detail: the ground around the player in each mode side by side (shaded anew, every few seconds, on a
+     * worker), each captioned with its mode; the chosen one in cream, the others muted. The fog shows where nothing is
+     * loaded.
+     */
+    static void detail(GuiGraphics g, float x, float y, float w, float h) {
+        long now = System.currentTimeMillis();
+        if (now - detailAsked > 3000) {
+            detailAsked = now;
+            MapDataManager.get().sampleDetails(DETAIL_RADIUS, p -> detailPixels = p);
+        }
+        int[][] p = detailPixels;
+        if (p != null && p != detailShown) {
+            detailShown = p;
+            for (int i = 0; i < DETAIL_TEX.length; i++) {
+                if (DETAIL_TEX[i] == null) DETAIL_TEX[i] = new net.minecraft.client.renderer.texture.DynamicTexture(DETAIL_SIDE, DETAIL_SIDE, true);
+                com.mojang.blaze3d.platform.NativeImage img = DETAIL_TEX[i].getPixels();
+                for (int k = 0; k < p[i].length; k++) img.setPixelRGBA(k % DETAIL_SIDE, k / DETAIL_SIDE, p[i][k]);
+                DETAIL_TEX[i].upload();
+            }
+        }
+        int n = DETAIL_TEX.length, chosen = MapConfig.get(MapConfig.DETAIL).ordinal();
+        float label = Grid.GAP + DrawText.LINE;
+        float s = Draw.snap(Math.min((w - (n - 1) * Grid.GAP) / n, h - label));
+        float left = Draw.snap(x + (w - (n * s + (n - 1) * Grid.GAP)) / 2f), top = Draw.snap(y + (h - s - label) / 2f);
+        for (int i = 0; i < n; i++) {
+            float fx = left + i * (s + Grid.GAP);
+            FogTexture.draw(g, fx, top, fx + s, top + s, 0, 0, Theme.WHITE);
+            if (DETAIL_TEX[i] != null && detailShown != null) Draw.texturedQuad(g, DETAIL_TEX[i].getId(), fx, top, fx + s, top + s, 0, 0, 1, 1, 0xFFFFFFFF);
+            Draw.frame(g, fx, top, s, s, 1, i == chosen ? Theme.GOLD : Theme.PANEL_LINE);
+            Component c = Component.translatable(DETAIL_KEYS[i]);
+            DrawText.room(c, s);
+            DrawText.textCentered(g, Component.literal(DrawText.fit(c.getString(), (int) s)), Draw.snap(fx + s / 2f), top + s + Grid.GAP,
+                    i == chosen ? Theme.CREAM : Theme.TEXT_MUTED, false);
+        }
     }
 
     // ------------------------------------------------------------------ System
@@ -355,8 +487,8 @@ final class SettingsPreview {
             w = Math.max(w, DrawText.width(m.name()));
             if (sift(m)) {
                 w = Math.max(w, tile + Grid.PAD + DrawText.width(Component.translatable("teyvatcartographia.config.compat.sift_fog")));
-                w = Math.max(w, tile + Grid.PAD + DrawText.width(Component.translatable("teyvatcartographia.config.preview.compat.ichor")));
-                w = Math.max(w, tile + Grid.PAD + DrawText.width(Component.translatable("teyvatcartographia.config.preview.compat.snow")));
+                w = Math.max(w, tile + Grid.PAD + DrawText.width(Component.translatable("teyvatcartographia.config.compat.sift_ichor")));
+                w = Math.max(w, tile + Grid.PAD + DrawText.width(Component.translatable("teyvatcartographia.config.compat.sift_snow")));
             } else if (aether(m)) {
                 w = Math.max(w, tile + Grid.PAD + DrawText.width(Component.translatable("teyvatcartographia.config.compat.aether_fog")));
             } else w = Math.max(w, Grid.ROW + Grid.GAP + DrawText.width(xaero));
@@ -386,10 +518,10 @@ final class SettingsPreview {
                 label(g, Component.translatable("teyvatcartographia.config.compat.sift_fog"), labelX, ly, labelW, tile);
                 ly += tile + Grid.GAP;
                 siftTile(g, lx, ly, tile, false);
-                label(g, Component.translatable("teyvatcartographia.config.preview.compat.ichor"), labelX, ly, labelW, tile);
+                label(g, Component.translatable("teyvatcartographia.config.compat.sift_ichor"), labelX, ly, labelW, tile);
                 ly += tile + Grid.GAP;
                 siftTile(g, lx, ly, tile, true);
-                label(g, Component.translatable("teyvatcartographia.config.preview.compat.snow"), labelX, ly, labelW, tile);
+                label(g, Component.translatable("teyvatcartographia.config.compat.sift_snow"), labelX, ly, labelW, tile);
                 ly += tile;
             } else if (aether(m)) {
                 fogTile(g, ModCompat.AETHER_DIMENSION, lx, ly, tile);
@@ -426,7 +558,7 @@ final class SettingsPreview {
 
     /** The Sift's ichor or its snow, a block every two units, coloured as the map colours them (shimmering or plain). */
     private static void siftTile(GuiGraphics g, float x, float y, float s, boolean onSnow) {
-        boolean shimmer = MapConfig.get(MapConfig.SIFT_SHIMMER);
+        boolean shimmer = MapConfig.get(onSnow ? MapConfig.SIFT_SNOW_SHIMMER : MapConfig.SIFT_ICHOR_SHIMMER);
         int plainIchor = TextureColors.ichor();
         TextureColors.Entry snow = ICHOR_SNOW == null ? null : TextureColors.get(ICHOR_SNOW);
         int n = (int) (s / 2);

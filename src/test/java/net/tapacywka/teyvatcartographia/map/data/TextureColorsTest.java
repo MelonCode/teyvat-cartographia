@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** The Original palette: a texture's colour is the average of its visible pixels, tinted channel by channel. */
+/** The block colours of the map: a texture's colour is the average of its visible pixels, tinted channel by channel. */
 class TextureColorsTest {
     /** NativeImage pixels are ABGR. */
     private static int abgr(int a, int r, int g, int b) {

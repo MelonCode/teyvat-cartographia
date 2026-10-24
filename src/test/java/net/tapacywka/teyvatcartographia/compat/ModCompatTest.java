@@ -7,13 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Other mods: the cave map and the theme's palette in the Aether follow its settings, elsewhere they are untouched. */
+/** Other mods: no cave map in the Aether, the names of the mods. */
 class ModCompatTest {
     @Test
-    void noCavesInTheAetherUnlessAskedFor() {
-        assertFalse(ModCompat.caves(ModCompat.AETHER_DIMENSION, false));
-        assertTrue(ModCompat.caves(ModCompat.AETHER_DIMENSION, true));
-        assertTrue(ModCompat.caves(Level.OVERWORLD, false), "the Aether setting leaves other dimensions alone");
+    void noCavesInTheAether() {
+        assertFalse(ModCompat.caves(ModCompat.AETHER_DIMENSION), "its islands float over the void");
+        assertTrue(ModCompat.caves(Level.OVERWORLD), "other dimensions keep them");
     }
 
     @Test
