@@ -5,6 +5,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.core.QuartPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.FluidTags;
@@ -49,8 +50,30 @@ public final class ChunkScanner {
     /** {@link Snapshot#waterDepth} of a lava column (no water there, but not walkable either). */
     public static final byte LAVA = -1;
 
+    /**
+     * The chunk at (cx, cz) and the eight around it as the level holds them now, null where not loaded, at
+     * {@code [(dz + 1) * 3 + dx + 1]}. Taken on the main thread when a chunk is queued and handed to the worker: read
+     * through the level on the worker, a neighbour unloaded in between answered with the default biome (dark water
+     * lines along chunk borders behind a moving player, 24.10.2026); a chunk object keeps its data once taken.
+     */
+    public static LevelChunk[] around(ClientLevel level, int cx, int cz) {
+        LevelChunk[] out = new LevelChunk[9];
+        for (int dz = -1; dz <= 1; dz++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                out[(dz + 1) * 3 + dx + 1] = level.getChunkSource().getChunk(cx + dx, cz + dz, false);
+            }
+        }
+        return out;
+    }
+
+    /** {@link #scan(ClientLevel, LevelChunk, boolean, LevelChunk[])} with the chunks around as they are now (main thread). */
     public static Snapshot scan(ClientLevel level, LevelChunk chunk, boolean ceiling) {
+        return scan(level, chunk, ceiling, around(level, chunk.getPos().x, chunk.getPos().z));
+    }
+
+    public static Snapshot scan(ClientLevel level, LevelChunk chunk, boolean ceiling, LevelChunk[] around) {
         int cx = chunk.getPos().x, cz = chunk.getPos().z;
+        around[4] = chunk; // itself, whatever the level held when the ring was taken
         int[] color = new int[256];
         short[] height = new short[256];
         byte[] depth = new byte[256];
@@ -60,9 +83,9 @@ public final class ChunkScanner {
         int ceilingStart = Math.min(level.getMaxBuildHeight() - 1, minY + level.dimensionType().logicalHeight() - 1);
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         boolean shallow = MapConfig.get(MapConfig.SHALLOW_WATER) > 0;
-        TintGrid water = TintGrid.of(level, cx, cz, BiomeColors.WATER_COLOR_RESOLVER),
-                grass = TintGrid.of(level, cx, cz, BiomeColors.GRASS_COLOR_RESOLVER),
-                foliageTint = TintGrid.of(level, cx, cz, BiomeColors.FOLIAGE_COLOR_RESOLVER);
+        TintGrid water = TintGrid.of(around, cx, cz, BiomeColors.WATER_COLOR_RESOLVER),
+                grass = TintGrid.of(around, cx, cz, BiomeColors.GRASS_COLOR_RESOLVER),
+                foliageTint = TintGrid.of(around, cx, cz, BiomeColors.FOLIAGE_COLOR_RESOLVER);
         // The colours of the block textures (like Xaero's Minimap), in every dimension; the theme's own colours for
         // this dimension's blocks come first.
         Map<Block, Integer> own = MapPalette.dimension(level.dimension());
@@ -246,24 +269,31 @@ public final class ChunkScanner {
 
         /**
          * The biome colours blended over the game's Biome Blend radius, as {@code level.getBlockTint} does, but only over
-         * loaded chunks (fixed 24.10.2026): the game's blend took the default biome of an unloaded neighbour (other
-         * water) and kept it in its tint cache after that neighbour loaded, so a chunk mapped at the edge of the loaded
-         * area kept a darker band along that border even when mapped again.
+         * the chunks of {@code around} ({@link ChunkScanner#around}, taken on the main thread): read through the level,
+         * the game's blend and then a neighbour unloaded while the worker read it gave the default biome (other water),
+         * a darker band along that chunk border (fixed 24.10.2026). Biomes per quart, as stored (no vanilla jitter).
          */
-        static TintGrid of(ClientLevel level, int cx, int cz, ColorResolver resolver) {
-            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        static TintGrid of(LevelChunk[] around, int cx, int cz, ColorResolver resolver) {
             int radius = net.minecraft.client.Minecraft.getInstance().options.biomeBlendRadius().get();
+            Loaded loaded = (ncx, ncz) -> chunk(around, cx, cz, ncx, ncz) != null;
             return new TintGrid(new TintSource() {
                 @Override
                 public int tint(int wx, int y, int wz) {
-                    return blend(wx, wz, radius, level::hasChunk, (x, z) -> resolver.getColor(level.getBiome(pos.set(x, y, z)).value(), x, z));
+                    return blend(wx, wz, radius, loaded, (x, z) -> resolver.getColor(
+                            chunk(around, cx, cz, x >> 4, z >> 4).getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z)).value(), x, z));
                 }
 
                 @Override
                 public boolean loaded(int ncx, int ncz) {
-                    return level.hasChunk(ncx, ncz);
+                    return loaded.test(ncx, ncz);
                 }
             }, cx, cz);
+        }
+
+        /** The chunk (ncx, ncz) of {@code around} the chunk (cx, cz), null when not loaded or not among the nine. */
+        private static LevelChunk chunk(LevelChunk[] around, int cx, int cz, int ncx, int ncz) {
+            int dx = ncx - cx, dz = ncz - cz;
+            return Math.abs(dx) > 1 || Math.abs(dz) > 1 ? null : around[(dz + 1) * 3 + dx + 1];
         }
 
         /** A chunk is loaded ({@code cx}, {@code cz}). */

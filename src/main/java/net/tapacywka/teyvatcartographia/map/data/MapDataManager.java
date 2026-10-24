@@ -225,12 +225,14 @@ public final class MapDataManager {
         int side = 2 * rx + 1, rows = 2 * rz + 1, pcx = player.chunkPosition().x, pcz = player.chunkPosition().z;
         List<LevelChunk> chunks = new ArrayList<>();
         List<ChunkShader.Neighbourhood> around = new ArrayList<>();
+        List<LevelChunk[]> rings = new ArrayList<>();
         for (int dz = -rz; dz <= rz; dz++) {
             for (int dx = -rx; dx <= rx; dx++) {
                 LevelChunk chunk = level.getChunkSource().getChunk(pcx + dx, pcz + dz, ChunkStatus.FULL, false);
                 if (chunk == null || chunk.isEmpty()) continue;
                 chunks.add(chunk);
                 around.add(neighbourhood(pcx + dx, pcz + dz));
+                rings.add(ChunkScanner.around(level, pcx + dx, pcz + dz));
             }
         }
         ClientLevel lvl = level;
@@ -240,7 +242,7 @@ public final class MapDataManager {
             try {
                 for (int i = 0; i < chunks.size(); i++) {
                     LevelChunk chunk = chunks.get(i);
-                    ChunkScanner.Snapshot snap = ChunkScanner.scan(lvl, chunk, ceiling);
+                    ChunkScanner.Snapshot snap = ChunkScanner.scan(lvl, chunk, ceiling, rings.get(i));
                     ChunkShader.Neighbourhood n = around.get(i);
                     fillOwnColumns(snap, n);
                     int ox = (chunk.getPos().x - pcx + rx) * 16, oz = (chunk.getPos().z - pcz + rz) * 16;
@@ -515,12 +517,13 @@ public final class MapDataManager {
             // The main thread only gathers the neighbours' edges from the map; reading the chunk and shading it
             // run on a worker, like the vanilla section compile reads blocks, tints and light off the main thread.
             ChunkShader.Neighbourhood n = neighbourhood(cx, cz);
+            LevelChunk[] ring = ChunkScanner.around(level, cx, cz); // here: the worker reads these, not the level
             ClientLevel lvl = level;
             long gen = generation;
             inFlight.incrementAndGet();
             workers.execute(() -> {
                 try {
-                    ChunkScanner.Snapshot snap = ChunkScanner.scan(lvl, chunk, ceiling);
+                    ChunkScanner.Snapshot snap = ChunkScanner.scan(lvl, chunk, ceiling, ring);
                     fillOwnColumns(snap, n);
                     results.add(new Object[]{gen, ChunkShader.shade(snap, n, detail)});
                 } catch (RuntimeException e) {

@@ -8,6 +8,10 @@ the build metadata after the version: `0.2.0+mc1.21.1-neoforge` is version 0.2.0
 
 ## [Unreleased]
 
+### Fixed
+- Dark lines along chunk borders on water (and in grass and leaf colours) behind a player who was moving, flying or
+  sailing: a chunk mapped while its neighbour was being unloaded took that neighbour's colour from the default biome.
+
 ## [0.2.0] - 2026-10-24
 
 ### Added
