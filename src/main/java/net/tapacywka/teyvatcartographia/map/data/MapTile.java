@@ -135,6 +135,18 @@ public final class MapTile {
     }
 
     /**
+     * The sides of the chunk written last whose edge columns changed height or kind (bits: 1 north, 2 south, 4 west,
+     * 8 east); 0 for a chunk new to the map (its neighbours are redone for their missing edge). The neighbours on those
+     * sides were shaded with the old edge (relief, contours, coast rim) and are mapped again.
+     */
+    int changedEdges;
+
+    /** The sides of a chunk that a column at (x, z) within it lies on (see {@link #changedEdges}). */
+    static int edgeBits(int x, int z) {
+        return (z == 0 ? 1 : 0) | (z == 15 ? 2 : 0) | (x == 0 ? 4 : 0) | (x == 15 ? 8 : 0);
+    }
+
+    /**
      * Writes a shaded chunk (16x16 ABGR pixels + heights + flags) into this tile. Returns whether anything changed:
      * chunks around the player are re-sampled every second, and an unchanged one must not trigger a texture upload,
      * a light rebuild, a disk save or a minimap refresh. With {@code merge} only the known columns of the chunk are
@@ -143,6 +155,8 @@ public final class MapTile {
     boolean applyChunk(int lcx, int lcz, int[] abgr, short[] h, byte[] f, byte[] l, int neighbourMask, ResourceKey<Biome> biome, boolean merge) {
         int x0 = lcx << 4, z0 = lcz << 4;
         boolean pixels = false, lit = false, data = false;
+        boolean known = (chunkState[lcz * CHUNKS + lcx] & 0x80) != 0;
+        changedEdges = 0;
         for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
                 int i = z * 16 + x, ti = idx(x0 + x, z0 + z);
@@ -152,6 +166,7 @@ public final class MapTile {
                     pixels = true;
                 }
                 if (heights[ti] != h[i] || flags[ti] != f[i]) {
+                    if (known) changedEdges |= edgeBits(x, z);
                     heights[ti] = h[i];
                     flags[ti] = f[i];
                     data = true;

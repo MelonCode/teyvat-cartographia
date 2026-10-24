@@ -85,17 +85,19 @@ final class SettingsPreview {
         }
         MapConfig.PinOptions o = MapConfig.pins(focus);
         float label = Grid.GAP + DrawText.LINE;
-        float[][] at = new float[3][];
-        if (w > h * 1.3f) {
-            // Wide (over the list): the three side by side.
-            float fw = (w - 2 * Grid.GAP) / 3f, fh = h - label;
-            for (int i = 0; i < 3; i++) at[i] = new float[] {x + i * (fw + Grid.GAP), y, fw, fh};
-        } else {
-            // The maps side by side, the world under them across the whole width.
-            float fw = (w - Grid.GAP) / 2f, fh = (h - Grid.GAP - 2 * label) / 2f;
-            at[0] = new float[] {x, y, fw, fh};
-            at[1] = new float[] {x + fw + Grid.GAP, y, fw, fh};
+        // Pins: the world map, the minimap, the marker over a tracked pin in the world and its beam; the path: the
+        // two maps and the stars in the world.
+        int n = path ? 3 : 4;
+        float[][] at = new float[n][];
+        float fw = (w - Grid.GAP) / 2f, fh = (h - Grid.GAP - 2 * label) / 2f;
+        at[0] = new float[] {x, y, fw, fh};
+        at[1] = new float[] {x + fw + Grid.GAP, y, fw, fh};
+        if (path) {
+            // The world under the maps across the whole width.
             at[2] = new float[] {x, y + fh + label + Grid.GAP, w, fh};
+        } else {
+            at[2] = new float[] {x, y + fh + label + Grid.GAP, fw, fh};
+            at[3] = new float[] {x + fw + Grid.GAP, y + fh + label + Grid.GAP, fw, fh};
         }
         for (float[] a : at) {
             float x1 = Draw.snap(a[0] + a[2]), y1 = Draw.snap(a[1] + a[3]);
@@ -104,28 +106,31 @@ final class SettingsPreview {
             a[2] = x1 - a[0];
             a[3] = y1 - a[1];
         }
-        boolean[] on = path ? new boolean[] {o.pathOnMap(), o.pathOnMinimap(), o.pathInWorld()} : new boolean[] {o.onMap(), o.onMinimap(), o.beam()};
-        String[] keys = {"teyvatcartographia.config.preview.frame.map", "teyvatcartographia.config.preview.frame.minimap",
-                path ? "teyvatcartographia.config.preview.frame.stars" : "teyvatcartographia.config.preview.frame.beam"};
+        // The marker in the world is always shown for now (a step of its own to come).
+        boolean[] on = path ? new boolean[] {o.pathOnMap(), o.pathOnMinimap(), o.pathInWorld()} : new boolean[] {o.onMap(), o.onMinimap(), true, o.beam()};
+        String[] keys = path ? new String[] {"teyvatcartographia.config.preview.frame.map", "teyvatcartographia.config.preview.frame.minimap",
+                "teyvatcartographia.config.preview.frame.stars"}
+                : new String[] {"teyvatcartographia.config.preview.frame.map", "teyvatcartographia.config.preview.frame.minimap",
+                "teyvatcartographia.config.preview.frame.marker", "teyvatcartographia.config.preview.frame.beam"};
         double[] zooms = {MapView.snapZoom(MapConfig.get(MapConfig.MAP_DEFAULT_ZOOM)), MapView.snapZoom(MapConfig.get(MapConfig.MINIMAP_ZOOM))};
-        for (int i = 0; i < 3; i++) {
-            float fx = at[i][0], fy = at[i][1], fw = at[i][2], fh = at[i][3];
-            g.enableScissor((int) fx, (int) fy, (int) (fx + fw), (int) (fy + fh));
+        for (int i = 0; i < n; i++) {
+            float fx = at[i][0], fy = at[i][1], fw2 = at[i][2], fh2 = at[i][3];
+            g.enableScissor((int) fx, (int) fy, (int) (fx + fw2), (int) (fy + fh2));
             if (i == 1 && minimapReady) {
-                minimap(g, fx, fy, fw, fh);
-                samplePins(g, fx + fw / 2f, fy + fh / 2f, Math.min(fw, fh), focus, path);
+                minimap(g, fx, fy, fw2, fh2);
+                samplePins(g, fx + fw2 / 2f, fy + fh2 / 2f, Math.min(fw2, fh2), focus, path);
             } else if (i < 2) {
-                mapArea(g, fx, fy, fw, fh, map, zooms[i]);
-                samplePins(g, fx + fw / 2f, fy + fh / 2f, Math.min(fw, fh), focus, path);
+                mapArea(g, fx, fy, fw2, fh2, map, zooms[i]);
+                samplePins(g, fx + fw2 / 2f, fy + fh2 / 2f, Math.min(fw2, fh2), focus, path);
             } else {
-                world(g, fx, fy, fw, fh, focus, path);
+                world(g, fx, fy, fw2, fh2, focus, path ? WORLD_STARS : i == 2 ? WORLD_MARKER : WORLD_BEAM);
             }
-            if (!on[i]) Draw.rect(g, fx, fy, fx + fw, fy + fh, OFF_DIM);
+            if (!on[i]) Draw.rect(g, fx, fy, fx + fw2, fy + fh2, OFF_DIM);
             g.disableScissor();
-            Draw.frame(g, fx, fy, fw, fh, 1, Theme.PANEL_LINE);
+            Draw.frame(g, fx, fy, fw2, fh2, 1, Theme.PANEL_LINE);
             Component caption = Component.translatable(keys[i]);
-            DrawText.room(caption, fw);
-            DrawText.textCentered(g, Component.literal(DrawText.fit(caption.getString(), (int) fw)), Draw.snap(fx + fw / 2f), fy + fh + Grid.GAP,
+            DrawText.room(caption, fw2);
+            DrawText.textCentered(g, Component.literal(DrawText.fit(caption.getString(), (int) fw2)), Draw.snap(fx + fw2 / 2f), fy + fh2 + Grid.GAP,
                     on[i] ? Theme.CREAM : Theme.TEXT_MUTED, false);
         }
     }
@@ -197,18 +202,22 @@ final class SettingsPreview {
         return -Math.PI / 2 + i * 2 * Math.PI / n;
     }
 
+    /** What the world frame shows: the marker over the tracked pin alone, with its beam, or the stars of the path. */
+    private static final int WORLD_MARKER = 0, WORLD_BEAM = 1, WORLD_STARS = 2;
+
     /**
-     * The world as the player sees it: sky and ground, and a pin of the kind with its beam of light (a soft glow in the
-     * kind's colour around a light core, the glyph and the distance at its foot), or ({@code path}) the stars leading
-     * up to it from the near ground.
+     * The world as the player sees it: sky and ground, and the marker of a tracked pin of the kind (its glyph and the
+     * distance), with its beam of light ({@link #WORLD_BEAM}: a soft glow in the kind's colour around a light core), or
+     * with the stars of the path leading up to it from the near ground ({@link #WORLD_STARS}).
      */
-    private static void world(GuiGraphics g, float x, float y, float w, float h, MapConfig.PinKind kind, boolean path) {
+    private static void world(GuiGraphics g, float x, float y, float w, float h, MapConfig.PinKind kind, int mode) {
         float horizon = Draw.snap(y + h * 0.55f);
         Draw.gradientRectV(g, x, y, x + w, horizon, SKY_TOP, SKY_HORIZON);
         Draw.gradientRectV(g, x, horizon, x + w, y + h, GROUND_FAR, GROUND_NEAR);
         MarkerType type = PATH_TO[kind.ordinal()];
-        float cx = Draw.snap(x + w * (path ? 0.6f : 0.5f)), foot = Draw.snap(y + h * 0.62f);
-        if (path) {
+        boolean stars = mode == WORLD_STARS;
+        float cx = Draw.snap(x + w * (stars ? 0.6f : 0.5f)), foot = Draw.snap(y + h * 0.62f);
+        if (stars) {
             // Stars from the near ground to the pin, smaller and closer together with the distance.
             float sx = x + w * 0.3f, sy = y + h * 0.96f;
             int c = Theme.worldMarkerPulse(kind);
@@ -216,14 +225,14 @@ final class SettingsPreview {
                 float t = i / 8f, px = sx + (cx - sx) * t, py = sy + (foot + 6 - sy) * t * (2 - t);
                 star(g, px, py, Math.max(1.5f, 4.5f - 3f * t), c);
             }
-        } else {
+        } else if (mode == WORLD_BEAM) {
             int beam = Theme.worldMarkerBeam(kind), core = Theme.worldMarkerBeamCore(kind);
             for (int r = 12; r >= 2; r -= 2) Draw.rect(g, cx - r, y, cx + r, foot, Theme.withAlpha(beam, 0.18f));
             Draw.rect(g, cx - 1, y, cx + 1, foot, core);
         }
         Draw.icon(g, type.icon, cx, foot + 4, 10, Theme.WHITE);
         // The distance under the glyph; over it where the stars come up from below.
-        DrawText.textCentered(g, net.tapacywka.teyvatcartographia.render.DistanceText.blocks(61), cx, path ? foot - 12 : foot + 11, Theme.WHITE, true);
+        DrawText.textCentered(g, net.tapacywka.teyvatcartographia.render.DistanceText.blocks(61), cx, stars ? foot - 12 : foot + 11, Theme.WHITE, true);
     }
 
     /** A four-pointed star of light {@code s} units from its middle to a point. */

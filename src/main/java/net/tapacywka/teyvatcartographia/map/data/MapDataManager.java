@@ -572,12 +572,15 @@ public final class MapDataManager {
                 continue;
             }
             ChunkShader.Result r = (ChunkShader.Result) e[1];
-            active.apply(r);
+            int edges = active.apply(r);
             mappedNow++;
-            // Neighbours shaded before this chunk existed lack correct edges (coast rim, contours): redo them.
-            for (int[] d : DIRS) {
+            // Neighbours shaded before this chunk existed lack correct edges (coast rim, contours), and those shaded
+            // with its old edge before the land there changed (a forest cut, ground levelled) show a line along the
+            // border: redo them. Their own heights do not change, so this goes no further.
+            for (int i = 0; i < DIRS.length; i++) {
+                int[] d = DIRS[i];
                 int nx = r.cx() + d[0], nz = r.cz() + d[1];
-                if (active.hasChunk(nx, nz) && (active.neighbourMask(nx, nz) & d[2]) == 0
+                if (active.hasChunk(nx, nz) && ((active.neighbourMask(nx, nz) & d[2]) == 0 || (edges & 1 << i) != 0)
                         && level.getChunkSource().getChunk(nx, nz, ChunkStatus.FULL, false) != null) {
                     enqueue(nx, nz, false);
                 }

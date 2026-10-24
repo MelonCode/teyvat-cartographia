@@ -11,6 +11,9 @@ public final class Route {
 
     /** The far path joins the near one at its point closest to the near path's end, among its first ones. */
     private static final int JOIN_SEARCH = 40;
+    /** ... within this many blocks of that end; with no point of the far path so close, the near path stands alone. */
+    private static final float JOIN_REACH = 16;
+    private static float[] farXZ = new float[1024];
 
     private static float[] xz = new float[1024];
     private static float[] ys = new float[512];
@@ -26,14 +29,12 @@ public final class Route {
         int near = PathFinder.pointCount(), far = FarPath.pointCount();
         int join = 0;
         if (near > 0 && far > 0) {
-            float ex = PathFinder.x(near - 1), ez = PathFinder.z(near - 1), bestD = Float.MAX_VALUE;
-            for (int i = 0; i < Math.min(far, JOIN_SEARCH); i++) {
-                float d = (FarPath.x(i) - ex) * (FarPath.x(i) - ex) + (FarPath.z(i) - ez) * (FarPath.z(i) - ez);
-                if (d < bestD) {
-                    bestD = d;
-                    join = i + 1;
-                }
+            if (farXZ.length < 2 * far) farXZ = new float[2 * far];
+            for (int i = 0; i < far; i++) {
+                farXZ[2 * i] = FarPath.x(i);
+                farXZ[2 * i + 1] = FarPath.z(i);
             }
+            join = join(farXZ, far, PathFinder.x(near - 1), PathFinder.z(near - 1));
         }
         int n = near + Math.max(0, far - join);
         if (fog.length < n) {
@@ -58,6 +59,34 @@ public final class Route {
             along[i] = i == 0 ? 0 : along[i - 1] + (float) Math.hypot(xz[2 * i] - xz[2 * i - 2], xz[2 * i + 1] - xz[2 * i - 1]);
         }
         return count = n;
+    }
+
+    /**
+     * Where the far path ({@code n} points (x, z) in {@code xz}) goes on after the near path ending at (ex, ez): the index
+     * after its point nearest to that end. That point is looked for among the first {@link #JOIN_SEARCH} points first,
+     * so a far path looping back past the end is not cut short, then along the whole path. With no point within
+     * {@link #JOIN_REACH} blocks, {@code n}: the far path is left out. It happens when the target lies within the
+     * near path's reach but cannot be walked to (an island): the near path ends on the shore nearest to it, and joining
+     * the far path at a point near the player drew a line back across the water and round the lake once more.
+     */
+    static int join(float[] xz, int n, float ex, float ez) {
+        int at = nearestFar(xz, Math.min(n, JOIN_SEARCH), ex, ez);
+        if (at < 0) at = nearestFar(xz, n, ex, ez);
+        return at < 0 ? n : at + 1;
+    }
+
+    /** The point among the first {@code n} nearest to (ex, ez), if within {@link #JOIN_REACH}; else -1. */
+    private static int nearestFar(float[] xz, int n, float ex, float ez) {
+        int at = -1;
+        float best = JOIN_REACH * JOIN_REACH;
+        for (int i = 0; i < n; i++) {
+            float dx = xz[2 * i] - ex, dz = xz[2 * i + 1] - ez, d = dx * dx + dz * dz;
+            if (d <= best) {
+                best = d;
+                at = i;
+            }
+        }
+        return at;
     }
 
     /**

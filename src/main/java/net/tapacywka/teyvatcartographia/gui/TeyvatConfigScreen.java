@@ -68,8 +68,8 @@ public final class TeyvatConfigScreen extends Screen {
     private boolean previewCard, previewOpen;
     private float previewX, previewW;
     private final MapView previewView = new MapView();
-    /** The pin row (its key) the Pins preview shows: the last one pointed at on that tab, null before any. */
-    private String pinFocus;
+    /** The setting the preview shows: the one under the pointer (kept while the pointer goes right, to the preview), or null. */
+    private Row previewRow;
     private int blurW = -1, blurH = -1, blurTheme = -1, blurFrames;
 
     private abstract static class Row {
@@ -102,6 +102,11 @@ public final class TeyvatConfigScreen extends Screen {
         Row(Component label) {
             this.label = label;
             this.tooltip = null;
+        }
+
+        /** The value as the row shows it ("On", "100%", "High"), for the preview's caption; null for headings. */
+        String valueText() {
+            return null;
         }
 
         float height() {
@@ -220,6 +225,11 @@ public final class TeyvatConfigScreen extends Screen {
         void render(GuiGraphics g, float x, float w, int mx, int my) {
             renderLabel(g, x, w);
             Ui.toggle(g, tx(x, w), ty(), MapConfig.get(value), mx, my);
+        }
+
+        @Override
+        String valueText() {
+            return (MapConfig.get(value) ? net.minecraft.network.chat.CommonComponents.OPTION_ON : net.minecraft.network.chat.CommonComponents.OPTION_OFF).getString();
         }
 
         @Override
@@ -371,10 +381,19 @@ public final class TeyvatConfigScreen extends Screen {
                 Draw.diamond(g, tx + tw * t, cy, k, Theme.TOGGLE_KNOB);
                 Draw.diamondOutline(g, tx + tw * t, cy, k, 1, Theme.SLIDER_TICK);
             }
-            String text = labeler != null ? labeler.apply(v)
-                    : integer ? String.format(Locale.ROOT, format, (int) Math.round(v)) : String.format(Locale.ROOT, format, v);
+            String text = text(v);
             DrawText.room(text, valueW + Grid.GAP); // right of the track and its knob
             DrawText.textRight(g, Component.literal(text), x + w, DrawText.textY(y, Grid.ROW), Theme.CREAM, false);
+        }
+
+        private String text(double v) {
+            return labeler != null ? labeler.apply(v)
+                    : integer ? String.format(Locale.ROOT, format, (int) Math.round(v)) : String.format(Locale.ROOT, format, v);
+        }
+
+        @Override
+        String valueText() {
+            return text(getter.getAsDouble());
         }
 
         @Override
@@ -442,9 +461,17 @@ public final class TeyvatConfigScreen extends Screen {
             renderLabel(g, x, w);
             float bx = bx(x, w), bw = w / 2, by = by();
             boolean hover = Draw.inRect(mx, my, bx, by, bw, H);
+            cycler(g, bx, by, bw, H, name(), hover, active());
+        }
+
+        private Component name() {
             E v = MapConfig.get(value);
-            Component c = names != null ? names.apply(v) : Component.translatable("teyvatcartographia.config.value." + v.name().toLowerCase(Locale.ROOT));
-            cycler(g, bx, by, bw, H, c, hover, active());
+            return names != null ? names.apply(v) : Component.translatable("teyvatcartographia.config.value." + v.name().toLowerCase(Locale.ROOT));
+        }
+
+        @Override
+        String valueText() {
+            return name().getString();
         }
 
         @Override
@@ -829,7 +856,40 @@ public final class TeyvatConfigScreen extends Screen {
         return tabs.get(tab).key();
     }
 
-    /** The card: a dark panel with its title, the preview of the tab shown inside. */
+    /**
+     * The setting the preview shows: the row under the pointer, the slider being dragged, or none. While the pointer
+     * goes right of the list (the scrollbar, the gap, the preview itself) the row stays, so the preview can be looked at
+     * and used; elsewhere on the screen it goes.
+     */
+    private void followPointer(int mx, int my) {
+        if (!previewCard) return;
+        if (draggingRow != null) {
+            previewRow = draggingRow;
+            return;
+        }
+        if (mx >= contentX() + contentW()) return;
+        Row at = null;
+        if (my >= listTop && my < listBottom && mx >= contentX()) {
+            for (Row r : rows) if (r.tooltip != null && inView(r) && my >= r.y && my < r.y + r.height()) at = r;
+        }
+        previewRow = at;
+    }
+
+    /** The translation key of a row's name ("teyvatcartographia.config.plants"), or "" for a name of its own. */
+    private static String rowKey(Row r) {
+        return r != null && r.label.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc ? tc.getKey() : "";
+    }
+
+    /** Settings whose preview is their description alone (nothing on the map to show for them). */
+    private static final java.util.Set<String> DESCRIPTION_ONLY = java.util.Set.of("teyvatcartographia.config.theme",
+            "teyvatcartographia.config.interface_style", "teyvatcartographia.config.plants", "teyvatcartographia.config.vanilla_fogs",
+            "teyvatcartographia.config.biome_blend", "teyvatcartographia.config.world_tints");
+
+    /**
+     * The card: a dark panel with its title, then for the setting pointed at its pictures at the top (a caption with
+     * its value under a single one), its name and its description under them; with none pointed at, a line asking for
+     * one. Without room beside the panel (over the list), a line asking for a smaller interface.
+     */
     private void renderPreview(GuiGraphics g, float x, float y, float w, float h, float pt) {
         Draw.rect(g, x, y, x + w, y + h, Theme.PANEL_DARK);
         Draw.rect(g, x, y, x + w, y + Grid.HEADER_H, Theme.PANEL_DARK_HEADER);
@@ -838,13 +898,53 @@ public final class TeyvatConfigScreen extends Screen {
         DrawText.room(title, w - 2 * Grid.PAD);
         DrawText.text(g, title, x + Grid.PAD, DrawText.textY(y, Grid.HEADER_H), Theme.GOLD, false);
         float cx = x + Grid.PAD, cy = y + Grid.HEADER_H + Grid.PAD, cw = w - 2 * Grid.PAD, ch = h - Grid.HEADER_H - 2 * Grid.PAD;
+        if (!previewCard) {
+            previewLines(g, cx, cy, cw, ch, "teyvatcartographia.config.preview.small", "teyvatcartographia.config.preview.small_hint");
+            return;
+        }
+        Row row = previewRow;
+        if (row == null || row.tooltip == null) {
+            previewLines(g, cx, cy, cw, ch, "teyvatcartographia.config.preview.point", "teyvatcartographia.config.preview.point_hint");
+            return;
+        }
+        String key = shownTabKey(), rk = rowKey(row);
+        // The description: the name in gold over a line, the text wrapped under it.
+        List<net.minecraft.util.FormattedCharSequence> lines = DrawText.font().split(row.tooltip, (int) cw);
+        float descH = DrawText.LINE + Grid.GAP + 1 + Grid.GAP + lines.size() * (DrawText.LINE + 2) - 2;
+        boolean picture = !DESCRIPTION_ONLY.contains(rk);
+        float descY = cy;
+        if (picture) {
+            boolean single = key.equals("teyvatcartographia.config.tab.map") || key.equals("teyvatcartographia.config.tab.minimap");
+            float captionH = single ? DrawText.LINE + Grid.GAP : 0;
+            float vh = Draw.snap(ch - descH - Grid.PAD - captionH);
+            previewPicture(g, cx, cy, cw, vh, pt, key, rk);
+            if (single) {
+                String caption = row.label.getString() + (row.valueText() == null ? "" : ": " + row.valueText());
+                DrawText.room(caption, cw);
+                DrawText.textCentered(g, Component.literal(DrawText.fit(caption, (int) cw)), Draw.snap(cx + cw / 2f), cy + vh + Grid.GAP, Theme.CREAM, false);
+            }
+            descY = cy + vh + captionH + Grid.PAD;
+        }
+        DrawText.text(g, DrawText.fit(row.label.getString(), (int) cw), cx, descY, Theme.GOLD, false);
+        Draw.rect(g, cx, descY + DrawText.LINE + Grid.GAP, cx + cw, descY + DrawText.LINE + Grid.GAP + 1, Theme.PANEL_LINE);
+        float ty = descY + DrawText.LINE + 2 * Grid.GAP + 1;
+        for (net.minecraft.util.FormattedCharSequence l : lines) {
+            g.pose().pushPose();
+            g.pose().translate(Draw.snap(cx), Draw.snap(ty), 0);
+            g.drawString(DrawText.font(), l, 0, 0, Theme.CREAM, false);
+            g.pose().popPose();
+            ty += DrawText.LINE + 2;
+        }
+    }
+
+    /** The pictures of the setting {@code rk} of the tab {@code key} in the area, clipped to it. */
+    private void previewPicture(GuiGraphics g, float cx, float cy, float cw, float ch, float pt, String key, String rk) {
         Minecraft mc = Minecraft.getInstance();
-        String key = shownTabKey();
         boolean world = mc.player != null && mc.level != null;
         // The minimap's layers are brought up to date before any clipping (they draw off screen).
-        boolean minimap = world && (key.equals("teyvatcartographia.config.tab.minimap") || key.equals("teyvatcartographia.config.tab.pins") && pinFocus != null)
+        boolean minimap = world && (key.equals("teyvatcartographia.config.tab.minimap") || key.equals("teyvatcartographia.config.tab.pins"))
                 && MinimapLayer.preparePreview(g, mc.getTimer());
-        g.enableScissor((int) cx, (int) cy, (int) (cx + cw), (int) (cy + ch)); // nothing spills out of the card
+        g.enableScissor((int) cx, (int) cy, (int) (cx + cw), (int) (cy + ch)); // nothing spills out of the area
         if (key.equals("teyvatcartographia.config.tab.map")) {
             if (world) previewMap(g, cx, cy, cw, ch, MapView.snapZoom(MapConfig.get(MapConfig.MAP_DEFAULT_ZOOM)), pt);
             else previewNote(g, cx, cy, cw, ch, "teyvatcartographia.config.preview.no_world");
@@ -853,7 +953,7 @@ public final class TeyvatConfigScreen extends Screen {
             else if (!minimap) previewNote(g, cx, cy, cw, ch, "teyvatcartographia.config.preview.minimap_off");
             else previewMinimap(g, cx, cy, cw, ch);
         } else if (key.equals("teyvatcartographia.config.tab.pins")) {
-            SettingsPreview.pins(g, cx, cy, cw, ch, (g2, mx, my, mw, mh, zoom) -> previewMap(g2, mx, my, mw, mh, zoom, pt), pinFocus, minimap);
+            SettingsPreview.pins(g, cx, cy, cw, ch, (g2, mx, my, mw, mh, zoom) -> previewMap(g2, mx, my, mw, mh, zoom, pt), rk, minimap);
         } else if (key.equals("teyvatcartographia.config.tab.system")) {
             if (world) SettingsPreview.system(g, cx, cy, cw, ch);
             else previewNote(g, cx, cy, cw, ch, "teyvatcartographia.config.preview.no_world");
@@ -863,6 +963,15 @@ public final class TeyvatConfigScreen extends Screen {
             SettingsPreview.compat(g, cx, cy, cw, ch, mods);
         }
         g.disableScissor();
+    }
+
+    /** Lines of muted text in the middle of the area, each shortened to fit. */
+    private static void previewLines(GuiGraphics g, float x, float y, float w, float h, String... keys) {
+        float top = y + (h - keys.length * (DrawText.LINE + 2) + 2) / 2f;
+        for (int i = 0; i < keys.length; i++) {
+            Component t = Component.literal(DrawText.fit(Component.translatable(keys[i]).getString(), (int) w));
+            DrawText.textCentered(g, t, Draw.snap(x + w / 2f), Draw.snap(top + i * (DrawText.LINE + 2)), Theme.TEXT_MUTED, false);
+        }
     }
 
     /** A short note in the middle of the area (no world, the minimap off, no preview yet). */
@@ -1009,16 +1118,7 @@ public final class TeyvatConfigScreen extends Screen {
             yy += r.listHeight();
         }
         g.disableScissor();
-        // The Pins preview follows the pin row last pointed at (it stays when the pointer moves on to the preview).
-        if (!overlay && shownTabKey().equals("teyvatcartographia.config.tab.pins")) {
-            for (Row r : rows) {
-                if (!inView(r) || my < r.y || my >= r.y + r.height() || mx < contentX() || mx >= contentX() + contentW()) continue;
-                if (r.label.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc
-                        && (tc.getKey().startsWith("teyvatcartographia.config.pins.") || tc.getKey().startsWith("teyvatcartographia.config.path."))) {
-                    pinFocus = tc.getKey();
-                }
-            }
-        }
+        followPointer(mx, my);
         if (overlay) renderPreview(g, contentX(), listTop, contentW(), listBottom - listTop, pt);
         else renderBar(g, total, mx, my);
         if (previewCard) renderPreview(g, previewX, panelY, previewW, panelH, pt);
@@ -1028,16 +1128,6 @@ public final class TeyvatConfigScreen extends Screen {
         Ui.actionButton(g, footerButtonX(1), by, bw, Component.translatable("teyvatcartographia.config.reset"), Icon.RESET, true, mx, my);
         Ui.actionButton(g, footerButtonX(2), by, bw, Component.translatable("gui.done"), Icon.CHECK, true, mx, my);
 
-        // Tooltip for the setting whose label is under the cursor.
-        if (!overlay && my >= listTop && my < listBottom && mx >= contentX() && mx < contentX() + contentW() / 2) {
-            for (Row r : rows) {
-                if (r.tooltip != null && inView(r) && my >= r.y && my < r.y + r.height()) {
-                    // Above the pointer where below it would cover the buttons under the list.
-                    Ui.wrappedTooltip(g, r.label, r.tooltip, mx, my, width, (int) listBottom);
-                    break;
-                }
-            }
-        }
         if (draggingRow != null) Cursors.force(Cursors.Shape.RESIZE_H);
         if (draggingBar) Cursors.force(Cursors.Shape.RESIZE_V);
         Cursors.apply();
@@ -1060,7 +1150,7 @@ public final class TeyvatConfigScreen extends Screen {
                 tab = i;
                 rows = tabs.get(i).rows();
                 previewOpen = false;
-                pinFocus = null;
+                previewRow = null;
                 scroll = 0;
                 return true;
             }

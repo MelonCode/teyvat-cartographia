@@ -67,6 +67,9 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * For theme makers: some icon files have new names, after the pins: `boss`, `food`, `clover`, `statue`, `domain`,
   `waypoint` and `grave` are now `demon`, `meat`, `flower`, `party`, `structure`, `sign` and `death`; new ones are
   `earth`, `keyboard` and `reset`, and the mouse pointers are in `cursors/`.
+* Fixed: the path to a pin you cannot walk to (on an island) within about 128 blocks went round the lake to the
+  shore nearest to it, then jumped in a straight line back across the water and went round the lake once more. It
+  now stops on that shore.
 
 ### New defaults
 * For new players and after **Reset**: the minimap 4 units from the screen corner (was 8), opacity 0.85 (was 0.95),
@@ -109,6 +112,9 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   jump.
 * Leaves and plants of other mods that the game does not tint with the biome keep their own colour (the cyan
   willows of The Sift).
+* Fixed: after the land changed across chunk borders (a forest cut down, ground levelled), a thin dark line could stay
+  along half of those borders on the map: the chunk mapped first kept the shading of its neighbour's old edge. A
+  chunk whose edge changes now has its neighbours on that side mapped again.
 * Fixed: where two biomes met on a chunk border, their water, grass or leaf colours changed in a sharp straight
   line; the blend now goes on across chunk borders.
 * Plants show on the map, like on Xaero's Minimap: flowers, cherry petals, mushrooms, crops, dead bushes, sugar cane,
@@ -123,12 +129,13 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * The fog of war is redrawn in every dimension, softer and finer, after the fog of Genshin Impact's map: slow wisps
   and softly glowing motes. It repeats every 512 GUI units (was 440); a theme may set its own `"repeat"` in the fog's
   `.json`.
-* A live **Preview** beside the settings: the map around you on the Map tab, the minimap (where it sits on the
+* A live **Preview** beside the settings shows the setting you point at: its picture, then its name and what it
+  does (the settings have no hover tooltips any more); the map around you on the Map tab, the minimap (where it sits on the
   screen, and at its real size) on the Minimap tab, the row you point at on the Pins tab (on the world map, the
   minimap and in the world: the beam or the stars, darkened where the setting leaves them off), the mapping speed,
   regions and memory on the System tab, and samples of the mods' fogs, The Sift's ichor and the Xaero waypoints to
   import on the Compatibility tab, all changing as you change a setting. Without room beside the panel (a small
-  screen or a large interface) a button in the header shows it over the list.
+  screen or a large interface) a button in the header says to lower the GUI scale.
 * A **Colours** section in **Settings > Map**: terrain detail, **Biome blending** (off: each biome in its own
   colour, sharp borders), **Block colours from the world** (off: one colour per block, the same everywhere), **Deep
   water shading** (how much deep water darkens) and **Clear shallow water** (how much of the ground shows through

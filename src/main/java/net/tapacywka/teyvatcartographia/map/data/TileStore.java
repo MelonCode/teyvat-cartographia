@@ -161,7 +161,8 @@ public final class TileStore {
     // --------------------------------------------------------------- writes
 
     /** Applies a shaded chunk; if its region is still on disk the result waits until it is loaded. */
-    void apply(ChunkShader.Result r) {
+    /** Writes a shaded chunk; returns the sides whose edge changed ({@link MapTile#changedEdges}), 0 while its region loads. */
+    int apply(ChunkShader.Result r) {
         int tx = MapView.chunkToTile(r.cx()), tz = MapView.chunkToTile(r.cz());
         long key = MapView.tileKey(tx, tz);
         MapTile t = tiles.get(key);
@@ -169,7 +170,7 @@ public final class TileStore {
             if (onDisk.contains(key) && !failed.contains(key)) {
                 pending.computeIfAbsent(key, k -> new ArrayList<>()).add(r);
                 requestLoad(key);
-                return;
+                return 0;
             }
             t = new MapTile(tx, tz);
             tiles.put(key, t);
@@ -180,6 +181,7 @@ public final class TileStore {
             lod.regionChanged(tx, tz);
         }
         t.touch();
+        return t.changedEdges;
     }
 
     private void requestLoad(long key) {
