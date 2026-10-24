@@ -102,21 +102,69 @@ final class PlantList {
                 TextureColors.Entry c = TextureColors.get(e.block);
                 Draw.rect(g, ix + 2, ry + 4, ix + 14, ry + 16, c != null ? c.argb() : Theme.PANEL_LINE);
             }
-            float nameW = w - 2 * Grid.GAP - 16 - Grid.GAP - Grid.TOGGLE_W - 3 * Grid.GAP;
+            float nameW = toggleX() - Grid.GAP - (ix + 16 + Grid.GAP);
             DrawText.text(g, DrawText.fit(e.name.getString(), (int) nameW), ix + 16 + Grid.GAP, DrawText.textY(ry, ITEM_H), listed ? Theme.CREAM : Theme.TEXT_MUTED, false);
             Ui.toggle(g, toggleX(), ry + (ITEM_H - Grid.TOGGLE_H) / 2f, listed, mx, my);
         }
-        // A thin bar where the list goes on.
+        // The scrollbar, drawn like the settings list's own, inside the frame.
         if (shown.size() > rows) {
-            float top = fy + Grid.CHIP_H + Grid.GAP, track = rows * ITEM_H, th = Math.max(8, track * rows / shown.size());
-            float ty = top + (track - th) * scroll / (shown.size() - rows);
-            Draw.rect(g, x + w - 3, top, x + w - 1, top + track, Theme.SCROLL_TRACK);
-            Draw.rect(g, x + w - 3, ty, x + w - 1, ty + th, Theme.GOLD);
+            float bx = barX(), top = listTop(), track = rows * ITEM_H, th = thumbH(rows), ty = thumbY(rows);
+            boolean hover = barHit(mx, my);
+            if (hover) Cursors.want(Cursors.Shape.RESIZE_V);
+            int thumb = hover || dragging ? Theme.GOLD : Theme.SCROLL_THUMB;
+            if (Theme.Style.squareUi) {
+                Draw.rect(g, bx, top, bx + BAR_W, top + track, Theme.SCROLL_TRACK);
+                Draw.rect(g, bx, ty, bx + BAR_W, ty + th, thumb);
+            } else {
+                Draw.roundRect(g, bx, top, BAR_W, track, BAR_W / 2f, Theme.SCROLL_TRACK);
+                Draw.roundRect(g, bx, ty, BAR_W, th, BAR_W / 2f, thumb);
+            }
         }
     }
 
+    private static final float BAR_W = 3;
+    /** The bar is being dragged; where on its thumb it was taken. */
+    private boolean dragging;
+    private float grab;
+
+    private float barX() {
+        return x + w - 2 * Grid.GAP - BAR_W;
+    }
+
+    private float listTop() {
+        return y + Grid.GAP + Grid.CHIP_H + Grid.GAP;
+    }
+
+    private float thumbH(int rows) {
+        float track = rows * ITEM_H;
+        return Math.max(Math.min(Grid.ROW, track / 3), track * rows / shown.size()); // short enough to move even over one row
+    }
+
+    private float thumbY(int rows) {
+        return listTop() + (rows * ITEM_H - thumbH(rows)) * scroll / Math.max(1, shown.size() - rows);
+    }
+
+    /** A little wider than the bar, so it is easy to take; only while the list is longer than its room. */
+    private boolean barHit(double mx, double my) {
+        int rows = rowsFit();
+        return shown.size() > rows && my >= listTop() && my < listTop() + rows * ITEM_H && mx >= barX() - Grid.GAP && mx < barX() + BAR_W + Grid.GAP;
+    }
+
+    /** Drags the thumb (true while it is taken). */
+    boolean drag(double my) {
+        if (!dragging) return false;
+        int rows = rowsFit();
+        float t = (float) ((my - grab - listTop()) / Math.max(1, rows * ITEM_H - thumbH(rows)));
+        scroll = Math.round(Math.max(0, Math.min(1, t)) * (shown.size() - rows));
+        return true;
+    }
+
+    void release() {
+        dragging = false;
+    }
+
     private float toggleX() {
-        return x + w - 2 * Grid.GAP - Grid.TOGGLE_W - 3;
+        return barX() - 2 * Grid.GAP - Grid.TOGGLE_W;
     }
 
     boolean over(double mx, double my) {
@@ -130,6 +178,15 @@ final class PlantList {
             return false;
         }
         if (field.click(mx, my, button)) return true;
+        if (barHit(mx, my)) {
+            // Taken where pointed on the thumb, else by its middle (a click on the track jumps there).
+            int rows = rowsFit();
+            float ty = thumbY(rows), th = thumbH(rows);
+            grab = my >= ty && my < ty + th ? (float) (my - ty) : th / 2f;
+            dragging = true;
+            drag(my);
+            return true;
+        }
         float ry = y + Grid.GAP + Grid.CHIP_H + Grid.GAP;
         int rows = rowsFit();
         for (int i = scroll; i < shown.size() && i < scroll + rows; i++, ry += ITEM_H) {

@@ -11,7 +11,6 @@ import net.minecraft.world.level.Level;
 import net.tapacywka.teyvatcartographia.TeyvatCartographia;
 import net.tapacywka.teyvatcartographia.map.WorldId;
 import net.tapacywka.teyvatcartographia.nav.Navigation;
-import net.tapacywka.teyvatcartographia.shared.SharedPinsServer;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -26,14 +25,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * The player's own pins and the navigation target of one world, persisted as
- * {@code <gameDir>/teyvatcartographia/<world>/markers.json}, plus the shared interactive pins of a server with the mod
- * ({@link SharedPins}, not saved here): {@link #count} and {@link #get} go over both. Main thread only.
+ * The player's pins and the navigation target of one world, persisted as
+ * {@code <gameDir>/teyvatcartographia/<world>/markers.json}. Every pin is the player's own, interactive ones too (the
+ * pins a server shared with every player were removed on 24.10.2026). Main thread only.
  */
 public final class MarkerStore {
     private MarkerStore() {}
 
-    public static final int MAX_MARKERS = 100;
+    public static final int MAX_MARKERS = 300;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     /** The contents of {@code markers.json}: the format version, the pins and the tracked target. */
@@ -54,49 +53,25 @@ public final class MarkerStore {
         return version;
     }
 
-    /** The player's own pins and the shared ones ({@link SharedPins}) of a dimension. */
+    /** The pins of a dimension. */
     public static List<Marker> inDimension(ResourceKey<Level> dim) {
         List<Marker> out = new ArrayList<>();
-        for (int i = 0, n = count(); i < n; i++) if (get(i).dimension == dim) out.add(get(i));
+        for (Marker m : markers) if (m.dimension == dim) out.add(m);
         return out;
     }
 
-    /**
-     * Index-based access for per-frame loops (no list or iterator allocation); 0 ≤ i < {@link #count()}: the
-     * player's own pins first, then the shared ones.
-     */
+    /** Index-based access for per-frame loops (no list or iterator allocation); 0 ≤ i < {@link #count()}. */
     public static Marker get(int i) {
-        return i < markers.size() ? markers.get(i) : SharedPins.pins().get(i - markers.size());
+        return markers.get(i);
     }
 
     public static Marker find(UUID id) {
-        for (int i = 0, n = count(); i < n; i++) if (get(i).id.equals(id)) return get(i);
+        for (Marker m : markers) if (m.id.equals(id)) return m;
         return null;
     }
 
-    /** True if a new pin of this type goes to the server's shared pins (interactive pins, when the server has the mod). */
-    public static boolean sharedType(MarkerType type) {
-        return type.operatorOnly() && SharedPins.available();
-    }
-
-    /**
-     * An interactive pin only this player has and sees: not shared (a server without the mod, or not moved to the
-     * shared pins), outside single player (where the integrated server shares them all).
-     */
-    public static boolean localOnly(MarkerType type, boolean shared) {
-        return type.operatorOnly() && !shared && !net.minecraft.client.Minecraft.getInstance().isLocalServer();
-    }
-
-    /**
-     * A new pin: an interactive one to the server's shared pins when it keeps them (it comes back with the server's
-     * list), any other to the player's own. False when there is no room left.
-     */
+    /** A new pin. False when there is no room left. */
     public static boolean add(Marker m) {
-        if (sharedType(m.type)) {
-            if (SharedPins.count() >= SharedPinsServer.MAX_SHARED) return false;
-            SharedPins.put(m);
-            return true;
-        }
         if (markers.size() >= MAX_MARKERS) return false;
         markers.add(m);
         save();
@@ -104,32 +79,17 @@ public final class MarkerStore {
     }
 
     /** What {@link #addAll} did with the pins it was given. */
-    public record Added(int added, int duplicates, int overLimit, int operatorOnly) {}
+    public record Added(int added, int duplicates, int overLimit) {}
 
     /**
      * Adds imported pins with one save. A pin with the same dimension, position and name as one already here is a
-     * repeat and is left out; interactive pins only for operators; nothing beyond {@link #MAX_MARKERS}. A pin keeps
-     * its id unless that id is taken. Interactive pins go to the server's shared pins when it keeps them (up to its
-     * limit; the server checks again).
+     * repeat and is left out; nothing beyond {@link #MAX_MARKERS}. A pin keeps its id unless that id is taken.
      */
     public static Added addAll(List<Marker> in) {
-        return addAll(in, MarkerType.isOperator());
-    }
-
-    /** {@link #addAll(List)} for a player with or without operator rights. */
-    static Added addAll(List<Marker> in, boolean operator) {
-        int added = 0, duplicates = 0, overLimit = 0, operatorOnly = 0;
-        List<Marker> toServer = new ArrayList<>();
+        int added = 0, duplicates = 0, overLimit = 0;
         for (Marker m : in) {
-            if (contains(m) || contains(toServer, m)) duplicates++;
-            else if (m.type.operatorOnly() && !operator) operatorOnly++;
-            else if (sharedType(m.type)) {
-                if (SharedPins.count() + toServer.size() >= SharedPinsServer.MAX_SHARED) overLimit++;
-                else {
-                    toServer.add(m);
-                    added++;
-                }
-            } else if (markers.size() >= MAX_MARKERS) overLimit++;
+            if (contains(m)) duplicates++;
+            else if (markers.size() >= MAX_MARKERS) overLimit++;
             else {
                 Marker copy = new Marker(find(m.id) == null ? m.id : UUID.randomUUID(), m.name, m.type, m.dimension, m.x, m.y, m.z, m.created, false);
                 copy.band = m.band;
@@ -137,19 +97,13 @@ public final class MarkerStore {
                 added++;
             }
         }
-        SharedPins.putAll(toServer);
-        if (added > toServer.size()) save();
-        return new Added(added, duplicates, overLimit, operatorOnly);
+        if (added > 0) save();
+        return new Added(added, duplicates, overLimit);
     }
 
-    /** The same dimension, position and name as one of the player's own or the shared pins. */
+    /** The same dimension, position and name as one of the pins. */
     private static boolean contains(Marker m) {
-        for (int i = 0, n = count(); i < n; i++) if (same(get(i), m)) return true;
-        return false;
-    }
-
-    private static boolean contains(List<Marker> list, Marker m) {
-        for (Marker o : list) if (same(o, m)) return true;
+        for (Marker o : markers) if (same(o, m)) return true;
         return false;
     }
 
@@ -157,71 +111,27 @@ public final class MarkerStore {
         return a.dimension == b.dimension && a.x == b.x && a.y == b.y && a.z == b.z && a.name.equals(b.name);
     }
 
-    /** The player's own pins of this world, for export (shared pins belong to the server). */
+    /** The pins of this world, for export. */
     public static List<Marker> all() {
         return List.copyOf(markers);
     }
 
-    /** Removes a pin; a shared one on the server (for operators; it goes with the server's next list). */
     public static void remove(Marker m) {
         if (Navigation.isTracking(m)) Navigation.clear();
-        if (m.shared) {
-            SharedPins.remove(m);
-            return;
-        }
         markers.remove(m);
         save();
     }
 
-    /** Renames a pin or changes its type; a shared one on the server (it changes with the server's next list). */
+    /** Renames a pin or changes its type. */
     public static void update(Marker m, String name, MarkerType type) {
-        // An own pin given an interactive type on a server with shared pins becomes a shared one (same id: still tracked).
-        if (m.shared || sharedType(type) && SharedPins.count() < SharedPinsServer.MAX_SHARED) {
-            if (!m.shared) {
-                markers.remove(m);
-                save();
-            }
-            Marker changed = new Marker(m.id, name, type, m.dimension, m.x, m.y, m.z, m.created, false);
-            changed.band = m.band;
-            SharedPins.put(changed);
-            return;
-        }
         m.name = name;
         m.type = type;
         save();
     }
 
-    /** The player's own pins and the shared ones, for loops with {@link #get}. */
+    /** The number of pins, for loops with {@link #get} (their limit is {@link #MAX_MARKERS}). */
     public static int count() {
-        return markers.size() + SharedPins.pins().size();
-    }
-
-    /** The player's own pins (their limit is {@link #MAX_MARKERS}). */
-    public static int localCount() {
         return markers.size();
-    }
-
-    /** The player's own interactive pins (for the offer to move them to the shared ones). */
-    static List<Marker> localInteractive() {
-        List<Marker> out = new ArrayList<>();
-        for (Marker m : markers) if (m.type.operatorOnly()) out.add(m);
-        return out;
-    }
-
-    /** After the offer: the player's own pins the server now lists (by id, or the same place and name) go. */
-    static void dropUploaded(java.util.Set<UUID> uploading, List<Marker> shared) {
-        boolean changed = markers.removeIf(m -> uploading.contains(m.id) && shared.stream().anyMatch(s -> s.id.equals(m.id) || same(s, m)));
-        if (changed) save();
-    }
-
-    /** The server's list changed (the version makes the map, the minimap and the pin list redraw). */
-    static void sharedChanged() {
-        version++;
-    }
-
-    /** This world's folder (its {@code markers.json}), or null outside a world. */
-    static Path worldFolder() {
-        return worldId == null ? null : WorldId.root().resolve(worldId);
     }
 
     /** Loads markers for the given world (no-op if already loaded). {@code null} unloads. */
@@ -231,26 +141,56 @@ public final class MarkerStore {
         markers.clear();
         Navigation.restore(null);
         worldId = id;
-        // The shared pins come from the server on joining, possibly before the world is known here: only leaving clears them.
-        if (id == null) {
-            SharedPins.reset();
-            return;
-        }
+        if (id == null) return;
         Path file = file();
-        if (!Files.exists(file)) return;
-        try (Reader r = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            // A broken pin is left out and logged; the others load.
-            Saved saved = Saved.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseReader(r))
-                    .resultOrPartial(e -> TeyvatCartographia.LOGGER.error("Problem in {}: {}", file, e)).orElse(null);
-            if (saved == null) return;
-            markers.addAll(saved.markers());
-            // A pin or an automatic point. Free points of older versions (neither) are dropped.
-            saved.target().filter(t -> t.markerId() != null || t.auto() != null).ifPresent(Navigation::restore);
-            TeyvatCartographia.LOGGER.info("Teyvat Cartographia: loaded {} markers for {}", markers.size(), id);
+        if (Files.exists(file)) {
+            try (Reader r = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+                // A broken pin is left out and logged; the others load.
+                Saved saved = Saved.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseReader(r))
+                        .resultOrPartial(e -> TeyvatCartographia.LOGGER.error("Problem in {}: {}", file, e)).orElse(null);
+                if (saved != null) {
+                    markers.addAll(saved.markers());
+                    // A pin or an automatic point. Free points of older versions (neither) are dropped.
+                    saved.target().filter(t -> t.markerId() != null || t.auto() != null).ifPresent(Navigation::restore);
+                    TeyvatCartographia.LOGGER.info("Teyvat Cartographia: loaded {} markers for {}", markers.size(), id);
+                }
+            } catch (IOException | RuntimeException e) {
+                TeyvatCartographia.LOGGER.error("Could not read markers from {}", file, e);
+            }
+        }
+        takeOldSharedPins();
+    }
+
+    /**
+     * Single player, once per world: the interactive pins 0.1.1 to 0.1.3 kept in the world save as shared pins
+     * ({@code data/teyvatcartographia_pins.dat}) become the player's own; the file is renamed so it is read only once.
+     * On a server they stay in its save, out of reach of the client.
+     */
+    private static void takeOldSharedPins() {
+        var server = net.minecraft.client.Minecraft.getInstance().getSingleplayerServer();
+        if (server == null) return;
+        Path old = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("data").resolve(TeyvatCartographia.MOD_ID + "_pins.dat");
+        if (!Files.isRegularFile(old)) return;
+        try {
+            var root = net.minecraft.nbt.NbtIo.readCompressed(old, net.minecraft.nbt.NbtAccounter.unlimitedHeap());
+            List<Marker> pins = readOldShared(root);
+            Added a = addAll(pins);
+            Files.move(old, old.resolveSibling(old.getFileName() + ".moved"), StandardCopyOption.REPLACE_EXISTING);
+            TeyvatCartographia.LOGGER.info("Teyvat Cartographia: {} of the world's {} shared pins are now the player's own ({} repeats, {} over the limit)",
+                    a.added(), pins.size(), a.duplicates(), a.overLimit());
         } catch (IOException | RuntimeException e) {
-            TeyvatCartographia.LOGGER.error("Could not read markers from {}", file, e);
+            TeyvatCartographia.LOGGER.error("Could not read the old shared pins from {}", old, e);
         }
     }
+
+    /** The pins of an old shared pins file: {@code {data: {pins: [...]}}} as the server saved them. */
+    static List<Marker> readOldShared(net.minecraft.nbt.CompoundTag root) {
+        net.minecraft.nbt.Tag list = root.getCompound("data").get("pins");
+        if (list == null) return List.of();
+        return Marker.CODEC.listOf().parse(net.minecraft.nbt.NbtOps.INSTANCE, list)
+                .resultOrPartial(e -> TeyvatCartographia.LOGGER.error("Problem in the old shared pins: {}", e)).orElse(List.of());
+    }
+
     private static Path file() {
         return WorldId.root().resolve(worldId).resolve("markers.json");
     }
@@ -260,7 +200,8 @@ public final class MarkerStore {
         if (worldId == null) return;
         var root = Saved.CODEC.encodeStart(JsonOps.INSTANCE, new Saved(markers, Optional.ofNullable(Navigation.target())))
                 .resultOrPartial(e -> TeyvatCartographia.LOGGER.error("Could not encode markers: {}", e)).orElse(null);
-        if (root == null) return;        Path file = file();
+        if (root == null) return;
+        Path file = file();
         try {
             Files.createDirectories(file.getParent());
             Path tmp = file.resolveSibling("markers.json.tmp");

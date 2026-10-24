@@ -10,12 +10,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** The kinds of pins: custom for everyone, interactive for operators only (shared on a server), automatic points. */
+/** The kinds of pins: custom and interactive for every player, and the automatic points. */
 class MarkerTypeTest {
     @Test
-    void interactiveTypesAreForOperatorsOnly() {
+    void threeInteractiveTypes() {
         Set<MarkerType> interactive = EnumSet.noneOf(MarkerType.class);
-        for (MarkerType t : MarkerType.values()) if (t.operatorOnly()) interactive.add(t);
+        for (MarkerType t : MarkerType.values()) if (t.category == MarkerType.Category.INTERACTION) interactive.add(t);
         assertEquals(EnumSet.of(MarkerType.SIGN, MarkerType.PARTY, MarkerType.STRUCTURE), interactive);
     }
 
@@ -25,14 +25,12 @@ class MarkerTypeTest {
         for (MarkerType t : MarkerType.values()) if (t.category == MarkerType.Category.EXPLORATION) custom.add(t);
         assertEquals(EnumSet.of(MarkerType.DEMON, MarkerType.QUEST, MarkerType.STAR, MarkerType.MEAT, MarkerType.FLOWER,
                 MarkerType.PICKAXE, MarkerType.HOOK), custom);
-        for (MarkerType t : custom) assertFalse(t.operatorOnly(), t.name());
     }
 
     @Test
     void automaticPointsAreNotPins() {
         assertFalse(MarkerType.SPAWN.custom);
         assertFalse(MarkerType.DEATH.custom);
-        assertFalse(MarkerType.SPAWN.operatorOnly());
         assertTrue(MarkerType.STAR.custom);
         assertTrue(MarkerType.SIGN.custom);
     }

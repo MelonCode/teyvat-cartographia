@@ -22,7 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * The search of the pin list (one per world map opening): pins of every dimension by name (own, shared and the
+ * The search of the pin list (one per world map opening): pins of every dimension by name (the own ones and the
  * automatic points) and the explored biomes by name ({@link BiomeIndex}). Pins are matched at once; the places of
  * the matching biomes are worked out on the search thread and arrive a moment later. Main thread only, apart from
  * that job.

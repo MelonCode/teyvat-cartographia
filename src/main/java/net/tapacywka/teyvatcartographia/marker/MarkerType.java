@@ -11,7 +11,7 @@ import net.tapacywka.teyvatcartographia.render.Icon;
  * <ul>
  *   <li>{@link Category#EXPLORATION} (shown as "Custom"): the seven custom pin types of Genshin Impact, for every player;</li>
  *   <li>{@link Category#INTERACTION} (shown as "Interactive"): sign, party and structure (waypoint, statue and domain up
- *       to 0.1.2); only operators create, edit and teleport to them.</li>
+ *       to 0.1.2), for every player too since 24.10.2026 (operators only before).</li>
  * </ul>
  */
 public enum MarkerType {
@@ -60,13 +60,8 @@ public enum MarkerType {
         return "teyvatcartographia.pin.type." + name().toLowerCase(java.util.Locale.ROOT);
     }
 
-    /** System pins: created, edited and teleported to by operators only. */
-    public boolean operatorOnly() {
-        return category == Category.INTERACTION;
-    }
-
     /**
-     * Operator check: permission level 2+ (what /tp itself requires). The server sends the player's op level
+     * Operator check for "Teleport here" on the world map: permission level 2+ (what /tp itself requires). The server sends the player's op level
      * to the client and updates it on /op and /deop; in singleplayer it is granted only with cheats enabled.
      */
     public static boolean isOperator() {

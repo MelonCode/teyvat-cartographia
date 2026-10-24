@@ -104,6 +104,25 @@ public final class WorldMapScreen extends Screen {
         scale = targetScale = clampScale(MapConfig.get(MapConfig.MAP_DEFAULT_ZOOM));
     }
 
+    /**
+     * The map opened by the quick pin key: the new pin editor at the player's block, on the layer they are in (it
+     * used to add a star pin at once; user request 24.10.2026).
+     */
+    public static WorldMapScreen newPinHere() {
+        WorldMapScreen s = new WorldMapScreen();
+        LocalPlayer p = Minecraft.getInstance().player;
+        if (p != null) s.newPinAt(p.getBlockX(), p.getBlockY(), p.getBlockZ());
+        return s;
+    }
+
+    /** The new pin editor at a block of the viewed dimension, the spot marked on the map. */
+    private void newPinAt(int bx, int y, int bz) {
+        selected = null;
+        selX = bx + 0.5;
+        selZ = bz + 0.5;
+        openPanel(new PinPanel(this, viewedDim, bx, y, bz));
+    }
+
     // ================================================================== helpers
 
     /** Dimension names; asked several times per frame, built once (a translatable name follows the language). */
@@ -165,6 +184,9 @@ public final class WorldMapScreen extends Screen {
 
     /** Open list of overlapping pins to choose from, or null. */
     private MarkerPickList pick;
+
+    /** Open context menu of a right click on the map, or null. */
+    private MapContextMenu menu;
 
     /** The pin list a pin panel was opened from: closing that pin panel goes back to it (same search and scroll). */
     private MarkerListPanel backToList;
@@ -441,6 +463,7 @@ public final class WorldMapScreen extends Screen {
         // 9. Chrome (the references hide the top bar while a side panel is open)
         drawChrome(g, mx, my, store);
         if (pick != null) pick.render(g, mx, my, time);
+        else if (menu != null) menu.render(g, mx, my, time);
         else if (panel == null && !dragging && !drawLayerTooltip(g, mx, my) && hovered != null) drawTooltip(g, hovered, mx, my);
         pointer(mx, my);
     }
@@ -627,7 +650,7 @@ public final class WorldMapScreen extends Screen {
     private void drawMarkers(GuiGraphics g, int mx, int my) {
         float size = markerSize();
         shownBand = viewedBand();
-        boolean overUi = panel != null && panel.contains(mx, my) || pick != null && pick.contains(mx, my);
+        boolean overUi = panel != null && panel.contains(mx, my) || pick != null && pick.contains(mx, my) || menu != null && menu.contains(mx, my);
         // No list building per frame: custom pins straight from the store, then the automatic points. The pin whose
         // panel is open stays visible whatever the filters.
         if (viewedDim != null) {
@@ -1302,7 +1325,22 @@ public final class WorldMapScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        if (button != 0) return true; // otherwise the map screen reacts to the left button only
+        if (menu != null) {
+            // Any click closes the context menu; a left click on an enabled row runs it, a right click elsewhere opens
+            // the menu there.
+            boolean inside = menu.contains(mx, my);
+            MapContextMenu.Item it = button == 0 ? menu.rowAt(mx, my) : null;
+            closeMenu();
+            if (it != null && it.enabled()) it.action().run();
+            if (button != 1 || inside) return true;
+        }
+        if (button == 1) {
+            if (pick != null || panel != null && panel.contains(mx, my) || overChrome(mx, my)) return true;
+            if (panel != null) closePanel();
+            openMenuAt(mx, my);
+            return true;
+        }
+        if (button != 0) return true; // otherwise the map screen reacts to the left and right buttons only
         if (pick != null) {
             // Any click closes the pick list; a click on a row selects that pin.
             Marker m = pick.rowAt(mx, my);
@@ -1465,22 +1503,76 @@ public final class WorldMapScreen extends Screen {
         return false;
     }
 
+    /** A click on the map: opens the pin under it. Empty ground does nothing (new pins come from the context menu). */
     private void leftClick(double mx, double my) {
         // Hit-test now: the hover state is suspended while the button is held (potential drag).
-        if (openPinsAt(mx, my)) return;
+        openPinsAt(mx, my);
+    }
+
+    // ================================================================== context menu (right click)
+
+    /**
+     * The context menu at the point: on a pin (the nearest of those under it) "Edit", or "Open" for an automatic
+     * point, and "Track" or "Stop tracking"; on empty ground "New pin" and, for operators (cheats in single player),
+     * "Teleport here", muted where the map does not know the ground's height. The spot is marked while it is open.
+     */
+    private void openMenuAt(double mx, double my) {
         if (viewedDim == null) return;
-        double wx = view.worldX(mx, my), wz = view.worldZ(mx, my);
-        int bx = (int) Math.floor(wx), bz = (int) Math.floor(wz);
-        TileStore s = store();
-        int h = s == null ? Integer.MIN_VALUE : s.heightAt(bx, bz);
-        selected = null;
-        selX = bx + 0.5;
-        selZ = bz + 0.5;
-        openPanel(new PinPanel(this, viewedDim, bx, h == Integer.MIN_VALUE ? h : h + 1, bz));
+        List<MapContextMenu.Item> items = new ArrayList<>(2);
+        List<Marker> hits = markersAt(mx, my);
+        if (!hits.isEmpty()) {
+            Marker m = hits.get(0);
+            items.add(new MapContextMenu.Item(m.automatic ? Icon.VIEW : Icon.PENCIL,
+                    Component.translatable(m.automatic ? "teyvatcartographia.map.menu.open" : "teyvatcartographia.map.menu.edit"), true, () -> selectMarker(m)));
+            items.add(new MapContextMenu.Item(Icon.LOCATE,
+                    Component.translatable(Navigation.isTracking(m) ? "teyvatcartographia.map.menu.untrack" : "teyvatcartographia.map.menu.track"), true, () -> {
+                if (Navigation.isTracking(m)) Navigation.clear();
+                else Navigation.track(m);
+            }));
+        } else {
+            int bx = (int) Math.floor(view.worldX(mx, my)), bz = (int) Math.floor(view.worldZ(mx, my));
+            TileStore s = store();
+            int h = s == null ? Integer.MIN_VALUE : s.heightAt(bx, bz), y = h == Integer.MIN_VALUE ? h : h + 1;
+            selected = null;
+            selX = bx + 0.5;
+            selZ = bz + 0.5;
+            items.add(new MapContextMenu.Item(Icon.PLUS, Component.translatable("teyvatcartographia.map.menu.new_pin"), true, () -> newPinAt(bx, y, bz)));
+            if (net.tapacywka.teyvatcartographia.marker.MarkerType.isOperator()) {
+                items.add(new MapContextMenu.Item(Icon.TARGET, Component.translatable("teyvatcartographia.map.menu.teleport"), y != Integer.MIN_VALUE,
+                        () -> teleportTo(viewedDim, bx, y, bz)));
+            }
+        }
+        pick = null;
+        menu = new MapContextMenu(items, mx, my, width, height);
+    }
+
+    private void closeMenu() {
+        menu = null;
+        if (panel == null) clearSelection(); // the spot marked for the menu
+    }
+
+    /** The vanilla /tp, in the viewed dimension; the server checks the rights again. The map closes. */
+    private static void teleportTo(ResourceKey<Level> dim, int bx, int y, int bz) {
+        LocalPlayer p = Minecraft.getInstance().player;
+        if (p == null || !net.tapacywka.teyvatcartographia.marker.MarkerType.isOperator()) return; // re-checked: /deop meanwhile
+        p.connection.sendCommand("execute in " + dim.location() + " run tp @s " + bx + ".5 " + y + " " + bz + ".5");
+        Minecraft.getInstance().setScreen(null);
+    }
+
+    /** Over a button, the zoom slider, the layer field or an off-screen indicator (a right click there opens no menu). */
+    private boolean overChrome(double mx, double my) {
+        float sx = leftColumnX();
+        if (Draw.inRect(mx, my, sx - 9, sliderPlusY() - 9, 18, sliderMinusY() - sliderPlusY() + 18)) return true;
+        if (panel == null && (Ui.buttonHit(closeX(), closeY(), COMPASS_D, mx, my) || Ui.buttonHit(rowButtonX(0), rowButtonY(), COMPASS_D, mx, my)
+                || Ui.iconButtonHit(rowButtonX(1), rowButtonY(), mx, my) || Ui.iconButtonHit(rowButtonX(2), rowButtonY(), mx, my)
+                || Ui.buttonHit(compassX(), compassY(), COMPASS_D, mx, my) || overLayers(mx, my))) return true;
+        return !Float.isNaN(indicatorX) && Draw.inCircle(mx, my, indicatorX, indicatorY, INDICATOR_R + 2)
+                || !Float.isNaN(targetIndicatorX) && Draw.inCircle(mx, my, targetIndicatorX, targetIndicatorY, INDICATOR_R + 2);
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double scrollX, double scrollY) {
+        if (menu != null) closeMenu(); // the map moves under it
         if (pick != null) {
             if (pick.scroll(mx, my, scrollY)) return true;
             pick = null; // the map moves under it
@@ -1507,7 +1599,8 @@ public final class WorldMapScreen extends Screen {
         }
         boolean typing = panel != null && panel.capturesKeyboard();
         if (key == GLFW.GLFW_KEY_ESCAPE) {
-            if (pick != null) pick = null;
+            if (menu != null) closeMenu();
+            else if (pick != null) pick = null;
             else if (panel != null) closePanel();
             else onClose();
             return true;

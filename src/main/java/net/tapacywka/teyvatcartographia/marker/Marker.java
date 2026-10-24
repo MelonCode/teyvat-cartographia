@@ -24,8 +24,6 @@ public final class Marker {
     public Integer band;
     /** True for automatic, non-persisted points (spawn, last death). */
     public final boolean automatic;
-    /** True for a pin the server shares with every player ({@link SharedPins}); not saved in {@code markers.json}. */
-    public boolean shared;
 
     public Marker(UUID id, String name, MarkerType type, ResourceKey<Level> dimension, int x, int y, int z, long created, boolean automatic) {
         this.id = id;

@@ -99,7 +99,7 @@ public final class MarkerListPanel extends SidePanel {
 
     @Override
     protected Component title() {
-        return Component.translatable("teyvatcartographia.list.title", MarkerStore.localCount(), MarkerStore.MAX_MARKERS);
+        return Component.translatable("teyvatcartographia.list.title", MarkerStore.count(), MarkerStore.MAX_MARKERS);
     }
 
     @Override
@@ -205,11 +205,7 @@ public final class MarkerListPanel extends SidePanel {
 
     private static Row pinRow(Marker m, float rw, boolean showDimension) {
         String coords = m.x + ", " + m.z;
-        if (!MarkerStore.localOnly(m.type, m.shared)) return row(m, null, m.name, m.dimension, m.centerX(), m.y, m.centerZ(), showDimension, rw, coords);
-        // An interactive pin only this player has (a server without the mod, or one not moved to the shared pins).
-        return row(m, null, m.name, m.dimension, m.centerX(), m.y, m.centerZ(), showDimension, rw,
-                Component.translatable("teyvatcartographia.list.local_only", coords).getString(),
-                Component.translatable("teyvatcartographia.list.local_only_short").getString());
+        return row(m, null, m.name, m.dimension, m.centerX(), m.y, m.centerZ(), showDimension, rw, coords);
     }
 
     private static Row biomeRow(MapSearch.BiomeHit h, float rw) {

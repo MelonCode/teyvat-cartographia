@@ -67,7 +67,7 @@ final class SettingsPreview {
      * darkened. Without one, the map around the player (the fog without a world) with a pin of every type in a ring
      * and a path to one of each kind, faint where the world map does not show them.
      */
-    static void pins(GuiGraphics g, float x, float y, float w, float h, MapArea map, String focusKey, boolean minimapReady) {
+    static void pins(GuiGraphics g, float x, float y, float w, float h, MapArea map, String focusKey) {
         MapConfig.PinKind focus = null;
         boolean path = false;
         for (MapConfig.PinKind k : MapConfig.PinKind.values()) {
@@ -111,15 +111,13 @@ final class SettingsPreview {
                 "teyvatcartographia.config.preview.frame.stars"}
                 : new String[] {"teyvatcartographia.config.preview.frame.map", "teyvatcartographia.config.preview.frame.minimap",
                 "teyvatcartographia.config.preview.frame.marker", "teyvatcartographia.config.preview.frame.beam"};
-        double[] zooms = {MapView.snapZoom(MapConfig.get(MapConfig.MAP_DEFAULT_ZOOM)), MapView.snapZoom(MapConfig.get(MapConfig.MINIMAP_ZOOM))};
+        double zoom = MapView.snapZoom(MapConfig.get(MapConfig.MAP_DEFAULT_ZOOM));
         for (int i = 0; i < n; i++) {
             float fx = at[i][0], fy = at[i][1], fw2 = at[i][2], fh2 = at[i][3];
             g.enableScissor((int) fx, (int) fy, (int) (fx + fw2), (int) (fy + fh2));
-            if (i == 1 && minimapReady) {
-                minimap(g, fx, fy, fw2, fh2);
-                samplePins(g, fx + fw2 / 2f, fy + fh2 / 2f, Math.min(fw2, fh2), focus, path);
-            } else if (i < 2) {
-                mapArea(g, fx, fy, fw2, fh2, map, zooms[i]);
+            if (i < 2) {
+                // Both maps drawn alike, as the world map (user decision 24.10.2026).
+                mapArea(g, fx, fy, fw2, fh2, map, zoom);
                 samplePins(g, fx + fw2 / 2f, fy + fh2 / 2f, Math.min(fw2, fh2), focus, path);
             } else {
                 world(g, fx, fy, fw2, fh2, focus, path ? WORLD_STARS : i == 2 ? WORLD_MARKER : WORLD_BEAM);
@@ -260,7 +258,8 @@ final class SettingsPreview {
     private static float caveX;
 
     /**
-     * Cave map: the map around the player with the layer field at its right, as on the world map: the large button
+     * Cave map: the map around the player over the whole area with the layer field inside it at the right edge, as on
+     * the world map: the large button
      * is the surface; a click opens the cave layers mapped in this dimension (at most five, in height order around the
      * surface), a click on one shows it, a click on the large button goes back to the surface and then closes the
      * field. Under the map the layer shown.
@@ -268,8 +267,8 @@ final class SettingsPreview {
     static void caves(GuiGraphics g, float x, float y, float w, float h, LayerArea map, int mx, int my) {
         java.util.NavigableSet<Integer> bands = MapDataManager.get().caveBands();
         if (caveBand != null && !bands.contains(caveBand)) caveBand = null;
-        float col = CAVE_BIG + 2 * Grid.GAP, label = Grid.GAP + DrawText.LINE;
-        float mw = w - col, mh = h - label;
+        float label = Grid.GAP + DrawText.LINE;
+        float mw = w, mh = h - label;
         map.draw(g, x, y, mw, mh, caveBand);
         // The field's items from top to bottom: the bands above the sea level, the surface, the bands under it.
         caveItems.clear();
@@ -284,7 +283,7 @@ final class SettingsPreview {
         }
         caveItems.subList(to, caveItems.size()).clear();
         caveItems.subList(0, from).clear();
-        caveX = Draw.snap(x + mw + col / 2f);
+        caveX = Draw.snap(x + mw - CAVE_BIG / 2f - Grid.PAD); // inside the map, at its right edge like on the world map
         caveY = new float[caveItems.size()];
         float total = 0;
         for (Integer it : caveItems) total += it == null ? CAVE_BIG + 2 * Grid.GAP : CAVE_STEP;
@@ -329,8 +328,8 @@ final class SettingsPreview {
 
     // ------------------------------------------------------------------ Terrain detail
 
-    /** Chunks each side of the player's in the detail samples (5 x 5 chunks, 80 x 80 blocks). */
-    private static final int DETAIL_RADIUS = 2, DETAIL_SIDE = 16 * (2 * DETAIL_RADIUS + 1);
+    /** Chunks east and west, and north and south, of the player's in the detail samples (11 x 3 chunks, 176 x 48 blocks). */
+    private static final int DETAIL_RX = 5, DETAIL_RZ = 1, DETAIL_W = 16 * (2 * DETAIL_RX + 1), DETAIL_H = 16 * (2 * DETAIL_RZ + 1);
     private static final net.minecraft.client.renderer.texture.DynamicTexture[] DETAIL_TEX =
             new net.minecraft.client.renderer.texture.DynamicTexture[MapConfig.Detail.values().length];
     private static volatile int[][] detailPixels;
@@ -340,7 +339,8 @@ final class SettingsPreview {
             "teyvatcartographia.config.value.high"};
 
     /**
-     * Terrain detail: the ground around the player in each mode side by side (shaded anew, every few seconds, on a
+     * Terrain detail: a wide strip of the ground around the player in each mode, one over the other across the whole
+     * area (shaded anew, every few seconds, on a
      * worker), each captioned with its mode; the chosen one in cream, the others muted. The fog shows where nothing is
      * loaded.
      */
@@ -348,30 +348,42 @@ final class SettingsPreview {
         long now = System.currentTimeMillis();
         if (now - detailAsked > 3000) {
             detailAsked = now;
-            MapDataManager.get().sampleDetails(DETAIL_RADIUS, p -> detailPixels = p);
+            MapDataManager.get().sampleDetails(DETAIL_RX, DETAIL_RZ, p -> detailPixels = p);
         }
         int[][] p = detailPixels;
         if (p != null && p != detailShown) {
             detailShown = p;
             for (int i = 0; i < DETAIL_TEX.length; i++) {
-                if (DETAIL_TEX[i] == null) DETAIL_TEX[i] = new net.minecraft.client.renderer.texture.DynamicTexture(DETAIL_SIDE, DETAIL_SIDE, true);
+                if (DETAIL_TEX[i] == null) DETAIL_TEX[i] = new net.minecraft.client.renderer.texture.DynamicTexture(DETAIL_W, DETAIL_H, true);
                 com.mojang.blaze3d.platform.NativeImage img = DETAIL_TEX[i].getPixels();
-                for (int k = 0; k < p[i].length; k++) img.setPixelRGBA(k % DETAIL_SIDE, k / DETAIL_SIDE, p[i][k]);
+                for (int k = 0; k < p[i].length; k++) img.setPixelRGBA(k % DETAIL_W, k / DETAIL_W, p[i][k]);
                 DETAIL_TEX[i].upload();
             }
         }
         int n = DETAIL_TEX.length, chosen = MapConfig.get(MapConfig.DETAIL).ordinal();
         float label = Grid.GAP + DrawText.LINE;
-        float s = Draw.snap(Math.min((w - (n - 1) * Grid.GAP) / n, h - label));
-        float left = Draw.snap(x + (w - (n * s + (n - 1) * Grid.GAP)) / 2f), top = Draw.snap(y + (h - s - label) / 2f);
+        float sw = Draw.snap(w), sh = Draw.snap((h - n * label - (n - 1) * Grid.GAP) / n);
+        // The part of the sample with the strip's proportions, from its middle (blocks stay square).
+        float aspect = sw / Math.max(1, sh), sample = DETAIL_W / (float) DETAIL_H;
+        float u0 = 0, u1 = 1, v0 = 0, v1 = 1;
+        if (aspect > sample) {
+            float part = sample / aspect;
+            v0 = (1 - part) / 2f;
+            v1 = v0 + part;
+        } else {
+            float part = aspect / sample;
+            u0 = (1 - part) / 2f;
+            u1 = u0 + part;
+        }
+        float fx = Draw.snap(x);
         for (int i = 0; i < n; i++) {
-            float fx = left + i * (s + Grid.GAP);
-            FogTexture.draw(g, fx, top, fx + s, top + s, 0, 0, Theme.WHITE);
-            if (DETAIL_TEX[i] != null && detailShown != null) Draw.texturedQuad(g, DETAIL_TEX[i].getId(), fx, top, fx + s, top + s, 0, 0, 1, 1, 0xFFFFFFFF);
-            Draw.frame(g, fx, top, s, s, 1, i == chosen ? Theme.GOLD : Theme.PANEL_LINE);
+            float fy = Draw.snap(y + i * (sh + label + Grid.GAP));
+            FogTexture.draw(g, fx, fy, fx + sw, fy + sh, 0, 0, Theme.WHITE);
+            if (DETAIL_TEX[i] != null && detailShown != null) Draw.texturedQuad(g, DETAIL_TEX[i].getId(), fx, fy, fx + sw, fy + sh, u0, v0, u1, v1, 0xFFFFFFFF);
+            Draw.frame(g, fx, fy, sw, sh, 1, i == chosen ? Theme.GOLD : Theme.PANEL_LINE);
             Component c = Component.translatable(DETAIL_KEYS[i]);
-            DrawText.room(c, s);
-            DrawText.textCentered(g, Component.literal(DrawText.fit(c.getString(), (int) s)), Draw.snap(fx + s / 2f), top + s + Grid.GAP,
+            DrawText.room(c, sw);
+            DrawText.textCentered(g, Component.literal(DrawText.fit(c.getString(), (int) sw)), Draw.snap(fx + sw / 2f), fy + sh + Grid.GAP,
                     i == chosen ? Theme.CREAM : Theme.TEXT_MUTED, false);
         }
     }
@@ -394,7 +406,7 @@ final class SettingsPreview {
             statsAt = now;
             readStats();
         }
-        float top = Draw.snap(y + (h - STAT_KEYS.length * STAT_H) / 2f);
+        float top = Draw.snap(y + h - STAT_KEYS.length * STAT_H); // at the bottom of the card, under the description
         for (int i = 0; i < STAT_KEYS.length; i++) {
             float ry = top + i * STAT_H;
             String value = STATS[i];
@@ -419,122 +431,11 @@ final class SettingsPreview {
 
     // ------------------------------------------------------------------ Compatibility
 
-    /** One mod's part: its name and what it shows. */
-    record ModSample(String key, Component name) {}
-
     private static final Block ICHOR_SNOW = BuiltInRegistries.BLOCK.getOptional(ResourceLocation.fromNamespaceAndPath("the_sift", "ichor_snow_block")).orElse(null);
     private static XaeroWaypoints.Options xaeroFor;
     private static Path xaeroFolder;
     private static int xaeroCount = -1;
     private static long xaeroAt;
-
-    private static final int TILE_MAX = 48, TILE_MIN = 24;
-
-    /**
-     * Compatibility: for each supported mod (in the order of the list), its name and samples as the map draws them now:
-     * The Sift's haze and ichor with its snow, the Aether's sea of clouds (a switched off fog shows the fog that takes
-     * its place), and for Xaero's Minimap how many of its waypoints the import would take, with their pin. One column
-     * while the samples keep {@link #TILE_MIN} units; lower (over the list) the first mod beside the others.
-     */
-    static void compat(GuiGraphics g, float x, float y, float w, float h, List<ModSample> mods) {
-        Component xaero = mods.stream().anyMatch(SettingsPreview::xaero) ? xaeroLine() : Component.empty();
-        float one = tileFor(mods, h);
-        if (one >= TILE_MIN || mods.size() < 2) {
-            float tile = Math.max(Grid.ROW, one), cw = Math.min(w, columnWidth(mods, tile, xaero));
-            column(g, mods, x + (w - cw) / 2f, y, cw, h, tile, xaero);
-            return;
-        }
-        List<ModSample> a = mods.subList(0, 1), b = mods.subList(1, mods.size());
-        float half = (w - 2 * Grid.PAD) / 2f, tile = Math.max(Grid.ROW, Math.min(tileFor(a, h), tileFor(b, h)));
-        float wa = Math.min(half, columnWidth(a, tile, xaero)), wb = Math.min(half, columnWidth(b, tile, xaero));
-        float left = x + (w - (wa + 2 * Grid.PAD + wb)) / 2f;
-        column(g, a, left, y, wa, h, tile, xaero);
-        column(g, b, left + wa + 2 * Grid.PAD, y, wb, h, tile, xaero);
-    }
-
-    private static boolean sift(ModSample m) {
-        return m.key().endsWith("compat_sift");
-    }
-
-    private static boolean aether(ModSample m) {
-        return m.key().endsWith("compat_aether");
-    }
-
-    private static boolean xaero(ModSample m) {
-        return m.key().endsWith("compat_xaero");
-    }
-
-    /** The largest sample (a multiple of 4, at most {@link #TILE_MAX}) with which these mods fit {@code h}. */
-    private static float tileFor(List<ModSample> mods, float h) {
-        int tiles = 0;
-        float fixed = (mods.size() - 1) * Grid.PAD;
-        for (ModSample m : mods) {
-            fixed += LINE + Grid.GAP;
-            if (sift(m)) {
-                tiles += 3;
-                fixed += 2 * Grid.GAP;
-            } else if (aether(m)) tiles += 1;
-            else fixed += Grid.ROW;
-        }
-        if (tiles == 0) return TILE_MAX;
-        return Math.min(TILE_MAX, (float) Math.floor((h - fixed) / tiles / 4f) * 4f);
-    }
-
-    /** The width these mods' column takes with samples {@code tile} units high, its texts on one line. */
-    private static float columnWidth(List<ModSample> mods, float tile, Component xaero) {
-        float w = 0;
-        for (ModSample m : mods) {
-            w = Math.max(w, DrawText.width(m.name()));
-            if (sift(m)) {
-                w = Math.max(w, tile + Grid.PAD + DrawText.width(Component.translatable("teyvatcartographia.config.compat.sift_fog")));
-                w = Math.max(w, tile + Grid.PAD + DrawText.width(Component.translatable("teyvatcartographia.config.compat.sift_ichor")));
-                w = Math.max(w, tile + Grid.PAD + DrawText.width(Component.translatable("teyvatcartographia.config.compat.sift_snow")));
-            } else if (aether(m)) {
-                w = Math.max(w, tile + Grid.PAD + DrawText.width(Component.translatable("teyvatcartographia.config.compat.aether_fog")));
-            } else w = Math.max(w, Grid.ROW + Grid.GAP + DrawText.width(xaero));
-        }
-        return w;
-    }
-
-    /** These mods one under another in a column {@code w} wide at x, centred on the height {@code h} from y. */
-    private static void column(GuiGraphics g, List<ModSample> mods, float x, float y, float w, float h, float tile, Component xaero) {
-        float textW = w - Grid.ROW - Grid.GAP;
-        int xaeroLines = Math.max(1, DrawText.font().split(xaero, (int) textW).size());
-        float total = (mods.size() - 1) * Grid.PAD;
-        for (ModSample m : mods) {
-            total += LINE + Grid.GAP;
-            if (sift(m)) total += 3 * tile + 2 * Grid.GAP;
-            else if (aether(m)) total += tile;
-            else total += Math.max(Grid.ROW, xaeroLines * LINE);
-        }
-        float lx = Draw.snap(x), ly = Draw.snap(y + (h - total) / 2f), labelX = lx + tile + Grid.PAD, labelW = w - tile - Grid.PAD;
-        for (int i = 0; i < mods.size(); i++) {
-            ModSample m = mods.get(i);
-            if (i > 0) ly += Grid.PAD;
-            DrawText.text(g, DrawText.fit(m.name().getString(), (int) w), lx, ly, Theme.GOLD, false);
-            ly += LINE + Grid.GAP;
-            if (sift(m)) {
-                fogTile(g, ModCompat.SIFT_DIMENSION, lx, ly, tile);
-                label(g, Component.translatable("teyvatcartographia.config.compat.sift_fog"), labelX, ly, labelW, tile);
-                ly += tile + Grid.GAP;
-                siftTile(g, lx, ly, tile, false);
-                label(g, Component.translatable("teyvatcartographia.config.compat.sift_ichor"), labelX, ly, labelW, tile);
-                ly += tile + Grid.GAP;
-                siftTile(g, lx, ly, tile, true);
-                label(g, Component.translatable("teyvatcartographia.config.compat.sift_snow"), labelX, ly, labelW, tile);
-                ly += tile;
-            } else if (aether(m)) {
-                fogTile(g, ModCompat.AETHER_DIMENSION, lx, ly, tile);
-                label(g, Component.translatable("teyvatcartographia.config.compat.aether_fog"), labelX, ly, labelW, tile);
-                ly += tile;
-            } else {
-                float rh = Math.max(Grid.ROW, xaeroLines * LINE);
-                MarkerRenderer.drawCentered(g, MapConfig.get(MapConfig.XAERO_PIN_TYPE), lx + Grid.ROW / 2f, ly + rh / 2f, Grid.ROW, 1f);
-                label(g, xaero, lx + Grid.ROW + Grid.GAP, ly, textW, rh);
-                ly += rh;
-            }
-        }
-    }
 
     /** A text {@code w} wide beside a sample {@code h} high, wrapped onto as many lines as fit and centred on it. */
     private static void label(GuiGraphics g, Component text, float x, float y, float w, float h) {
@@ -550,29 +451,58 @@ final class SettingsPreview {
         }
     }
 
-    /** A piece of a dimension's fog of war, as the map shows it now (the theme's fog while the dimension's is off). */
-    private static void fogTile(GuiGraphics g, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dim, float x, float y, float s) {
-        FogTexture.draw(g, dim, x, y, x + s, y + s, 0, 0, Theme.WHITE);
-        Draw.frame(g, x, y, s, s, 1, Theme.PANEL_LINE);
-    }
+    /** Blocks across the large sample of ichor or snow, and its pictures (ichor, snow), drawn again when a switch changes. */
+    private static final int SIFT_BLOCKS = 48;
+    private static final net.minecraft.client.renderer.texture.DynamicTexture[] SIFT_TEX = new net.minecraft.client.renderer.texture.DynamicTexture[2];
+    private static final Boolean[] SIFT_SHOWN = new Boolean[2];
 
-    /** The Sift's ichor or its snow, a block every two units, coloured as the map colours them (shimmering or plain). */
-    private static void siftTile(GuiGraphics g, float x, float y, float s, boolean onSnow) {
-        boolean shimmer = MapConfig.get(onSnow ? MapConfig.SIFT_SNOW_SHIMMER : MapConfig.SIFT_ICHOR_SHIMMER);
-        int plainIchor = TextureColors.ichor();
-        TextureColors.Entry snow = ICHOR_SNOW == null ? null : TextureColors.get(ICHOR_SNOW);
-        int n = (int) (s / 2);
-        for (int j = 0; j < n; j++) {
-            for (int i = 0; i < n; i++) {
-                int c;
-                if (onSnow) c = shimmer || snow == null ? 0xFF000000 | Shimmer.ichorSnow(i, j) : snow.argb();
-                else c = shimmer || plainIchor == 0 ? 0xFF000000 | Shimmer.ichor(i, j) : plainIchor;
-                Draw.rect(g, x + 2 * i, y + 2 * j, x + 2 * i + 2, y + 2 * j + 2, c);
+    /**
+     * Compatibility: the sample of the setting {@code key} alone, over the whole area: a piece of the dimension's fog of war
+     * (the theme's fog while it is off), a field of ichor or of ichor snow as the map colours them (shimmering or
+     * plain), or for Xaero's Minimap how many waypoints the import takes, with their pin.
+     */
+    static void compatSample(GuiGraphics g, float x, float y, float w, float h, String key) {
+        x = Draw.snap(x);
+        y = Draw.snap(y);
+        w = Draw.snap(w);
+        h = Draw.snap(h);
+        if (key.endsWith("_fog")) {
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dim = key.endsWith("sift_fog") ? ModCompat.SIFT_DIMENSION
+                    : key.endsWith("aether_fog") ? ModCompat.AETHER_DIMENSION : key.endsWith("nether_fog") ? net.minecraft.world.level.Level.NETHER
+                    : net.minecraft.world.level.Level.END;
+            FogTexture.draw(g, dim, x, y, x + w, y + h, 0, 0, Theme.WHITE);
+            Draw.frame(g, x, y, w, h, 1, Theme.PANEL_LINE);
+        } else if (key.endsWith("compat.sift_ichor") || key.endsWith("compat.sift_snow")) {
+            boolean snow = key.endsWith("sift_snow");
+            int i = snow ? 1 : 0;
+            boolean shimmer = MapConfig.get(snow ? MapConfig.SIFT_SNOW_SHIMMER : MapConfig.SIFT_ICHOR_SHIMMER);
+            if (SIFT_TEX[i] == null) SIFT_TEX[i] = new net.minecraft.client.renderer.texture.DynamicTexture(SIFT_BLOCKS, SIFT_BLOCKS, true);
+            if (!Boolean.valueOf(shimmer).equals(SIFT_SHOWN[i])) {
+                SIFT_SHOWN[i] = shimmer;
+                int plainIchor = TextureColors.ichor();
+                TextureColors.Entry plainSnow = ICHOR_SNOW == null ? null : TextureColors.get(ICHOR_SNOW);
+                com.mojang.blaze3d.platform.NativeImage img = SIFT_TEX[i].getPixels();
+                for (int bz = 0; bz < SIFT_BLOCKS; bz++) {
+                    for (int bx = 0; bx < SIFT_BLOCKS; bx++) {
+                        int c = snow ? (shimmer || plainSnow == null ? 0xFF000000 | Shimmer.ichorSnow(bx, bz) : plainSnow.argb())
+                                : (shimmer || plainIchor == 0 ? 0xFF000000 | Shimmer.ichor(bx, bz) : plainIchor);
+                        // ARGB to the image's ABGR.
+                        img.setPixelRGBA(bx, bz, (c & 0xFF00FF00) | (c & 0xFF) << 16 | (c >> 16) & 0xFF);
+                    }
+                }
+                SIFT_TEX[i].upload();
             }
+            // Square blocks: as many as the longer side shows of the field.
+            float side = Math.max(w, h);
+            Draw.texturedQuad(g, SIFT_TEX[i].getId(), x, y, x + w, y + h, 0, 0, w / side, h / side, 0xFFFFFFFF);
+            Draw.frame(g, x, y, w, h, 1, Theme.PANEL_LINE);
+        } else if (key.contains("compat.xaero")) {
+            Component line = xaeroLine();
+            float lw = Math.min(w, Grid.ROW + Grid.GAP + DrawText.width(line)), lx = Draw.snap(x + (w - lw) / 2f), ly = Draw.snap(y + (h - Grid.ROW) / 2f);
+            MarkerRenderer.drawCentered(g, MapConfig.get(MapConfig.XAERO_PIN_TYPE), lx + Grid.ROW / 2f, ly + Grid.ROW / 2f, Grid.ROW, 1f);
+            label(g, line, lx + Grid.ROW + Grid.GAP, ly, lw - Grid.ROW - Grid.GAP, Grid.ROW);
         }
-        Draw.frame(g, x, y, s, s, 1, Theme.PANEL_LINE);
     }
-
     /** How many waypoints the import would take from Xaero's folder of this world (read again on a change of the options or every 5 s). */
     private static Component xaeroLine() {
         Minecraft mc = Minecraft.getInstance();

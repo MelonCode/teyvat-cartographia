@@ -73,13 +73,14 @@ class ConfigDefaultsTest {
         assertTrue(MapConfig.MAP_PLANTS.getDefault());
         assertEquals(java.util.List.of("minecraft:cactus", "minecraft:dead_bush", "minecraft:chorus_plant", "minecraft:chorus_flower"),
                 MapConfig.PLANTS_SHOWN.getDefault(), "only the cactus, the dead bush and chorus at first (user decision 24.10.2026)");
-        assertTrue(MapConfig.WORLD_TINTS.getDefault());
         assertEquals(100, MapConfig.WATER_DEPTH.getDefault());
         assertEquals(0, MapConfig.SHALLOW_WATER.getDefault(), "clear shallow water off");
     }
 
     @Test
     void otherMods() {
+        assertTrue(MapConfig.NETHER_FOG.getDefault(), "the Nether's own fog on");
+        assertTrue(MapConfig.END_FOG.getDefault(), "the End's own fog on");
         assertTrue(MapConfig.AETHER_FOG.getDefault());
         assertTrue(MapConfig.SIFT_FOG.getDefault());
         assertTrue(MapConfig.SIFT_ICHOR_SHIMMER.getDefault());

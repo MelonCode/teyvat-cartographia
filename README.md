@@ -8,7 +8,7 @@
   <a href="https://github.com/Tapacywka/teyvat-cartographia/releases"><img src="https://img.shields.io/github/downloads/Tapacywka/teyvat-cartographia/total?style=flat&logo=github&label=downloads&color=4C9F70" alt="GitHub downloads"></a>
   <img src="https://img.shields.io/badge/Minecraft-1.21.1-62B47A?style=flat" alt="Minecraft 1.21.1">
   <img src="https://img.shields.io/badge/NeoForge-21.1-D7742F?style=flat" alt="NeoForge 21.1">
-  <img src="https://img.shields.io/badge/side-client%20%2B%20optional%20server-5B8DEF?style=flat" alt="Client side, optional server side">
+  <img src="https://img.shields.io/badge/side-client-5B8DEF?style=flat" alt="Client side">
   <a href="https://github.com/Tapacywka/teyvat-cartographia/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-8A8F98?style=flat" alt="MIT license"></a>
 </p>
 
@@ -57,9 +57,9 @@
 
 <h2 id="about">📖 About</h2>
 
-**Teyvat Cartographia** is a client-side Minecraft mod (with an optional server side for shared pins) that brings a
+**Teyvat Cartographia** is a client-side Minecraft mod that brings a
 **Genshin Impact inspired world map and minimap** to Minecraft. The chunks you load are drawn as a map in the colours of their blocks, with relief
-shading, water depth and contour lines, while fog of war covers everything you have not seen yet.
+shading, water depth and contour lines, while Fog of War covers everything you have not seen yet.
 Place pins, search for them and for biomes, track them, follow the path and find your way back home.
 
 | | |
@@ -67,7 +67,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 | Minecraft | **1.21.1** (Java Edition) |
 | Mod loader | **NeoForge 21.1** (built against 21.1.257) |
 | Java | **21** |
-| Side | **Client**, optional on the server. Servers don't need it, so you can join vanilla and modded servers. On a NeoForge server with the mod, operators' interactive pins are shared with every player. |
+| Side | **Client** only. Servers don't need it, so you can join vanilla and modded servers. |
 | Languages | English, Russian |
 | License | [MIT](https://github.com/Tapacywka/teyvat-cartographia/blob/main/LICENSE) |
 
@@ -132,14 +132,15 @@ Place pins, search for them and for biomes, track them, follow the path and find
 |---|---|---|
 | In game | Open world map | **M** (rebindable) |
 | In game | Toggle minimap / minimap zoom in / zoom out | **N** / **=** / **-** (rebindable) |
-| In game | Pin your position / stop tracking | **B** / **Z** (rebindable) |
+| In game | New pin where you stand (opens the map with the pin editor) / stop tracking | **B** / **Z** (rebindable) |
 | In game | Pulse the tracked pin (shows the pin and the path stars again) | **V** (rebindable) |
 | World map | Pan | drag with the left mouse button, or WASD / arrow keys |
 | World map | Zoom (keeps the point under the cursor) | mouse wheel, `+`/`-`, or the slider on the left |
-| World map | Create a pin | left-click empty ground, choose icon and name, **Confirm** |
+| World map | Context menu | right-click: on empty ground **New pin** and, for operators (cheats in singleplayer), **Teleport here**; on a pin **Edit** (**Open** for an automatic point) and **Track** |
+| World map | Create a pin | right-click empty ground, **New pin**, choose icon and name, **Confirm** |
 | World map | Overlapping pins | left-click the spot, pick one from the list in the lower right corner |
-| World map | Edit or track a pin | left-click it: rename, type, delete, **Track**; **Teleport** for Interactive pins (operators only) |
-| World map | Close the pin panel | left-click empty ground; a left click on another pin opens that one |
+| World map | Edit or track a pin | left-click it: rename, type, delete, **Track** |
+| World map | Close the pin panel | left-click empty ground (it creates no pin); a left click on another pin opens that one |
 | World map | Search pins and biomes | **Ctrl+F**, or the field at the top of the pin list; **Enter** opens the first result |
 | World map | Centre on the player | **Space**, the locate button, or the player's edge indicator |
 | World map | Cave layers | the layer button at the right edge (see [Cave layers](#cave-layers)) |
@@ -154,8 +155,8 @@ Place pins, search for them and for biomes, track them, follow the path and find
   depth, biome tint, block light) and shaded on background threads into 256 x 256 block regions. Nothing is loaded or
   generated just for the map. Regions are cached in memory and on disk, so the map grows as you explore and survives
   restarts.
-* Fog of war over unexplored land, painted regions with relief shading and contour lines. The map darkens at night,
-  while torches, lava and other lights keep their colour. The Nether (smoke and embers) and the End (a starry void)
+* Fog of War over unexplored land, painted regions with relief shading and contour lines. The map darkens at night,
+  while torches, lava and other lights keep their colour. The Nether (smoke and embers) and The End (a starry void)
   have a fog of their own, soft wisps and glowing motes like the fog of the Genshin Impact map.
 * Biome name labels (zoom 1/4 to 4), biome under the cursor, player and cursor coordinates, explored chunk counter,
   zoom slider (1/16 to 16), optional chunk grid.
@@ -210,20 +211,15 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * Three kinds of pins:
   * **Custom**, for every player: demon, quest, star, meat, flower, pickaxe and hook (the name of each shows when you
     point at its tile);
-  * **Interactive**, created by operators only (permission level 2, or cheats in singleplayer): sign, party and
-    structure. Only these offer **Teleport**; other players can see and track them;
+  * **Interactive**, for every player too: sign, party and structure;
   * **System**: automatic points from real data, the world spawn and your last death location.
-* Rename, retype, delete (an interactive pin asks first); up to 100 pins per world, a pin list sorted by distance,
-  saved per world and dimension.
+* Rename, retype, delete; up to 300 pins per world, a pin list sorted by distance, saved per world and dimension.
+* A right click on the world map opens a small menu: **New pin** on empty ground, **Edit** and **Track** on a pin.
+  Operators (permission level 2, or cheats in singleplayer) also get **Teleport here** on the ground, in any
+  dimension the map shows.
 * Track a pin or an automatic point. The tracked pin's colour depends on its kind: custom orange, interactive mint,
   system violet. Tracking an automatic point ends on arrival.
 * Distances are in blocks everywhere and in 3D: from your feet to the floor of the point.
-* **Shared interactive pins**: with the mod also on a NeoForge server (and in singleplayer and LAN), the interactive
-  pins operators place are shared with every player who has the mod. Operators track, teleport to, rename, retype and
-  remove them; other players can only track them. The server keeps them in the world and checks the rights of every
-  change; up to 200 per world, apart from each player's own 100. An operator with interactive pins of their own on such
-  a server is asked once whether to move them to the shared ones; the ones kept say *local* in the pin list. Players
-  without the mod can still join.
 * **Export and import** from the pin list: save every pin of the world to a `.json` file, add the pins of such a file
   (or of another world's `markers.json`); repeats are skipped.
 * **Import from Xaero's Minimap** (its waypoints also show on Xaero's World Map): the waypoints of the current world
@@ -255,10 +251,10 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * The gear on the map holds quick switches: the three pin kinds, the path to the target, biome names, chunk grid.
 * The full settings screen (also from the NeoForge mod list) has a tab for each part: *Map* (appearance; what the
   map shows: plants, caves; colours; the world map), *Minimap* (display, size and position, look, extra
-  information), *Pins* (display and path to the target for each kind), *System* (performance) and, with a supported
-  mod in the game, *Compatibility* (see [Compatibility with mods](#compatibility)).
+  information), *Pins* (display and path to the target for each kind), *System* (performance) and
+  *Compatibility* (The Nether and End fogs, and the supported mods in the game: see [Compatibility with mods](#compatibility)).
 * **Live preview**: point at a setting and the card beside the list shows it, with what it does. The map around you
-  as it will look, the minimap where it sits and at its real size, the three terrain detail modes side by side, the
+  as it will look, the minimap at its real size and where it sits, the three terrain detail modes, the
   cave layers with their buttons to click, each pin kind on the world map, the minimap and in the world, the mapping
   speed and memory, the mods' fogs and samples. It changes as you move a slider. (At a GUI scale too large for it, it
   asks for a smaller one.)
@@ -276,12 +272,12 @@ world map, so most mods work without anything special. A few get more: with one 
 | Mod | What it gets |
 |---|---|
 | [Xaero's Minimap](https://modrinth.com/mod/xaeros-minimap) | **Import** of its waypoints (also those of Xaero's World Map) into your pins: the current world's are found on their own. The pin type they get, and whether hidden waypoints and death points come too, are in its part. |
-| [The Aether](https://modrinth.com/mod/aether) | A fog of war of its own, a **sea of clouds** seen from above, with the floating islands casting a soft shadow on it (on the world map and the minimap). No cave layers under the islands. |
-| Mielon's The Sift | A **pearly haze** in the colours of its ichor as the fog of war; its **rainbow ichor** and **ichor snow** shimmer on the map in their own colours (each can be switched off); its cyan willows keep their colour. |
+| [The Aether](https://modrinth.com/mod/aether) | A Fog of War of its own, a **sea of clouds** seen from above, with the floating islands casting a soft shadow on it (on the world map and the minimap). No cave layers under the islands. |
+| Mielon's The Sift | A **pearly haze** in the colours of its ichor as the Fog of War; its **rainbow ichor** and **ichor snow** shimmer on the map in their own colours (each can be switched off); its cyan willows keep their colour. |
 | [Biomes O' Plenty](https://modrinth.com/mod/biomes-o-plenty), [Regions Unexplored](https://modrinth.com/mod/regions-unexplored) | Their biomes, leaves, grass and plants in their own colours (compared side by side with Xaero's Minimap in 16 places); their plants in the Plants list. |
 | [Vanilla Backport](https://github.com/ItsBlackGear/VanillaBackport), [Tiny Takeover Backport](https://github.com/evanbones/Tiny-Takeover-Backport) | The pale garden, leaf litter, bushes and the other new blocks in the colours the game gives them. |
 
-The Nether and the End have fogs of their own too; a resource pack theme can add a fog for any other dimension (see
+The Nether and The End have fogs of their own too (each can be switched off in Compatibility > Minecraft); a resource pack theme can add a fog for any other dimension (see
 [Themes](#themes)). Players with other minimaps keep them: this mod changes nothing in the world and needs nothing
 from the server.
 
@@ -289,7 +285,7 @@ from the server.
 
 Three choices, each on its own (**Settings > Map > Appearance**, and the shape in **Settings > Minimap**):
 
-* **Theme**: colours, icons and the fog of war. **Default** (`default`) is built in and always available; a resource
+* **Theme**: colours, icons and the Fog of War. **Default** (`default`) is built in and always available; a resource
   pack may add more, and the list shows only themes whose pack is enabled. Other themes fall back to its assets.
 * **Minimap shape**: **Square** (the default) or **Round**.
 * **Interface style**: **Rectangular** (the default), flat panels, buttons and tiles with square corners, or
@@ -349,7 +345,6 @@ The mod is meant to cost at most 2 to 3% FPS:
 | Biome index for the search | `teyvatcartographia/<world>/<dimension>/biomes.idx` |
 | Pins and the tracked target | `teyvatcartographia/<world>/markers.json` |
 | Exported pins (default folder) | `teyvatcartographia/exports/` |
-| Shared interactive pins (on the server) | `<world save>/data/teyvatcartographia_pins.dat` |
 
 `<world>` is `sp_<save folder>` in singleplayer and `mp_<server address>` on servers.
 

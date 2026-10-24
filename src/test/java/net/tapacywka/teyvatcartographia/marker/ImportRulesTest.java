@@ -14,8 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Own pins and the import (no world open, so nothing is saved): the limit of 100, repeats left out, interactive pins
- * only for operators, ids kept unless taken.
+ * Pins and the import (no world open, so nothing is saved): the limit of 300, repeats left out, interactive pins
+ * for every player, ids kept unless taken, the shared pins of an old single player world read.
  */
 class ImportRulesTest {
     @BeforeEach
@@ -31,48 +31,62 @@ class ImportRulesTest {
     }
 
     @Test
-    void ownPinsStopAt100() {
+    void pinsStopAt300() {
         for (int i = 0; i < MarkerStore.MAX_MARKERS; i++) assertTrue(MarkerStore.add(pin("Pin " + i, MarkerType.STAR, i)));
-        assertEquals(100, MarkerStore.localCount());
-        assertFalse(MarkerStore.add(pin("One more", MarkerType.STAR, 500)), "the 101st is refused");
+        assertEquals(300, MarkerStore.count());
+        assertFalse(MarkerStore.add(pin("One more", MarkerType.STAR, 5000)), "the 301st is refused");
     }
 
     @Test
     void importLeavesOutRepeats() {
         MarkerStore.add(pin("Camp", MarkerType.DEMON, 10));
         List<Marker> file = List.of(pin("Camp", MarkerType.DEMON, 10), pin("Camp", MarkerType.DEMON, 11), pin("Other", MarkerType.DEMON, 10));
-        MarkerStore.Added r = MarkerStore.addAll(file, false);
+        MarkerStore.Added r = MarkerStore.addAll(file);
         assertEquals(2, r.added(), "same name elsewhere and another name here are new");
         assertEquals(1, r.duplicates(), "same place and name");
-        assertEquals(3, MarkerStore.localCount());
+        assertEquals(3, MarkerStore.count());
     }
 
     @Test
     void repeatsInsideOneFileCountOnce() {
-        MarkerStore.Added r = MarkerStore.addAll(List.of(pin("A", MarkerType.STAR, 1), pin("A", MarkerType.STAR, 1)), false);
+        MarkerStore.Added r = MarkerStore.addAll(List.of(pin("A", MarkerType.STAR, 1), pin("A", MarkerType.STAR, 1)));
         assertEquals(1, r.added());
         assertEquals(1, r.duplicates());
     }
 
     @Test
     void importStopsAtTheLimit() {
-        for (int i = 0; i < 98; i++) MarkerStore.add(pin("Pin " + i, MarkerType.STAR, i));
+        for (int i = 0; i < MarkerStore.MAX_MARKERS - 2; i++) MarkerStore.add(pin("Pin " + i, MarkerType.STAR, i));
         List<Marker> file = new ArrayList<>();
         for (int i = 0; i < 5; i++) file.add(pin("New " + i, MarkerType.STAR, 1000 + i));
-        MarkerStore.Added r = MarkerStore.addAll(file, false);
+        MarkerStore.Added r = MarkerStore.addAll(file);
         assertEquals(2, r.added());
         assertEquals(3, r.overLimit());
-        assertEquals(100, MarkerStore.localCount());
+        assertEquals(MarkerStore.MAX_MARKERS, MarkerStore.count());
     }
 
     @Test
-    void interactivePinsOnlyForOperators() {
+    void interactivePinsForEveryPlayer() {
         List<Marker> file = List.of(pin("Statue", MarkerType.PARTY, 1), pin("Camp", MarkerType.DEMON, 2));
-        MarkerStore.Added player = MarkerStore.addAll(file, false);
-        assertEquals(1, player.added());
-        assertEquals(1, player.operatorOnly());
-        MarkerStore.Added op = MarkerStore.addAll(List.of(pin("Statue", MarkerType.PARTY, 1)), true);
-        assertEquals(1, op.added(), "an operator gets it (as an own pin where the server keeps no shared pins)");
+        assertEquals(2, MarkerStore.addAll(file).added(), "no operator rights needed since 24.10.2026");
+    }
+
+    @Test
+    void theSharedPinsOfAnOldWorldAreRead() {
+        // As a 0.1.3 server saved them: data/teyvatcartographia_pins.dat = {DataVersion, data: {pins: [...]}}.
+        Marker sign = pin("Sign", MarkerType.SIGN, 4);
+        sign.band = -1;
+        net.minecraft.nbt.CompoundTag data = new net.minecraft.nbt.CompoundTag();
+        data.put("pins", Marker.CODEC.listOf().encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, List.of(sign, pin("Party", MarkerType.PARTY, 5))).getOrThrow());
+        net.minecraft.nbt.CompoundTag root = new net.minecraft.nbt.CompoundTag();
+        root.putInt("DataVersion", 3955);
+        root.put("data", data);
+        List<Marker> read = MarkerStore.readOldShared(root);
+        assertEquals(2, read.size());
+        assertEquals(sign.id, read.get(0).id);
+        assertEquals(-1, read.get(0).band);
+        assertEquals(MarkerType.PARTY, read.get(1).type);
+        assertTrue(MarkerStore.readOldShared(new net.minecraft.nbt.CompoundTag()).isEmpty(), "a file without pins: none");
     }
 
     @Test
@@ -81,7 +95,7 @@ class ImportRulesTest {
         MarkerStore.add(mine);
         Marker sameId = new Marker(mine.id, "Elsewhere", MarkerType.PICKAXE, Level.OVERWORLD, 900, 64, 900, 0, false);
         Marker fresh = pin("Fresh", MarkerType.STAR, 7);
-        MarkerStore.addAll(List.of(sameId, fresh), false);
+        MarkerStore.addAll(List.of(sameId, fresh));
         assertTrue(MarkerStore.find(fresh.id) != null, "its own id");
         Marker copy = null;
         for (Marker m : MarkerStore.all()) if (m.name.equals("Elsewhere")) copy = m;
@@ -94,7 +108,7 @@ class ImportRulesTest {
     void theCaveLayerComesAlong() {
         Marker cave = pin("Cave", MarkerType.STAR, 3);
         cave.band = -2;
-        MarkerStore.addAll(List.of(cave), false);
+        MarkerStore.addAll(List.of(cave));
         assertEquals(-2, MarkerStore.find(cave.id).band);
     }
 }

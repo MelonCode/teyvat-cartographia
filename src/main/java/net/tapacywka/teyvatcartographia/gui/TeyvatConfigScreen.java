@@ -272,7 +272,10 @@ public final class TeyvatConfigScreen extends Screen {
         boolean click(double mx, double my, float x, float w) {
             if (Draw.inRect(mx, my, ax(x, w) - 6, y, 12, Grid.ROW)) {
                 if (plantList != null) closePlants();
-                else if (MapConfig.get(value)) plantList = new PlantList();
+                else if (MapConfig.get(value)) {
+                    plantList = new PlantList();
+                    scroll = Math.min(rowTop(this), maxScroll()); // the row as high as the list goes, so the plants get room
+                }
                 return true;
             }
             boolean took = super.click(mx, my, x, w);
@@ -636,7 +639,6 @@ public final class TeyvatConfigScreen extends Screen {
         map.add(new Section("teyvatcartographia.config.section.colours"));
         map.add(SliderRow.ofSteps("teyvatcartographia.config.detail", DETAIL_STEPS, () -> MapConfig.get(MapConfig.DETAIL).ordinal(),
                 s -> MapConfig.DETAIL.set(MapConfig.Detail.values()[s])).then(remap));
-        map.add(new BoolRow("teyvatcartographia.config.world_tints", MapConfig.WORLD_TINTS).then(remap));
         map.add(SliderRow.ofPercent("teyvatcartographia.config.water_depth", MapConfig.WATER_DEPTH, 0, 100).then(remap));
         map.add(SliderRow.ofPercent("teyvatcartographia.config.shallow_water", MapConfig.SHALLOW_WATER, 0, 100).then(remap));
         map.add(new Section("teyvatcartographia.config.section.worldmap"));
@@ -704,9 +706,9 @@ public final class TeyvatConfigScreen extends Screen {
         system.add(SliderRow.ofInt("teyvatcartographia.config.chunks_per_tick", MapConfig.CHUNKS_PER_TICK, 1, 32));
         system.add(SliderRow.ofInt("teyvatcartographia.config.max_tiles", MapConfig.MAX_CACHED_TILES, 32, 1024));
         system.add(new EnumRow<>("teyvatcartographia.config.minimap_rate", MapConfig.MINIMAP_UPDATE_RATE, MapConfig.UpdateRate.values(), null));
-        // Compatibility: a sub-section per mod, only for the mods in the game (no tab without any), in the alphabetical
-        // order of their names like the modded dimensions of the dimensions panel; everything made for one mod is there,
-        // its fog of war too.
+        // Compatibility: Minecraft first (the fogs of its own dimensions), then a sub-section per mod, only for the mods
+        // in the game, in the alphabetical order of their names like the modded dimensions of the dimensions panel;
+        // everything made for one mod is there, its fog of war too.
         List<ModPart> mods = new ArrayList<>();
         if (ModCompat.aether()) mods.add(new ModPart("teyvatcartographia.config.subsection.compat_aether", List.of(
                 new BoolRow("teyvatcartographia.config.compat.aether_fog", MapConfig.AETHER_FOG).then(Theme.Style::update))));
@@ -720,6 +722,10 @@ public final class TeyvatConfigScreen extends Screen {
                 new BoolRow("teyvatcartographia.config.compat.xaero_hidden", MapConfig.XAERO_HIDDEN),
                 new BoolRow("teyvatcartographia.config.compat.xaero_deaths", MapConfig.XAERO_DEATHS))));
         mods.sort(Comparator.comparing(ModPart::name, String.CASE_INSENSITIVE_ORDER));
+        // The game's own dimensions first, always there (user decision 24.10.2026).
+        mods.add(0, new ModPart("teyvatcartographia.config.subsection.compat_minecraft", List.of(
+                new BoolRow("teyvatcartographia.config.compat.nether_fog", MapConfig.NETHER_FOG).then(Theme.Style::update),
+                new BoolRow("teyvatcartographia.config.compat.end_fog", MapConfig.END_FOG).then(Theme.Style::update))));
         for (ModPart m : mods) {
             compat.add(new SubSection(m.key(), Component.literal(m.name())));
             compat.addAll(m.rows());
@@ -778,6 +784,16 @@ public final class TeyvatConfigScreen extends Screen {
     }
 
     // The list scrolls only to the top of a row and draws only the rows it holds whole: no row is cut at its edges.
+
+    /** Where row {@code row} starts in the list (scrolled 0), a row top the list can scroll to. */
+    private float rowTop(Row row) {
+        float at = 0;
+        for (Row r : rows) {
+            if (r == row) return at;
+            at += r.listHeight();
+        }
+        return 0;
+    }
 
     /** The furthest scroll: the first row top from which the rest of the list fits. */
     private float maxScroll() {
@@ -931,6 +947,11 @@ public final class TeyvatConfigScreen extends Screen {
             return;
         }
         if (mx >= contentX() + contentW()) return;
+        // Over the open list of plants: the Plants setting (not the rows hidden under the list).
+        if (plantList != null && plantList.over(mx, my)) {
+            previewRow = plantsRow;
+            return;
+        }
         Row at = null;
         if (my >= listTop && my < listBottom && mx >= contentX()) {
             for (Row r : rows) if (r.tooltip != null && inView(r) && my >= r.y && my < r.y + r.height()) at = r;
@@ -943,9 +964,17 @@ public final class TeyvatConfigScreen extends Screen {
         return r != null && r.label.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc ? tc.getKey() : "";
     }
 
+    /** The minimap's size and position: their preview is the picture of the screen alone. */
+    private static final java.util.Set<String> PLACE_ROWS = java.util.Set.of("teyvatcartographia.config.minimap_radius",
+            "teyvatcartographia.config.minimap_corner", "teyvatcartographia.config.minimap_offset_x", "teyvatcartographia.config.minimap_offset_y");
+
+    /** The minimap's look: their preview is the minimap alone, without the lines under it. */
+    private static final java.util.Set<String> LOOK_ROWS = java.util.Set.of("teyvatcartographia.config.minimap_opacity",
+            "teyvatcartographia.config.minimap_padding", "teyvatcartographia.config.minimap_fade_width", "teyvatcartographia.config.minimap_fade_strength");
+
     /** Settings whose preview is their description alone (nothing on the map to show for them). */
     private static final java.util.Set<String> DESCRIPTION_ONLY = java.util.Set.of("teyvatcartographia.config.theme",
-            "teyvatcartographia.config.interface_style", "teyvatcartographia.config.plants", "teyvatcartographia.config.world_tints");
+            "teyvatcartographia.config.interface_style", "teyvatcartographia.config.plants");
 
     /**
      * The card: a dark panel with its title, then for the setting pointed at its pictures at the top (a caption with
@@ -970,34 +999,49 @@ public final class TeyvatConfigScreen extends Screen {
             return;
         }
         String key = shownTabKey(), rk = rowKey(row);
-        // The description: the name in gold over a line, the text wrapped under it.
-        List<net.minecraft.util.FormattedCharSequence> lines = DrawText.font().split(row.tooltip, (int) cw);
-        float descH = DrawText.LINE + Grid.GAP + 1 + Grid.GAP + lines.size() * (DrawText.LINE + 2) - 2;
-        boolean picture = !DESCRIPTION_ONLY.contains(rk);
-        float descY = cy;
-        if (picture) {
-            boolean single = (key.equals("teyvatcartographia.config.tab.map") || key.equals("teyvatcartographia.config.tab.minimap"))
-                    && !rk.equals("teyvatcartographia.config.detail") && !rk.equals("teyvatcartographia.config.caves"); // captions of their own
-            float captionH = single ? DrawText.LINE + Grid.GAP : 0;
-            float vh = Draw.snap(ch - descH - Grid.PAD - captionH);
-            previewPicture(g, cx, cy, cw, vh, pt, key, rk);
-            if (single) {
-                String caption = row.label.getString() + (row.valueText() == null ? "" : ": " + row.valueText());
-                DrawText.room(caption, cw);
-                DrawText.textCentered(g, Component.literal(DrawText.fit(caption, (int) cw)), Draw.snap(cx + cw / 2f), cy + vh + Grid.GAP, Theme.CREAM, false);
-            }
-            descY = cy + vh + captionH + Grid.PAD;
-        }
-        DrawText.text(g, DrawText.fit(row.label.getString(), (int) cw), cx, descY, Theme.GOLD, false);
-        Draw.rect(g, cx, descY + DrawText.LINE + Grid.GAP, cx + cw, descY + DrawText.LINE + Grid.GAP + 1, Theme.PANEL_LINE);
-        float ty = descY + DrawText.LINE + 2 * Grid.GAP + 1;
-        for (net.minecraft.util.FormattedCharSequence l : lines) {
+        // The description at the top: the name in gold over a line, the text wrapped under it.
+        DrawText.text(g, DrawText.fit(row.label.getString(), (int) cw), cx, cy, Theme.GOLD, false);
+        Draw.rect(g, cx, cy + DrawText.LINE + Grid.GAP, cx + cw, cy + DrawText.LINE + Grid.GAP + 1, Theme.PANEL_LINE);
+        float ty = cy + DrawText.LINE + 2 * Grid.GAP + 1;
+        for (net.minecraft.util.FormattedCharSequence l : DrawText.font().split(row.tooltip, (int) cw)) {
             g.pose().pushPose();
             g.pose().translate(Draw.snap(cx), Draw.snap(ty), 0);
             g.drawString(DrawText.font(), l, 0, 0, Theme.CREAM, false);
             g.pose().popPose();
             ty += DrawText.LINE + 2;
         }
+        if (DESCRIPTION_ONLY.contains(rk)) return;
+        // The pictures under it, from where the longest description of the tab ends: the same size for every setting
+        // of the tab, whatever the length of its own text (user decision 24.10.2026).
+        float top = Draw.snap(cy + descriptionRoom(key, cw) + Grid.PAD);
+        boolean single = (key.equals("teyvatcartographia.config.tab.map") || key.equals("teyvatcartographia.config.tab.minimap")
+                || key.equals("teyvatcartographia.config.tab.compat"))
+                && !rk.equals("teyvatcartographia.config.detail") && !rk.equals("teyvatcartographia.config.caves"); // captions of their own
+        float captionH = single ? DrawText.LINE + Grid.GAP : 0;
+        float vh = Draw.snap(cy + ch - top - captionH);
+        previewPicture(g, cx, top, cw, vh, pt, key, rk);
+        if (single) {
+            String caption = row.label.getString() + (row.valueText() == null ? "" : ": " + row.valueText());
+            DrawText.room(caption, cw);
+            DrawText.textCentered(g, Component.literal(DrawText.fit(caption, (int) cw)), Draw.snap(cx + cw / 2f), top + vh + Grid.GAP, Theme.CREAM, false);
+        }
+    }
+
+    private String roomTab;
+    private float roomW, roomH;
+
+    /** Height of the longest description (name, line and text) among the settings of tab {@code key} that have pictures, {@code w} wide. */
+    private float descriptionRoom(String key, float w) {
+        if (key.equals(roomTab) && w == roomW) return roomH;
+        int most = 0;
+        for (Row r : rows) {
+            if (r.tooltip == null || DESCRIPTION_ONLY.contains(rowKey(r))) continue;
+            most = Math.max(most, DrawText.font().split(r.tooltip, (int) w).size());
+        }
+        roomTab = key;
+        roomW = w;
+        roomH = DrawText.LINE + 2 * Grid.GAP + 1 + most * (DrawText.LINE + 2) - 2;
+        return roomH;
     }
 
     /** The pictures of the setting {@code rk} of the tab {@code key} in the area, clipped to it. */
@@ -1005,7 +1049,7 @@ public final class TeyvatConfigScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         boolean world = mc.player != null && mc.level != null;
         // The minimap's layers are brought up to date before any clipping (they draw off screen).
-        boolean minimap = world && (key.equals("teyvatcartographia.config.tab.minimap") || key.equals("teyvatcartographia.config.tab.pins"))
+        boolean minimap = world && key.equals("teyvatcartographia.config.tab.minimap")
                 && MinimapLayer.preparePreview(g, mc.getTimer());
         g.enableScissor((int) cx, (int) cy, (int) (cx + cw), (int) (cy + ch)); // nothing spills out of the area
         if (rk.equals("teyvatcartographia.config.caves") && world) {
@@ -1021,18 +1065,25 @@ public final class TeyvatConfigScreen extends Screen {
         } else if (key.equals("teyvatcartographia.config.tab.minimap")) {
             if (!world) previewNote(g, cx, cy, cw, ch, "teyvatcartographia.config.preview.no_world");
             else if (!minimap) previewNote(g, cx, cy, cw, ch, "teyvatcartographia.config.preview.minimap_off");
-            // On or off: the minimap alone, without the lines under it; the rest: where it sits and at its real size.
-            else if (rk.equals("teyvatcartographia.config.minimap_enabled")) SettingsPreview.minimap(g, cx, cy, cw, ch);
+            // Its look: the minimap alone, without the lines under it; the rest (on or off too): with them, at its real size.
+            else if (LOOK_ROWS.contains(rk)) SettingsPreview.minimap(g, cx, cy, cw, ch);
+            // Size and position: only where it sits on the screen, the minimap alone on the picture, as large as it fits.
+            else if (PLACE_ROWS.contains(rk)) {
+                float pw = cw, ph = pw * height / width;
+                if (ph > ch) {
+                    ph = ch;
+                    pw = ph * width / height;
+                }
+                screenPicture(g, cx + (cw - pw) / 2f, cy + (ch - ph) / 2f, pw, ph);
+            }
             else previewMinimap(g, cx, cy, cw, ch);
         } else if (key.equals("teyvatcartographia.config.tab.pins")) {
-            SettingsPreview.pins(g, cx, cy, cw, ch, (g2, mx, my, mw, mh, zoom) -> previewMap(g2, mx, my, mw, mh, zoom, pt), rk, minimap);
+            SettingsPreview.pins(g, cx, cy, cw, ch, (g2, mx, my, mw, mh, zoom) -> previewMap(g2, mx, my, mw, mh, zoom, pt), rk);
         } else if (key.equals("teyvatcartographia.config.tab.system")) {
             if (world) SettingsPreview.system(g, cx, cy, cw, ch);
             else previewNote(g, cx, cy, cw, ch, "teyvatcartographia.config.preview.no_world");
         } else {
-            List<SettingsPreview.ModSample> mods = new ArrayList<>();
-            for (Row r : compat) if (r instanceof SubSection s) mods.add(new SettingsPreview.ModSample(s.key, s.label));
-            SettingsPreview.compat(g, cx, cy, cw, ch, mods);
+            SettingsPreview.compatSample(g, cx, cy, cw, ch, rk); // this setting's mod alone
         }
         g.disableScissor();
     }
@@ -1097,39 +1148,25 @@ public final class TeyvatConfigScreen extends Screen {
         }
     }
 
-    /** Height of the smallest picture of the screen (GUI units): still shows the corner the minimap is in. */
-    private static final float PICTURE_MIN = 40;
-
     /**
-     * The minimap as the HUD shows it: a picture of the screen (where it sits) and the minimap at its real size (smaller
-     * only without room for it), as one group centred in the area on both axes, on the pixel grid. In a wide area (over
-     * the list) side by side, each centred in its half; else one over the other, the minimap given its room first.
+     * The minimap with the lines under it as the HUD shows it, at its real size (smaller only without room for it),
+     * centred in the area on both axes, on the pixel grid; no picture of the screen (user decision 24.10.2026).
      */
     private void previewMinimap(GuiGraphics g, float x, float y, float w, float h) {
         int[] b = MinimapLayer.preparedBounds();
         float bw = b[2] - b[0], bh = b[3] - b[1];
-        if (w > h * 1.3f) {
-            float half = (w - Grid.PAD) / 2f;
-            float s = Math.min(1f, Math.min(half / bw, h / bh));
-            float ph = Math.min(half * height / width, h), pw = ph * width / height;
-            screenPicture(g, x + (half - pw) / 2f, y + (h - ph) / 2f, pw, ph);
-            float rx = x + half + Grid.PAD;
-            realMinimap(g, b, rx + (half - bw * s) / 2f, y + (h - bh * s) / 2f, s);
-            return;
-        }
-        float s = Math.min(1f, Math.min(w / bw, (h - PICTURE_MIN - Grid.PAD) / bh));
-        float rh = bh * s;
-        float ph = Math.max(PICTURE_MIN, Math.min(Math.min(w * height / width, h * 0.4f), h - rh - Grid.PAD)), pw = ph * width / height;
-        float top = y + (h - (ph + Grid.PAD + rh)) / 2f;
-        screenPicture(g, x + (w - pw) / 2f, top, pw, ph);
-        realMinimap(g, b, x + (w - bw * s) / 2f, top + ph + Grid.PAD, s);
+        float s = Math.min(1f, Math.min(w / bw, h / bh));
+        realMinimap(g, b, x + (w - bw * s) / 2f, y + (h - bh * s) / 2f, s);
     }
 
-    /** A picture of the screen at (x, y), {@code w} x {@code h}, with the minimap where it sits on it. */
+    /** A picture of the screen at (x, y), {@code w} x {@code h}, with the minimap alone (no lines under it) where it sits on it. */
     private void screenPicture(GuiGraphics g, float x, float y, float w, float h) {
         float sx = Draw.snap(x), sy = Draw.snap(y), sw = Draw.snap(w), sh = Draw.snap(h);
         Draw.rect(g, sx, sy, sx + sw, sy + sh, Theme.PANEL_DARK_HEADER);
-        g.enableScissor((int) sx, (int) sy, (int) Math.ceil(sx + sw), (int) Math.ceil(sy + sh));
+        float[] m = MinimapLayer.preparedMap();
+        float kx = sw / width, ky = sh / height;
+        g.enableScissor((int) (sx + (m[0] - m[2]) * kx), (int) (sy + (m[1] - m[2]) * ky), (int) Math.ceil(sx + (m[0] + m[2]) * kx),
+                (int) Math.ceil(sy + (m[1] + m[2]) * ky));
         g.pose().pushPose();
         g.pose().translate(sx, sy, 0);
         g.pose().scale(sw / width, sh / height, 1f);
@@ -1286,6 +1323,7 @@ public final class TeyvatConfigScreen extends Screen {
             dragBar(my);
             return true;
         }
+        if (plantList != null && plantList.drag(my)) return true;
         if (draggingRow != null) {
             draggingRow.drag(mx, contentX(), contentW());
             return true;
@@ -1298,6 +1336,7 @@ public final class TeyvatConfigScreen extends Screen {
         if (draggingRow instanceof SliderRow s && s.onRelease != null) s.onRelease.run();
         draggingRow = null;
         draggingBar = false;
+        if (plantList != null) plantList.release();
         return super.mouseReleased(mx, my, button);
     }
 

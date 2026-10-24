@@ -42,10 +42,12 @@ public final class ModCompat {
             ResourceKey.create(Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath("the_sift", "the_sift"));
 
     /**
-     * Whether a dimension's own fog of war may show: the Aether's and The Sift's (made for those mods) by their switch in
-     * Compatibility; the Nether's, the End's and the fogs a theme brings for other dimensions always show.
+     * Whether a dimension's own fog of war may show: the Nether's, the End's, the Aether's and The Sift's by their switch
+     * in Compatibility; the fogs a theme brings for other dimensions always show.
      */
     public static boolean ownFog(ResourceKey<Level> dimension) {
+        if (dimension == Level.NETHER) return MapConfig.get(MapConfig.NETHER_FOG);
+        if (dimension == Level.END) return MapConfig.get(MapConfig.END_FOG);
         if (dimension == AETHER_DIMENSION) return MapConfig.get(MapConfig.AETHER_FOG);
         if (dimension == SIFT_DIMENSION) return MapConfig.get(MapConfig.SIFT_FOG);
         return true;

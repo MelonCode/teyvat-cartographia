@@ -1,21 +1,15 @@
 package net.tapacywka.teyvatcartographia.client;
 
-import net.minecraft.world.level.Level;
-import net.minecraft.resources.ResourceKey;
 import net.tapacywka.teyvatcartographia.config.MapConfig;
 import net.tapacywka.teyvatcartographia.gui.WorldMapScreen;
 import net.tapacywka.teyvatcartographia.hud.WorldMarkerLayer;
 import net.tapacywka.teyvatcartographia.map.MapView;
 import net.tapacywka.teyvatcartographia.map.data.MapDataManager;
-import net.tapacywka.teyvatcartographia.marker.Marker;
 import net.tapacywka.teyvatcartographia.marker.MarkerStore;
-import net.tapacywka.teyvatcartographia.marker.MarkerType;
-import net.tapacywka.teyvatcartographia.marker.SharedPins;
 import net.tapacywka.teyvatcartographia.nav.Navigation;
 import net.tapacywka.teyvatcartographia.nav.FarPath;
 import net.tapacywka.teyvatcartographia.nav.PathFinder;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -31,7 +25,6 @@ public final class ClientEvents {
         MapDataManager data = MapDataManager.get();
         data.tick();
         MarkerStore.switchWorld(data.worldId());
-        SharedPins.tickOffer();
         Navigation.tick();
         PathFinder.tick();
         FarPath.tick();
@@ -52,7 +45,7 @@ public final class ClientEvents {
                 mc.player.displayClientMessage(Component.translatable("teyvatcartographia.nav.cleared"), true);
             }
         }
-        while (Keybinds.QUICK_PIN.consumeClick()) quickPin(mc.player);
+        while (Keybinds.QUICK_PIN.consumeClick()) quickPin(mc);
         while (Keybinds.PULSE_TARGET.consumeClick()) WorldMarkerLayer.pulse();
     }
 
@@ -62,16 +55,9 @@ public final class ClientEvents {
         MapConfig.save();
     }
 
-    private static void quickPin(LocalPlayer player) {
-        ResourceKey<Level> dim = player.level().dimension();
-        Marker m = Marker.custom(Component.translatable("teyvatcartographia.marker.default_name", MarkerStore.localCount() + 1).getString(),
-                MarkerType.STAR, dim, player.getBlockX(), player.getBlockY(), player.getBlockZ());
-        m.band = net.tapacywka.teyvatcartographia.map.data.MapDataManager.get().undergroundBand(); // underground: on that cave layer
-        if (MarkerStore.add(m)) {
-            player.displayClientMessage(Component.translatable("teyvatcartographia.marker.added", m.name), true);
-        } else {
-            player.displayClientMessage(Component.translatable("teyvatcartographia.marker.limit", MarkerStore.MAX_MARKERS), true);
-        }
+    /** The quick pin key: the world map with the new pin editor where the player stands (no star pin made at once). */
+    private static void quickPin(Minecraft mc) {
+        if (mc.screen == null) mc.setScreen(WorldMapScreen.newPinHere());
     }
 
     @SubscribeEvent

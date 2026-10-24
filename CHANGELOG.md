@@ -8,8 +8,8 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
 * Two new choices: **Settings > Minimap > Minimap shape** (Square or Round) and **Settings > Map > Interface style**
   (Rectangular or Rounded). They are independent: a round minimap with rectangular menus works, and so does the other
   way round. Both start square, as before.
-* The built-in theme is now called **Default** (it was Minecraft). A theme sets only colours, icons and the fog of
-  war; `theme.json` has just a name (no `style` block, no `fog_tile`).
+* The built-in theme is now called **Default** (it was Minecraft). A theme sets only colours, icons and the Fog of
+  War; `theme.json` has just a name (no `style` block, no `fog_tile`).
 * The built-in **Genshin Impact** resource pack is removed: its theme was the same as the default one but for the
   round shapes, which are now the settings above. Players who had it selected get the Default theme with the square
   shapes; pick Round and Rounded to get the old look back.
@@ -54,13 +54,25 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   follows the cursor at once.
 
 ### Pins
+* **Right-click menu on the world map**: on empty ground **New pin** and, for operators (permission level 2, or cheats
+  in singleplayer), **Teleport here**, in any dimension the map shows (muted where the map does not know the ground's
+  height); on a pin **Edit** (**Open** for the spawn and death points) and **Track** or **Stop tracking**. A left click
+  on empty ground no longer creates a pin; a left click on a pin still opens it.
+* The quick pin key (**B**) opens the world map with the new pin editor where you stand, instead of adding a star pin
+  at once.
+* **Interactive pins are for every player now**, like the custom ones: anyone creates, edits and deletes them (no
+  confirmation any more), and there is no Teleport button on pins.
+* **The server side is gone: the mod is client side only again.** The interactive pins operators shared through a
+  server since 0.1.1 are no longer shared. In singleplayer they become your own pins the first
+  time you open the world; on a dedicated server they stay in its save
+  (`data/teyvatcartographia_pins.dat`), out of reach of the players.
+* Up to **300 pins** per world (was 100).
 * Each kind of pins has five steps (**Settings > Pins**): Off, Map, Both maps, **In the world** (the marker over a
   tracked pin with its distance, which can now be switched off) and Everywhere (its beam of light too). The path to a
   tracked pin keeps four: Off, Map, Both maps, Everywhere (the stars).
 * The interactive pins are now **Sign**, **Party** and **Structure** (they were Waypoint, Statue and Domain), with new
-  icons; the boss pin has a horned demon. Pins saved, exported or shared by a server of 0.1.2 and earlier keep working:
-  the old types are read as the new ones. A server and its players should update together: a 0.1.2 server does not
-  know the new types.
+  icons; the boss pin has a horned demon. Pins saved or exported by 0.1.2 and earlier keep working: the old types are
+  read as the new ones.
 * The custom pins are named by what they show: **Demon**, **Quest** (now a shield with an exclamation mark, it was a
   flag), **Star**, **Meat**, **Flower**, **Pickaxe** and **Hook**; the name shows when you point at a tile in the pin
   editor. Old pins keep their kind.
@@ -114,7 +126,7 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   packs change. Places mapped with an earlier version keep their old colours until you pass by again.
 * The settings are rearranged into tabs, each about one thing: **Map** (appearance, what the map shows, the world
   map), **Minimap**, **Pins**, **System** (performance) and, with a supported mod in the game, **Compatibility**,
-  where everything made for one mod is (its fog of war too). A thin scrollbar at the right of the list shows where you are; drag it, or click its track to
+  where everything made for one mod is (its Fog of War too). A thin scrollbar at the right of the list shows where you are; drag it, or click its track to
   jump.
 * Leaves and plants of other mods that the game does not tint with the biome keep their own colour (the cyan
   willows of The Sift).
@@ -133,24 +145,28 @@ All notable changes to Teyvat Cartographia. Versions follow `<mod>+mc<minecraft>
   biome's.
 * The Sift's rainbow ichor and its snow shimmer on the map as they do in the world (a still pattern of their own
   colours) instead of plain water blue and white.
-* The fog of war is redrawn in every dimension, softer and finer, after the fog of Genshin Impact's map: slow wisps
+* The Fog of War is redrawn in every dimension, softer and finer, after the fog of Genshin Impact's map: slow wisps
   and softly glowing motes. It repeats every 512 GUI units (was 440); a theme may set its own `"repeat"` in the fog's
   `.json`.
-* A live **Preview** beside the settings shows the setting you point at: its picture, then its name and what it
-  does (the settings have no hover tooltips any more); the map around you on the Map tab, the minimap (where it sits on the
-  screen, and at its real size) on the Minimap tab, the row you point at on the Pins tab (on the world map, the
-  minimap and in the world: the beam or the stars, darkened where the setting leaves them off), the mapping speed,
-  regions and memory on the System tab, and samples of the mods' fogs, The Sift's ichor and the Xaero waypoints to
-  import on the Compatibility tab, all changing as you change a setting. Without room beside the panel (a small
-  screen or a large interface) a button in the header says to lower the GUI scale.
+* A live **Preview** beside the settings shows the setting you point at: its name and what it does at the top (the
+  settings have no hover tooltips any more), its pictures under that, the same size for every setting of a tab. The
+  map around you on the Map tab, the minimap on the Minimap
+  tab (the minimap alone for its look, with its lines for what they show, a picture of the screen for its size and
+  place), the row you point at on the Pins tab (on the world map, the minimap and in the world: the beam or the stars,
+  darkened where the setting leaves them off), the mapping speed, regions and memory on the System tab, and samples
+  of each fog, The Sift's ichor and snow and the Xaero waypoints to import on the Compatibility tab, all changing as
+  you change a setting. Without room beside the panel (a small screen or a large interface) a button in the header
+  says to lower the GUI scale.
 * A **Colours** section in **Settings > Map**: **Terrain detail** (a slider now; the preview shows the three modes
-  side by side), **Block colours from the world** (off: one colour per block, the same everywhere), **Deep
-  water shading** (how much deep water darkens) and **Clear shallow water** (how much of the ground shows through
-  shallow water; off by default).
-* New switches in **Compatibility**: **Fog of war: The Aether**, and for Mielon's The Sift **Fog of war: The Sift**,
-  **Rainbow ichor** and **Ichor snow** (off: the average colour of their textures, like Xaero's Minimap). The Nether
-  and the End always have their own fog. A dimension of another mod has no fog of its own unless made for it.
-* Fog of war of its own in the Nether (smoke and glowing embers), the End (a void with a violet nebula and stars;
+  side by side), **Deep water shading** (how much deep water darkens) and **Clear shallow water** (how much of the
+  ground shows through shallow water; off by default). Lily pads, leaf litter and the grass and leaves of mods such as
+  Biomes O' Plenty and Regions Unexplored always take the colour the game gives them at their place, so they match the
+  biome like the vanilla ones.
+* New switches in **Compatibility**, always shown: first **Minecraft** with **Fog of War: The Nether** and **Fog of
+  War: The End**, then **Fog of War: The Aether**, and for Mielon's The Sift **Fog of War: The Sift**, **Rainbow ichor**
+  and **Ichor snow** (off: the average colour of their textures, like Xaero's Minimap). A dimension of another mod has
+  no fog of its own unless made for it.
+* Fog of War of its own in The Nether (smoke and glowing embers), The End (a void with a violet nebula and stars;
   its islands cast a shadow on it, like the Aether's) and The Sift (a pearly haze in the colours of its ichor), on the
   world map and the minimap. The overworld keeps the night clouds.
 
@@ -216,11 +232,11 @@ The first public release for Minecraft 1.21.1 on NeoForge 21.1. Client only.
 
 ### World map
 * Full-screen map of the world you have explored, drawn from loaded chunks: soft painted palette, relief shading,
-  contour lines, water depth, fog of war over unexplored land, darker at night with lit places keeping their colour.
+  contour lines, water depth, Fog of War over unexplored land, darker at night with lit places keeping their colour.
 * Zoom from 1/16 to 16 towards the cursor, panning with the mouse or keys, chunk grid, biome labels, biome under the
   cursor, player and cursor coordinates, explored chunk counter.
 * Separate maps per world or server and per dimension, saved on disk; dimension list with vanilla dimensions first
-  and modded ones in alphabetical order; the Nether mapped below its roof.
+  and modded ones in alphabetical order; The Nether mapped below its roof.
 * Off-screen indicators for the player and the tracked pin.
 
 ### Cave layers

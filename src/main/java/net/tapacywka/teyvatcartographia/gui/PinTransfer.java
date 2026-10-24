@@ -71,7 +71,7 @@ public final class PinTransfer {
     }
 
     public static void export() {
-        if (MarkerStore.localCount() == 0) {
+        if (MarkerStore.count() == 0) {
             say(exportTitle(), Source.EXPORT, Component.translatable("teyvatcartographia.transfer.export.none"));
             return;
         }
@@ -152,7 +152,6 @@ public final class PinTransfer {
         lines.add(Component.translatable("teyvatcartographia.transfer.import.added", a.added()));
         if (a.duplicates() > 0) lines.add(Component.translatable("teyvatcartographia.transfer.import.duplicates", a.duplicates()));
         if (a.overLimit() > 0) lines.add(Component.translatable("teyvatcartographia.transfer.import.over_limit", a.overLimit()));
-        if (a.operatorOnly() > 0) lines.add(Component.translatable("teyvatcartographia.transfer.import.operator_only", a.operatorOnly()));
         say(importTitle(source), source, lines.toArray(Component[]::new));
     }
 }

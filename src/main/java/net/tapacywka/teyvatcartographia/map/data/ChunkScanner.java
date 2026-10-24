@@ -59,7 +59,6 @@ public final class ChunkScanner {
         int minY = level.getMinBuildHeight();
         int ceilingStart = Math.min(level.getMaxBuildHeight() - 1, minY + level.dimensionType().logicalHeight() - 1);
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        boolean worldTints = MapConfig.get(MapConfig.WORLD_TINTS);
         boolean shallow = MapConfig.get(MapConfig.SHALLOW_WATER) > 0;
         TintGrid water = TintGrid.of(level, cx, cz, BiomeColors.WATER_COLOR_RESOLVER),
                 grass = TintGrid.of(level, cx, cz, BiomeColors.GRASS_COLOR_RESOLVER),
@@ -122,7 +121,7 @@ public final class ChunkScanner {
                         // The ground under the water, seen through it where it is shallow.
                         BlockState floor = chunk.getBlockState(pos.set(wx, y - d, wz));
                         TextureColors.Entry fe = TextureColors.get(floor.getBlock());
-                        bottom[i] = fe != null ? tinted(level, floor, pos, fe, grass, foliageTint, x, y - d, z, worldTints)
+                        bottom[i] = fe != null ? tinted(level, floor, pos, fe, grass, foliageTint, x, y - d, z)
                                 : MapPalette.standard(floor.getMapColor(level, pos));
                     }
                     pos.set(wx, y, wz);
@@ -136,7 +135,7 @@ public final class ChunkScanner {
                     TextureColors.Entry floating = shown == state ? null : TextureColors.get(shown.getBlock());
                     if (floating != null) {
                         // A plant on the water (lily pads): its colour, no depth gradient; still water for the paths.
-                        color[i] = tinted(level, shown, pos.set(wx, shownY, wz), floating, grass, foliageTint, x, y, z, worldTints);
+                        color[i] = tinted(level, shown, pos.set(wx, shownY, wz), floating, grass, foliageTint, x, y, z);
                         keep[i] = true;
                         continue;
                     }
@@ -163,7 +162,7 @@ public final class ChunkScanner {
                 } else if (mine != null) {
                     color[i] = mine; // before the biome tints: the theme gives the block's whole colour
                 } else if (tex != null) {
-                    color[i] = tinted(level, shown, pos.set(wx, shownY, wz), tex, grass, foliageTint, x, y, z, worldTints);
+                    color[i] = tinted(level, shown, pos.set(wx, shownY, wz), tex, grass, foliageTint, x, y, z);
                 } else {
                     color[i] = MapPalette.standard(mc); // no texture read (yet): the game's own map colour
                 }
@@ -295,15 +294,15 @@ public final class ChunkScanner {
     }
 
     /**
-     * A block's texture colour with the tint it needs (biome grass or foliage at the column, or its handler at pos, or
-     * without {@code world} the colour the handler gives without a world).
+     * A block's texture colour with the tint it needs (biome grass or foliage at the column, or its handler at pos;
+     * always, since the setting to turn that off was removed on 24.10.2026: off, modded grass and leaves clashed with the biome).
      */
     private static int tinted(ClientLevel level, BlockState state, BlockPos pos, TextureColors.Entry tex, TintGrid grass, TintGrid foliage,
-                              int x, int y, int z, boolean world) {
+                              int x, int y, int z) {
         return switch (tex.tint()) {
             case GRASS -> TextureColors.multiply(tex.argb(), grass.at(x, y, z));
             case FOLIAGE -> TextureColors.multiply(tex.argb(), foliage.at(x, y, z));
-            case WORLD -> world ? worldTint(level, state, pos, tex) : tex.argb();
+            case WORLD -> worldTint(level, state, pos, tex);
             case NONE -> tex.argb();
         };
     }

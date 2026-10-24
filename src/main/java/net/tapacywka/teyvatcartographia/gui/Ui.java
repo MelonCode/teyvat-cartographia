@@ -362,12 +362,6 @@ public final class Ui {
         return new Box(x, y, w, h);
     }
 
-    /** Width of an {@link #actionButton} with an icon whose label just fits. */
-    public static int actionButtonWidth(Component label) {
-        return DrawText.width(label) + 2 * Grid.GAP + Grid.ACTION_H;
-    }
-
-
     /** A one-line tooltip whose right edge is at {@code right}, centred on {@code cy} (beside a button at the screen edge). */
     public static void tooltipLeftOf(GuiGraphics g, String title, float right, float cy) {
         int w = DrawText.width(title) + 2 * Grid.PAD, h = Grid.PAD * 2 + DrawText.LINE;

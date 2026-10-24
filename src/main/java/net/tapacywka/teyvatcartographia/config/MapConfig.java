@@ -152,7 +152,6 @@ public final class MapConfig {
     public static final ModConfigSpec.BooleanValue CAVES_ENABLED;
     public static final ModConfigSpec.BooleanValue MAP_PLANTS;
     public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> PLANTS_SHOWN;
-    public static final ModConfigSpec.BooleanValue WORLD_TINTS;
     public static final ModConfigSpec.IntValue WATER_DEPTH;
     public static final ModConfigSpec.IntValue SHALLOW_WATER;
 
@@ -161,6 +160,8 @@ public final class MapConfig {
     public static final ModConfigSpec.BooleanValue SIFT_SNOW_SHIMMER;
     public static final ModConfigSpec.BooleanValue SIFT_FOG;
     public static final ModConfigSpec.BooleanValue AETHER_FOG;
+    public static final ModConfigSpec.BooleanValue NETHER_FOG;
+    public static final ModConfigSpec.BooleanValue END_FOG;
     public static final ModConfigSpec.EnumValue<net.tapacywka.teyvatcartographia.marker.MarkerType> XAERO_PIN_TYPE;
     public static final ModConfigSpec.BooleanValue XAERO_HIDDEN;
     public static final ModConfigSpec.BooleanValue XAERO_DEATHS;
@@ -177,7 +178,7 @@ public final class MapConfig {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
 
         b.push("appearance");
-        THEME = b.comment("Theme (colours, icons, fog of war): the id of a folder in assets/teyvatcartographia/themes/ (built in: default; enabled resource packs may add more)")
+        THEME = b.comment("Theme (colours, icons, Fog of War): the id of a folder in assets/teyvatcartographia/themes/ (built in: default; enabled resource packs may add more)")
                 .translation("teyvatcartographia.config.theme").define("theme", "default", o -> o instanceof String s && s.matches("[a-z0-9_.-]+"));
         MINIMAP_SHAPE = b.comment("Shape of the minimap: SQUARE or ROUND").translation("teyvatcartographia.config.minimap_shape").defineEnum("minimapShape", MinimapShape.SQUARE);
         INTERFACE_STYLE = b.comment("Look of the panels, buttons and tiles: RECTANGULAR (square corners) or ROUNDED (circles, capsules, rounded corners)").translation("teyvatcartographia.config.interface_style").defineEnum("interfaceStyle", InterfaceStyle.RECTANGULAR);
@@ -228,19 +229,22 @@ public final class MapConfig {
         MAP_PLANTS = b.comment("Show plants on the map: those of plantsShown").translation("teyvatcartographia.config.plants").define("plants", true);
         PLANTS_SHOWN = b.comment("The plants the map shows, by block id (Settings > Map > Plants, its list); the others are looked through to the ground").translation("teyvatcartographia.config.plants_list")
                 .defineListAllowEmpty("plantsShown", java.util.List.of("minecraft:cactus", "minecraft:dead_bush", "minecraft:chorus_plant", "minecraft:chorus_flower"), () -> "", o -> o instanceof String);
-        WORLD_TINTS = b.comment("Blocks tinted by their own colour handler (lily pads, stems, leaf litter, modded leaves with a palette of their own) take the colour it gives at their place (else the colour it gives without a world)").translation("teyvatcartographia.config.world_tints").define("blockColourHandlers", true);
         WATER_DEPTH = b.comment("How much deep water darkens, in percent (0: all water the same colour)").translation("teyvatcartographia.config.water_depth").defineInRange("waterDepthShading", 100, 0, 100);
         SHALLOW_WATER = b.comment("How much of the ground shows through shallow water, in percent (0: none)").translation("teyvatcartographia.config.shallow_water").defineInRange("shallowWater", 0, 0, 100);
         b.pop();
 
         b.push("compat");
+        b.push("minecraft");
+        NETHER_FOG = b.comment("The Nether: its own Fog of War, smoke and embers (else the theme fog)").translation("teyvatcartographia.config.compat.nether_fog").define("netherFog", true);
+        END_FOG = b.comment("The End: its own Fog of War, a starry void the islands cast a shadow on (else the theme fog)").translation("teyvatcartographia.config.compat.end_fog").define("endFog", true);
+        b.pop();
         b.push("aether");
-        AETHER_FOG = b.comment("The Aether: its own fog of war, a sea of clouds the islands cast a shadow on (else the theme fog)").translation("teyvatcartographia.config.compat.aether_fog").define("fog", true);
+        AETHER_FOG = b.comment("The Aether: its own Fog of War, a sea of clouds the islands cast a shadow on (else the theme fog)").translation("teyvatcartographia.config.compat.aether_fog").define("fog", true);
         b.pop();
         b.push("the_sift");
         SIFT_ICHOR_SHIMMER = b.comment("The Sift: its rainbow ichor shimmers on the map (else the average colour of its texture)").translation("teyvatcartographia.config.compat.sift_ichor").define("ichorShimmer", true);
         SIFT_SNOW_SHIMMER = b.comment("The Sift: its ichor snow shimmers on the map (else the average colour of its texture)").translation("teyvatcartographia.config.compat.sift_snow").define("snowShimmer", true);
-        SIFT_FOG = b.comment("The Sift: its own fog of war, a pearly haze in the colours of its ichor (else the theme fog)").translation("teyvatcartographia.config.compat.sift_fog").define("fog", true);
+        SIFT_FOG = b.comment("The Sift: its own Fog of War, a pearly haze in the colours of its ichor (else the theme fog)").translation("teyvatcartographia.config.compat.sift_fog").define("fog", true);
         b.pop();
         b.push("xaero");
         XAERO_PIN_TYPE = b.comment("Xaero's Minimap: the pin type imported waypoints get (a custom type)").translation("teyvatcartographia.config.compat.xaero_type").defineEnum("pinType", net.tapacywka.teyvatcartographia.marker.MarkerType.STAR, net.tapacywka.teyvatcartographia.marker.MarkerType.customTypes());
@@ -270,8 +274,8 @@ public final class MapConfig {
         resetValue(MAP_SHOW_LABELS); resetValue(MAP_SHOW_GRID); resetValue(MAP_DEFAULT_ZOOM);
         resetValue(CHUNKS_PER_TICK); resetValue(SCAN_RADIUS); resetValue(MAX_CACHED_TILES); resetValue(DETAIL); resetValue(CAVES_ENABLED);
         resetValue(MAP_PLANTS); resetValue(PLANTS_SHOWN);
-        resetValue(WORLD_TINTS); resetValue(WATER_DEPTH); resetValue(SHALLOW_WATER);
-        resetValue(AETHER_FOG); resetValue(SIFT_ICHOR_SHIMMER); resetValue(SIFT_SNOW_SHIMMER); resetValue(SIFT_FOG);
+        resetValue(WATER_DEPTH); resetValue(SHALLOW_WATER);
+        resetValue(NETHER_FOG); resetValue(END_FOG); resetValue(AETHER_FOG); resetValue(SIFT_ICHOR_SHIMMER); resetValue(SIFT_SNOW_SHIMMER); resetValue(SIFT_FOG);
         resetValue(XAERO_PIN_TYPE); resetValue(XAERO_HIDDEN); resetValue(XAERO_DEATHS);
         save();
     }
