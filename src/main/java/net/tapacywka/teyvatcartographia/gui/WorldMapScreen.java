@@ -829,6 +829,7 @@ public final class WorldMapScreen extends Screen {
 
     private Component cursorText(int mx, int my) {
         if (panel != null && panel.contains(mx, my)) return null;
+        if (mx < 0 || my < 0 || mx >= width || my >= height) return null; // the pointer is off the window
         long x = (long) Math.floor(view.worldX(mx, my)), z = (long) Math.floor(view.worldZ(mx, my));
         if (cursorLine == null || x != cursorBX || z != cursorBZ) {
             cursorBX = x;

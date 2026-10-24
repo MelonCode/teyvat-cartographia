@@ -109,6 +109,14 @@ Place pins, search for them and for biomes, track them, follow the path and find
 </p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/context-menu.jpg" alt="Right-click menu on empty ground: New pin, Teleport here" width="49%">
+  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/context-menu-pin.jpg" alt="Right-click menu on a pin: Edit, Track" width="49%">
+  <br>
+  <sub><b>Left:</b> Right-click menu on the ground: a new pin, or Teleport here with cheats.<br>
+  <b>Right:</b> On a pin: Edit and Track (rounded interface).</sub>
+</p>
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/world-map-genshin.jpg" alt="Rounded interface" width="49%">
   <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/hud-genshin.jpg" alt="Round minimap" width="49%">
   <br>
