@@ -143,6 +143,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         fadeEdge = 1 - MapConfig.get(MapConfig.MINIMAP_FADE_STRENGTH) / 100f;
         infoGap = MapConfig.get(MapConfig.MINIMAP_INFO_GAP);
         pillOpacity = MapConfig.get(MapConfig.MINIMAP_PILL_OPACITY) / 100f;
+        cone = MapConfig.get(MapConfig.PLAYER_CONE);
         float alpha = MapConfig.get(MapConfig.MINIMAP_OPACITY).floatValue();
         double zoom = MapView.snapZoom(MapConfig.get(MapConfig.MINIMAP_ZOOM));
         boolean rotate = MapConfig.get(MapConfig.MINIMAP_ORIENTATION) == MapConfig.Orientation.PLAYER_UP;
@@ -254,7 +255,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
                 || target != kTarget || pinState != kPinState
                 || dim != kDim || textBelow != kTextBelow || Theme.generation() != kTheme
                 || padding != kPadding || rotating != kRotating || fadeStart != kFadeStart || fadeEdge != kFadeEdge || infoGap != kInfoGap
-                || pillOpacity != kPillOpacity
+                || pillOpacity != kPillOpacity || cone != kCone
                 || (coordsLine == null) != (kCoords == null) || (biomeLine == null) != (kBiome == null) || (timeLine == null) != (kTime == null)
                 || (time2Line == null) != (kTime2 == null) || pillScale != kPillScale;
         boolean moved = pos.x != kX || pos.z != kZ || heading != kHeading || view.rotation != kRotation
@@ -288,6 +289,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
             kTarget = target; kPinState = pinState; kRoute = route; kCoords = coordsLine; kBiome = biomeLine; kTime = timeLine; kTime2 = time2Line; kPillScale = pillScale; kDim = dim; kTextBelow = textBelow; kTheme = Theme.generation();
             kPadding = padding; kRotating = rotating; kFadeStart = fadeStart; kFadeEdge = fadeEdge; kInfoGap = infoGap;
             kPillOpacity = pillOpacity;
+            kCone = cone;
         }
         return true;
     }
@@ -414,7 +416,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         Draw.snapIcons(true);
 
         // View cone and player arrow
-        Draw.sector(g, cx, cy, r * 0.8f, heading, 0.72f, Theme.withAlpha(Theme.MINIMAP_VIEW_CONE, alpha), Theme.withAlpha(Theme.MINIMAP_VIEW_CONE, 0f));
+        if (cone) Draw.sector(g, cx, cy, r * 0.8f, heading, 0.72f, Theme.withAlpha(Theme.MINIMAP_VIEW_CONE, alpha), Theme.withAlpha(Theme.MINIMAP_VIEW_CONE, 0f));
         MarkerRenderer.player(g, cx, cy, ARROW, heading, alpha);
 
         // "N": inside the circle, no background, pointing to world north.
@@ -796,6 +798,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     private int padding, infoGap = Grid.GAP;
     // Opacity of the pills' background (the setting; the theme gives its colour), in the layer key.
     private float pillOpacity = 0.7f, kPillOpacity = -1;
+    private boolean cone = true, kCone = true;
 
     /** Draws the cache as a disc: opaque centre, then an annulus whose alpha falls smoothly to 0 at radius r. */
     private void drawFadedDisc(GuiGraphics g, float cx, float cy, float r, float alpha) {

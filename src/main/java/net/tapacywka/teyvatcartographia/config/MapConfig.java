@@ -151,7 +151,8 @@ public final class MapConfig {
     public static final ModConfigSpec.EnumValue<Detail> DETAIL;
     public static final ModConfigSpec.BooleanValue CAVES_ENABLED;
     public static final ModConfigSpec.BooleanValue MAP_PLANTS;
-    public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> PLANTS_SHOWN;
+    public static final ModConfigSpec.BooleanValue PLAYER_CONE;
+    public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> PLANTS_HIDDEN;
     public static final ModConfigSpec.IntValue WATER_DEPTH;
     public static final ModConfigSpec.IntValue SHALLOW_WATER;
 
@@ -194,9 +195,9 @@ public final class MapConfig {
         MINIMAP_PADDING = b.comment("Gap between the frame and the map inside it, in GUI pixels").translation("teyvatcartographia.config.minimap_padding").defineInRange("padding", 0, 0, 16);
         MINIMAP_FADE_WIDTH = b.comment("Width of the faded edge of the map, in percent of its radius (0: a sharp edge)").translation("teyvatcartographia.config.minimap_fade_width").defineInRange("fadeWidth", 15, 0, 50);
         MINIMAP_FADE_STRENGTH = b.comment("How transparent the very edge of the map gets, in percent (0: no fading)").translation("teyvatcartographia.config.minimap_fade_strength").defineInRange("fadeStrength", 100, 0, 100);
-        MINIMAP_INFO_GAP = b.comment("Gap between the minimap and the lines under it (coordinates, biome, clock, day) and between those lines, in GUI pixels").translation("teyvatcartographia.config.minimap_info_gap").defineInRange("infoGap", 2, 0, 8);
+        MINIMAP_INFO_GAP = b.comment("Gap between the minimap and the lines under it (coordinates, biome, clock, day) and between those lines, in GUI pixels").translation("teyvatcartographia.config.minimap_info_gap").defineInRange("infoGap", 0, 0, 8);
         MINIMAP_TEXT_SIZE = b.comment("Size of the text under the minimap and of its compass letters: 0 = Auto (a step below the GUI scale), else 1 to 4 screen pixels per font pixel, at most the GUI scale").translation("teyvatcartographia.config.minimap_text_size").defineInRange("textSize", 0, 0, 4);
-        MINIMAP_PILL_OPACITY = b.comment("Opacity of the background of the lines under the minimap, in percent (0: text only)").translation("teyvatcartographia.config.minimap_pill_opacity").defineInRange("pillOpacity", 70, 0, 100);
+        MINIMAP_PILL_OPACITY = b.comment("Opacity of the background of the lines under the minimap, in percent (0: text only)").translation("teyvatcartographia.config.minimap_pill_opacity").defineInRange("pillOpacity", 0, 0, 100);
         MINIMAP_ZOOM = b.comment("Minimap scale in GUI pixels per block: 1/16, 1/8, 1/4, 1/3, 1/2, 1, 2, 3, 4, 8 or 16 (other values snap to the nearest). Below 1 only the tracked target keeps its pin").translation("teyvatcartographia.config.minimap_zoom").defineInRange("zoom", 1.0, 1 / 16.0, 16.0);
         MINIMAP_ORIENTATION = b.comment("NORTH_UP: north is always up. PLAYER_UP: the map rotates with the view direction").translation("teyvatcartographia.config.minimap_orientation").defineEnum("orientation", Orientation.NORTH_UP);
         MINIMAP_UPDATE_RATE = b.comment("How many times per second the minimap is redrawn while you move or turn: RATE_10, RATE_20, RATE_30, RATE_60 or UNLIMITED (every frame). Lower gives more FPS").translation("teyvatcartographia.config.minimap_rate").defineEnum("updateRate", UpdateRate.RATE_30);
@@ -226,9 +227,12 @@ public final class MapConfig {
         MAX_CACHED_TILES = b.comment("Maximum number of 256x256 map regions kept in memory").translation("teyvatcartographia.config.max_tiles").defineInRange("maxCachedTiles", 160, 32, 1024);
         DETAIL = b.comment("Terrain detail: LOW = flat colours, MEDIUM = relief shading, HIGH = relief + contour lines").translation("teyvatcartographia.config.detail").defineEnum("detail", Detail.HIGH);
         CAVES_ENABLED = b.comment("Map the caves around you while underground, in layers of 16 blocks; the world map and the minimap switch to the layer you are in").translation("teyvatcartographia.config.caves").define("caves", true);
-        MAP_PLANTS = b.comment("Show plants on the map: those of plantsShown").translation("teyvatcartographia.config.plants").define("plants", true);
-        PLANTS_SHOWN = b.comment("The plants the map shows, by block id (Settings > Map > Plants, its list); the others are looked through to the ground").translation("teyvatcartographia.config.plants_list")
-                .defineListAllowEmpty("plantsShown", java.util.List.of("minecraft:cactus", "minecraft:dead_bush", "minecraft:chorus_plant", "minecraft:chorus_flower"), () -> "", o -> o instanceof String);
+        MAP_PLANTS = b.comment("Show plants on the map: every plant but those of plantsHidden").translation("teyvatcartographia.config.plants").define("plants", true);
+        PLAYER_CONE = b.comment("The view cone and the glow under the player arrow, on the world map and the minimap").translation("teyvatcartographia.config.player_cone").define("playerCone", true);
+        // The plants switched off (user decision 24.10.2026: every plant on by default, also those of mods added later);
+        // until then the list held the ones switched on (plantsShown, cactus, dead bush and chorus by default).
+        PLANTS_HIDDEN = b.comment("The plants the map leaves out, by block id (Settings > Map > Plants, its list): looked through to the ground; every other plant is shown").translation("teyvatcartographia.config.plants_list")
+                .defineListAllowEmpty("plantsHidden", java.util.List.of(), () -> "", o -> o instanceof String);
         WATER_DEPTH = b.comment("How much deep water darkens, in percent (0: all water the same colour)").translation("teyvatcartographia.config.water_depth").defineInRange("waterDepthShading", 100, 0, 100);
         SHALLOW_WATER = b.comment("How much of the ground shows through shallow water, in percent (0: none)").translation("teyvatcartographia.config.shallow_water").defineInRange("shallowWater", 0, 0, 100);
         b.pop();
@@ -273,7 +277,7 @@ public final class MapConfig {
         for (PinOptions o : PINS) o.reset();
         resetValue(MAP_SHOW_LABELS); resetValue(MAP_SHOW_GRID); resetValue(MAP_DEFAULT_ZOOM);
         resetValue(CHUNKS_PER_TICK); resetValue(SCAN_RADIUS); resetValue(MAX_CACHED_TILES); resetValue(DETAIL); resetValue(CAVES_ENABLED);
-        resetValue(MAP_PLANTS); resetValue(PLANTS_SHOWN);
+        resetValue(MAP_PLANTS); resetValue(PLAYER_CONE); resetValue(PLANTS_HIDDEN);
         resetValue(WATER_DEPTH); resetValue(SHALLOW_WATER);
         resetValue(NETHER_FOG); resetValue(END_FOG); resetValue(AETHER_FOG); resetValue(SIFT_ICHOR_SHIMMER); resetValue(SIFT_SNOW_SHIMMER); resetValue(SIFT_FOG);
         resetValue(XAERO_PIN_TYPE); resetValue(XAERO_HIDDEN); resetValue(XAERO_DEATHS);

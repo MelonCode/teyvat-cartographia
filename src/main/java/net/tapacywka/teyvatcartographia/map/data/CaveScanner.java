@@ -115,7 +115,7 @@ public final class CaveScanner {
                 } else {
                     MapColor mc = s.getMapColor(level, pos);
                     Integer mine = own == null ? null : own.get(s.getBlock());
-                    TextureColors.Entry tex = mine == null ? TextureColors.get(s.getBlock()) : null;
+                    TextureColors.Entry tex = mine == null ? TextureColors.get(s) : null;
                     if (mine != null) c = mine;
                     else if (tex != null) c = tex.argb();
                     else c = MapPalette.standard(mc == MapColor.NONE ? MapColor.STONE : mc);

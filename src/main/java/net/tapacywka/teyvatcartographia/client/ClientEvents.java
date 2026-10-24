@@ -29,6 +29,7 @@ public final class ClientEvents {
         PathFinder.tick();
         FarPath.tick();
         if (mc.player == null) return;
+        WorldMapScreen.tickTeleport(mc);
 
         while (Keybinds.OPEN_MAP.consumeClick()) {
             if (mc.screen == null) mc.setScreen(new WorldMapScreen());

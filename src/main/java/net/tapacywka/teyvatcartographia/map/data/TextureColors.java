@@ -22,6 +22,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.material.MapColor;
 import net.tapacywka.teyvatcartographia.TeyvatCartographia;
 
@@ -58,6 +60,8 @@ public final class TextureColors {
     public record Entry(int argb, Tint tint, int texture, int tintIndex) {}
 
     private static volatile Map<Block, Entry> blocks = Map.of();
+    /** Plants whose look changes with their state (crops by age, double plants by half): one colour per state. */
+    private static volatile Map<BlockState, Entry> states = Map.of();
     private static volatile int water, lava, snow, ichor;
     /** A reload happened: read again once the game is out of its loading screen (the models are baked by then). */
     private static volatile boolean pending = true;
@@ -67,6 +71,15 @@ public final class TextureColors {
     /** The texture colour of a block, or null without one. */
     public static Entry get(Block block) {
         return blocks.get(block);
+    }
+
+    /**
+     * The texture colour of a block in this state: a plant whose look changes with its state (wheat green, then
+     * yellow; the flowers on the upper half of a rose bush) has one per state, any other block its block's.
+     */
+    public static Entry get(BlockState state) {
+        Entry e = states.get(state);
+        return e != null ? e : blocks.get(state.getBlock());
     }
 
     /** The water, lava and snow textures (ARGB), 0 until read. */
@@ -114,12 +127,27 @@ public final class TextureColors {
     private static void start(Minecraft mc) {
         RandomSource random = RandomSource.create(42L);
         Map<Block, Found> found = new IdentityHashMap<>();
+        Map<BlockState, Found> foundStates = new IdentityHashMap<>();
         for (Block block : BuiltInRegistries.BLOCK) {
             try {
-                Found f = top(mc, block.defaultBlockState(), random);
+                Found f = top(mc, upper(mc, block.defaultBlockState(), random), random);
                 if (f != null) found.put(block, f);
             } catch (RuntimeException e) {
                 // A model that cannot answer outside a world: the block keeps its map colour.
+            }
+            // A plant with a few looks (crops by age, double plants by half; at most MAX_STATES, not every state of a
+            // mod's block): the colour of each state, the upper half for both halves (seen from above it covers the
+            // lower one). Plants by class only: the block tags are not loaded yet.
+            var all = block.getStateDefinition().getPossibleStates();
+            if (all.size() > 1 && all.size() <= MAX_STATES && Plants.plantByClass(block)) {
+                for (BlockState s : all) {
+                    try {
+                        Found f = top(mc, upper(mc, s, random), random);
+                        if (f != null) foundStates.put(s, f);
+                    } catch (RuntimeException e) {
+                        // as above
+                    }
+                }
             }
         }
         ResourceManager rm = mc.getResourceManager();
@@ -127,21 +155,46 @@ public final class TextureColors {
             Map<ResourceLocation, Integer> averages = new HashMap<>();
             Map<Block, Entry> out = new IdentityHashMap<>();
             for (Map.Entry<Block, Found> e : found.entrySet()) {
-                Found f = e.getValue();
-                int argb = averages.computeIfAbsent(f.texture(), t -> read(rm, t));
-                if (argb == 0) continue;
-                int texture = argb;
-                if (f.fixedTint() != -1) argb = multiply(argb, f.fixedTint());
-                out.put(e.getKey(), new Entry(argb, f.tint(), texture, f.index()));
+                Entry en = entry(e.getValue(), averages, rm);
+                if (en != null) out.put(e.getKey(), en);
+            }
+            Map<BlockState, Entry> outStates = new IdentityHashMap<>();
+            for (Map.Entry<BlockState, Found> e : foundStates.entrySet()) {
+                Entry en = entry(e.getValue(), averages, rm);
+                if (en != null) outStates.put(e.getKey(), en);
             }
             water = averages.computeIfAbsent(ResourceLocation.withDefaultNamespace("block/water_still"), t -> read(rm, t));
             lava = averages.computeIfAbsent(ResourceLocation.withDefaultNamespace("block/lava_still"), t -> read(rm, t));
             snow = averages.computeIfAbsent(ResourceLocation.withDefaultNamespace("block/snow"), t -> read(rm, t));
             ichor = averages.computeIfAbsent(ResourceLocation.fromNamespaceAndPath("the_sift", "block/ichor_still"), t -> read(rm, t));
             blocks = out;
+            states = outStates;
             fresh = true;
-            TeyvatCartographia.LOGGER.info("Teyvat Cartographia: texture colours of {} blocks ({} textures)", out.size(), averages.size());
+            TeyvatCartographia.LOGGER.info("Teyvat Cartographia: texture colours of {} blocks, {} plant states ({} textures)", out.size(), outStates.size(), averages.size());
         });
+    }
+
+    /** At most this many states for the colours per state of one plant (wheat 8, a rose bush 2, sweet berries 4). */
+    private static final int MAX_STATES = 32;
+
+    /**
+     * The upper half of a double plant (seen from above, it covers the lower one), unless that half draws nothing in
+     * this state (a young pitcher crop is one block tall); any other state as it is.
+     */
+    private static BlockState upper(Minecraft mc, BlockState s, RandomSource random) {
+        if (!s.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)) return s;
+        BlockState u = s.setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.UPPER);
+        BakedModel m = mc.getBlockRenderer().getBlockModel(u);
+        return m.getQuads(u, null, random).isEmpty() && m.getQuads(u, Direction.UP, random).isEmpty() ? s : u;
+    }
+
+    /** A colour from its texture (averaged once per texture) and its fixed tint; null when the texture has none. */
+    private static Entry entry(Found f, Map<ResourceLocation, Integer> averages, ResourceManager rm) {
+        int argb = averages.computeIfAbsent(f.texture(), t -> read(rm, t));
+        if (argb == 0) return null;
+        int texture = argb;
+        if (f.fixedTint() != -1) argb = multiply(argb, f.fixedTint());
+        return new Entry(argb, f.tint(), texture, f.index());
     }
 
     /** The texture on a block's top face and its tint, or null for a block drawn without a model. */
@@ -160,11 +213,12 @@ public final class TextureColors {
         boolean vanilla = BuiltInRegistries.BLOCK.getKey(state.getBlock()).getNamespace().equals("minecraft");
         if (index >= 0 && vanilla && state.is(Blocks.SPRUCE_LEAVES)) fixed = 0x619961;
         else if (index >= 0 && vanilla && state.is(Blocks.BIRCH_LEAVES)) fixed = 0x80A755;
-        else if (index >= 0 && vanilla && state.is(Blocks.MANGROVE_LEAVES)) fixed = FoliageColor.getMangroveColor(); // not the biome's
+        // Mangrove leaves fall through to the biome's foliage: in the world the game tints them so since 1.21 (their fixed
+        // colour only without one; on the map they were too light, 24.10.2026).
         // The game's own leaves, vines and grass: the biome's colour, sampled per chunk (fast). Asked per column they
         // gave the same colour at twice the scan time (other mods, like Vanilla Backport, replace their handlers). By class,
         // not tag: the colours are read at the title screen, before the world brings the block tags.
-        else if (index >= 0 && vanilla && (state.getBlock() instanceof LeavesBlock || state.is(Blocks.VINE))) tint = Tint.FOLIAGE;
+        else if (index >= 0 && vanilla && (state.getBlock() instanceof LeavesBlock || state.is(Blocks.VINE))) tint = leafTint(fixedTint(mc, state, index));
         else if (index >= 0 && vanilla && (mc0 == MapColor.GRASS || GRASSY.contains(state.getBlock()))) tint = Tint.GRASS;
         else if (index >= 0) {
             // What the block's colour handler gives without a world tells the kind of tint. No handler: the game does
@@ -188,6 +242,15 @@ public final class TextureColors {
         }
         ResourceLocation name = sprite.contents().name();
         return name.equals(MissingTextureAtlasSprite.getLocation()) ? null : new Found(name, tint, fixed, index);
+    }
+
+    /**
+     * The tint of the game's own leaves and vines from what their colour handler gives ({@link #fixedTint}): none
+     * without a handler. Cherry leaves have a tinted model but no handler, so the game leaves them pink; tinted with the
+     * biome's foliage they turned beige on the map (fixed 24.10.2026).
+     */
+    static Tint leafTint(int handler) {
+        return handler == -1 ? Tint.NONE : Tint.FOLIAGE;
     }
 
     /** {@link #fixedTint}: the block's colour handler cannot answer without a world. */
@@ -231,10 +294,21 @@ public final class TextureColors {
      * transparent.
      */
     static int average(int[] abgr) {
+        int c = average(abgr, SEEN_ALPHA);
+        return c != 0 ? c : average(abgr, 1); // all faint (glass and the like): every pixel that shows at all
+    }
+
+    /**
+     * Pixels at least this opaque count: the game draws leaves and plants cut out at half opacity, so the faint dark
+     * pixels of some leaf textures do not show (they made every kind of leaves 14% darker on the map; 24.10.2026).
+     */
+    static final int SEEN_ALPHA = 128;
+
+    private static int average(int[] abgr, int minAlpha) {
         long r = 0, g = 0, b = 0;
         int n = 0;
         for (int p : abgr) {
-            if ((p >>> 24) == 0) continue;
+            if ((p >>> 24) < minAlpha) continue;
             r += p & 0xFF;
             g += (p >> 8) & 0xFF;
             b += (p >> 16) & 0xFF;

@@ -30,4 +30,20 @@ class TextureColorsTest {
         assertEquals(0xFF123456, TextureColors.multiply(0xFF123456, 0xFFFFFF), "white leaves the colour");
         assertEquals(0xFF000000, TextureColors.multiply(0xFF123456, 0x000000));
     }
+
+    /** The game's leaves take the biome's foliage only when the game tints them (cherry leaves stay pink, 24.10.2026). */
+    @Test
+    void leavesWithoutAColourHandlerKeepTheirTexture() {
+        assertEquals(TextureColors.Tint.NONE, TextureColors.leafTint(-1), "cherry leaves: no handler");
+        assertEquals(TextureColors.Tint.FOLIAGE, TextureColors.leafTint(0x48B518), "oak leaves: the default foliage");
+    }
+
+    /** Faint pixels do not show in the game (cut out at half opacity): they made leaves darker (24.10.2026). */
+    @Test
+    void faintPixelsCountOnlyWhenThereIsNothingElse() {
+        int[] leaf = {abgr(255, 60, 100, 40), abgr(255, 60, 100, 40), abgr(40, 0, 0, 0)};
+        assertEquals(0xFF3C6428, TextureColors.average(leaf), "the faint dark pixel is left out");
+        int[] glass = {abgr(90, 100, 100, 200), abgr(90, 200, 200, 100)};
+        assertEquals(0xFF969696, TextureColors.average(glass), "all faint: every pixel that shows");
+    }
 }

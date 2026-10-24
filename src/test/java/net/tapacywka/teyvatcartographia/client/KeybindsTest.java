@@ -23,8 +23,8 @@ class KeybindsTest {
         assertEquals(GLFW.GLFW_KEY_EQUAL, Keybinds.MINIMAP_ZOOM_IN.getDefaultKey().getValue());
         assertEquals(GLFW.GLFW_KEY_MINUS, Keybinds.MINIMAP_ZOOM_OUT.getDefaultKey().getValue());
         assertEquals(GLFW.GLFW_KEY_V, Keybinds.PULSE_TARGET.getDefaultKey().getValue());
-        assertEquals(GLFW.GLFW_KEY_B, Keybinds.QUICK_PIN.getDefaultKey().getValue(), "pin your position (since 0.1.3)");
-        assertEquals(GLFW.GLFW_KEY_Z, Keybinds.CLEAR_TARGET.getDefaultKey().getValue(), "stop tracking (since 0.1.3)");
+        assertEquals(GLFW.GLFW_KEY_B, Keybinds.QUICK_PIN.getDefaultKey().getValue(), "pin your position (since 0.2.0)");
+        assertEquals(GLFW.GLFW_KEY_Z, Keybinds.CLEAR_TARGET.getDefaultKey().getValue(), "stop tracking (since 0.2.0)");
     }
 
     @Test

@@ -73,7 +73,7 @@ class ImportRulesTest {
 
     @Test
     void theSharedPinsOfAnOldWorldAreRead() {
-        // As a 0.1.3 server saved them: data/teyvatcartographia_pins.dat = {DataVersion, data: {pins: [...]}}.
+        // As a 0.1.2 server saved them: data/teyvatcartographia_pins.dat = {DataVersion, data: {pins: [...]}}.
         Marker sign = pin("Sign", MarkerType.SIGN, 4);
         sign.band = -1;
         net.minecraft.nbt.CompoundTag data = new net.minecraft.nbt.CompoundTag();

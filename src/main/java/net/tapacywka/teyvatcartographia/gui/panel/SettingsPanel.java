@@ -63,6 +63,16 @@ public final class SettingsPanel extends SidePanel {
                 });
     }
 
+    /** Plants on the map (the list of which ones is on the full settings screen); the chunks around are mapped again. */
+    private static Row plants() {
+        return new Row(Component.translatable("teyvatcartographia.settings.plants"), Component.translatable("teyvatcartographia.config.plants.tooltip"),
+                false, () -> MapConfig.get(MapConfig.MAP_PLANTS), () -> {
+                    MapConfig.MAP_PLANTS.set(!MapConfig.get(MapConfig.MAP_PLANTS));
+                    MapConfig.save();
+                    net.tapacywka.teyvatcartographia.map.data.MapDataManager.get().remapLoaded();
+                });
+    }
+
     private static boolean anyPathOnMap() {
         for (MapConfig.PinKind kind : MapConfig.PinKind.values()) if (MapConfig.pins(kind).pathOnMap()) return true;
         return false;
@@ -75,6 +85,7 @@ public final class SettingsPanel extends SidePanel {
             pins("teyvatcartographia.settings.interactive_pins", MapConfig.PinKind.INTERACTIVE),
             pins("teyvatcartographia.settings.system_pins", MapConfig.PinKind.SYSTEM),
             path(),
+            plants(),
             option("teyvatcartographia.settings.labels", "map_labels", MapConfig.MAP_SHOW_LABELS),
             option("teyvatcartographia.settings.grid", "map_grid", MapConfig.MAP_SHOW_GRID));
 

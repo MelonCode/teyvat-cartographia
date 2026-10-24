@@ -102,7 +102,10 @@ public final class ChunkScanner {
                 if (!ceiling && plants) {
                     for (int py = chunk.getHeight(Heightmap.Types.WORLD_SURFACE, x, z); py > y; py--) {
                         BlockState s = chunk.getBlockState(pos.set(wx, py, wz));
-                        if (plantSet.contains(s.getBlock()) && s.getMapColor(level, pos) != MapColor.NONE) {
+                        // A colour of its texture is enough: many mod plants (Regions Unexplored's flowers, shrubs, branches,
+                        // leaf litter; The Sift's sculkflower) leave the vanilla map colour unset, and were left off the map
+                        // (24.10.2026, runPlantsMapCompatTest).
+                        if (plantSet.contains(s.getBlock()) && (s.getMapColor(level, pos) != MapColor.NONE || TextureColors.get(s) != null)) {
                             shown = s;
                             shownY = py;
                             break;
@@ -120,7 +123,7 @@ public final class ChunkScanner {
                     if (shallow && d <= SHALLOW && y - d >= minY) {
                         // The ground under the water, seen through it where it is shallow.
                         BlockState floor = chunk.getBlockState(pos.set(wx, y - d, wz));
-                        TextureColors.Entry fe = TextureColors.get(floor.getBlock());
+                        TextureColors.Entry fe = TextureColors.get(floor);
                         bottom[i] = fe != null ? tinted(level, floor, pos, fe, grass, foliageTint, x, y - d, z)
                                 : MapPalette.standard(floor.getMapColor(level, pos));
                     }
@@ -132,7 +135,7 @@ public final class ChunkScanner {
                         keep[i] = true;
                         continue;
                     }
-                    TextureColors.Entry floating = shown == state ? null : TextureColors.get(shown.getBlock());
+                    TextureColors.Entry floating = shown == state ? null : TextureColors.get(shown);
                     if (floating != null) {
                         // A plant on the water (lily pads): its colour, no depth gradient; still water for the paths.
                         color[i] = tinted(level, shown, pos.set(wx, shownY, wz), floating, grass, foliageTint, x, y, z);
@@ -152,7 +155,7 @@ public final class ChunkScanner {
                 BlockState above = chunk.getBlockState(pos);
                 pos.set(wx, y, wz);
                 Integer mine = own == null ? null : own.get(shown.getBlock());
-                TextureColors.Entry tex = TextureColors.get(shown.getBlock());
+                TextureColors.Entry tex = TextureColors.get(shown);
                 if (Sift.snow(state.getBlock()) || Sift.snow(above.getBlock())) {
                     // Before vanilla snow (it is a snow layer too): its shimmer, or its texture colour when that is off.
                     TextureColors.Entry s = TextureColors.get(Sift.snow(above.getBlock()) ? above.getBlock() : state.getBlock());
@@ -241,12 +244,19 @@ public final class ChunkScanner {
             this.cz = cz;
         }
 
+        /**
+         * The biome colours blended over the game's Biome Blend radius, as {@code level.getBlockTint} does, but only over
+         * loaded chunks (fixed 24.10.2026): the game's blend took the default biome of an unloaded neighbour (other
+         * water) and kept it in its tint cache after that neighbour loaded, so a chunk mapped at the edge of the loaded
+         * area kept a darker band along that border even when mapped again.
+         */
         static TintGrid of(ClientLevel level, int cx, int cz, ColorResolver resolver) {
             BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+            int radius = net.minecraft.client.Minecraft.getInstance().options.biomeBlendRadius().get();
             return new TintGrid(new TintSource() {
                 @Override
                 public int tint(int wx, int y, int wz) {
-                    return level.getBlockTint(pos.set(wx, y, wz), resolver);
+                    return blend(wx, wz, radius, level::hasChunk, (x, z) -> resolver.getColor(level.getBiome(pos.set(x, y, z)).value(), x, z));
                 }
 
                 @Override
@@ -254,6 +264,32 @@ public final class ChunkScanner {
                     return level.hasChunk(ncx, ncz);
                 }
             }, cx, cz);
+        }
+
+        /** A chunk is loaded ({@code cx}, {@code cz}). */
+        interface Loaded {
+            boolean test(int cx, int cz);
+        }
+
+        /**
+         * The average of {@code colour} over the square of {@code radius} blocks around (wx, wz), only at blocks of
+         * loaded chunks; at (wx, wz) alone when none is.
+         */
+        static int blend(int wx, int wz, int radius, Loaded loaded, java.util.function.IntBinaryOperator colour) {
+            int r = 0, g = 0, b = 0, n = 0;
+            for (int dz = -radius; dz <= radius; dz++) {
+                for (int dx = -radius; dx <= radius; dx++) {
+                    int x = wx + dx, z = wz + dz;
+                    if (!loaded.test(x >> 4, z >> 4)) continue;
+                    int c = colour.applyAsInt(x, z);
+                    r += (c >> 16) & 0xFF;
+                    g += (c >> 8) & 0xFF;
+                    b += c & 0xFF;
+                    n++;
+                }
+            }
+            if (n == 0) return colour.applyAsInt(wx, wz);
+            return (r / n) << 16 | (g / n) << 8 | b / n;
         }
 
         int at(int x, int y, int z) {

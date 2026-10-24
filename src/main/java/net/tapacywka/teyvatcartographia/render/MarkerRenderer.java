@@ -176,9 +176,9 @@ public final class MarkerRenderer {
         badge(g, type.icon, cx, cy, size, false, false, alpha);
     }
 
-    /** Player arrow with soft glow; {@code angle} radians clockwise from up. */
+    /** Player arrow with soft glow (off with the view cone); {@code angle} radians clockwise from up. */
     public static void player(GuiGraphics g, float x, float y, float size, float angle, float alpha) {
-        Draw.ring(g, x, y, 0f, size * 0.8f, Theme.withAlpha(Theme.PLAYER_GLOW, alpha), Theme.withAlpha(Theme.PLAYER_GLOW, 0f));
+        if (net.tapacywka.teyvatcartographia.config.MapConfig.get(net.tapacywka.teyvatcartographia.config.MapConfig.PLAYER_CONE)) Draw.ring(g, x, y, 0f, size * 0.8f, Theme.withAlpha(Theme.PLAYER_GLOW, alpha), Theme.withAlpha(Theme.PLAYER_GLOW, 0f));
         Draw.icon(g, Icon.PLAYER, x, y, size, Theme.withAlpha(Theme.PLAYER_ARROW, alpha), angle);
     }
 }

@@ -109,10 +109,10 @@ Place pins, search for them and for biomes, track them, follow the path and find
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/context-menu.jpg" alt="Right-click menu on empty ground: New pin, Teleport here" width="49%">
+  <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/context-menu.jpg" alt="Right-click menu on empty ground: New pin, Teleport" width="49%">
   <img src="https://raw.githubusercontent.com/Tapacywka/teyvat-cartographia/main/.github/images/context-menu-pin.jpg" alt="Right-click menu on a pin: Edit, Track" width="49%">
   <br>
-  <sub><b>Left:</b> Right-click menu on the ground: a new pin, or Teleport here with cheats.<br>
+  <sub><b>Left:</b> Right-click menu on the ground: a new pin, or Teleport with cheats.<br>
   <b>Right:</b> On a pin: Edit and Track (rounded interface).</sub>
 </p>
 
@@ -127,7 +127,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 <h2 id="installation">📥 Installation</h2>
 
 1. Install [NeoForge](https://neoforged.net) 21.1 for Minecraft 1.21.1.
-2. Download `teyvatcartographia-v0.1.3+mc1.21.1-neoforge.jar` from
+2. Download `teyvatcartographia-v0.2.0+mc1.21.1-neoforge.jar` from
    [Modrinth](https://modrinth.com/mod/teyvat-cartographia) or the
    [latest GitHub release](https://github.com/Tapacywka/teyvat-cartographia/releases/latest) and put it into your
    `mods/` folder.
@@ -144,7 +144,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 | In game | Pulse the tracked pin (shows the pin and the path stars again) | **V** (rebindable) |
 | World map | Pan | drag with the left mouse button, or WASD / arrow keys |
 | World map | Zoom (keeps the point under the cursor) | mouse wheel, `+`/`-`, or the slider on the left |
-| World map | Context menu | right-click: on empty ground **New pin** and, for operators (cheats in singleplayer), **Teleport here**; on a pin **Edit** (**Open** for an automatic point) and **Track** |
+| World map | Context menu | right-click: on empty ground **New pin** and, for operators (cheats in singleplayer), **Teleport**; on a pin **Edit** (**Open** for an automatic point) and **Track** |
 | World map | Create a pin | right-click empty ground, **New pin**, choose icon and name, **Confirm** |
 | World map | Overlapping pins | left-click the spot, pick one from the list in the lower right corner |
 | World map | Edit or track a pin | left-click it: rename, type, delete, **Track** |
@@ -186,10 +186,11 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * Blocks that tint themselves in the world (lily pads, stems, redstone, leaf litter, the leaves and grass of mods
   with a palette of their own) take the colour they have at their place.
 * **Plants** colour their spot on the map. The arrow next to **Settings > Map > Plants** opens the list of every
-  plant of the game and your mods, with a search field and a switch for each: at first only the cactus, the dead
-  bush and chorus show, so meadows stay calm. A solid plant switched off shows the ground under it.
+  plant of the game and your mods, with a search field and a switch for each: at first all of them show; switch
+  off the ones you do not want (flowers, if meadows look too busy). A solid plant switched off shows the ground under it.
 * **Terrain detail** (flat colours, shaded slopes, or slopes with contour lines), **Deep water shading** and **Clear
   shallow water** (the ground seen through shallow water) in **Settings > Map > Colours**.
+* **View cone and glow** under the player arrow can be switched off (**Settings > Map**).
 
 <h3 id="cave-layers">Cave layers</h3>
 
@@ -223,8 +224,8 @@ Place pins, search for them and for biomes, track them, follow the path and find
   * **System**: automatic points from real data, the world spawn and your last death location.
 * Rename, retype, delete; up to 300 pins per world, a pin list sorted by distance, saved per world and dimension.
 * A right click on the world map opens a small menu: **New pin** on empty ground, **Edit** and **Track** on a pin.
-  Operators (permission level 2, or cheats in singleplayer) also get **Teleport here** on the ground, in any
-  dimension the map shows.
+  Operators (permission level 2, or cheats in singleplayer) also get **Teleport** on the ground, in any dimension
+  the map shows, unexplored ground too.
 * Track a pin or an automatic point. The tracked pin's colour depends on its kind: custom orange, interactive mint,
   system violet. Tracking an automatic point ends on arrival.
 * Distances are in blocks everywhere and in 3D: from your feet to the floor of the point.
@@ -256,7 +257,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 
 <h3 id="settings">Settings</h3>
 
-* The gear on the map holds quick switches: the three pin kinds, the path to the target, biome names, chunk grid.
+* The gear on the map holds quick switches: the three pin kinds, the path to the target, plants, biome names, chunk grid.
 * The full settings screen (also from the NeoForge mod list) has a tab for each part: *Map* (appearance; what the
   map shows: plants, caves; colours; the world map), *Minimap* (display, size and position, look, extra
   information), *Pins* (display and path to the target for each kind), *System* (performance) and
@@ -348,7 +349,7 @@ The mod is meant to cost at most 2 to 3% FPS:
 | What | Where |
 |---|---|
 | Settings | `config/teyvatcartographia-client.toml` |
-| Map regions | `teyvatcartographia/<world>/<dimension>/r.<x>.<z>.png` + `.dat` (heights and metadata) + `.lod.png` (64 x 64 thumbnail for far zoom) + `index.txt` |
+| Map regions | `teyvatcartographia/<world>/<dimension>/r.<x>.<z>.png` + `.dat` (heights and metadata) + `.lod.png` (64 x 64 thumbnail for far zoom) + `index.txt` + `format.txt` (the map format; a map of an older format is deleted and mapped again) |
 | Cave layers | `teyvatcartographia/<world>/<dimension>/caves/b<layer>/` |
 | Biome index for the search | `teyvatcartographia/<world>/<dimension>/biomes.idx` |
 | Pins and the tracked target | `teyvatcartographia/<world>/markers.json` |

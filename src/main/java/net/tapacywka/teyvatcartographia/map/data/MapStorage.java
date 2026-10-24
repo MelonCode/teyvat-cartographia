@@ -14,6 +14,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,7 +40,8 @@ public final class MapStorage {
     /** v4: no zoom-dependent alpha fade on the explored edge (drawn in screen space instead). */
     /** v5: stronger biome tint for grass, foliage and water. */
     /** v6: per-column block light (light sources on the map). */
-    private static final int VERSION = 6;
+    /** v7 (0.2.0): colours of the block textures, plants, shallow water; older regions are deleted ({@link #dropOutdated}). */
+    static final int VERSION = 7;
     private static final Pattern TILE_FILE = Pattern.compile("r\\.(-?\\d+)\\.(-?\\d+)\\.png");
 
     private MapStorage() {}
@@ -238,6 +240,47 @@ public final class MapStorage {
         }
     }
 
+
+    /**
+     * Deletes the regions of an earlier format from a map folder, with their thumbnails, the folder's index and its
+     * biome cache, once (then {@code format.txt} says the folder is current). User decision 24.10.2026: a map drawn in
+     * the colours of an older version left chunk-shaped patches beside the newly mapped land, so an old map is mapped
+     * again from scratch instead. Returns how many regions were deleted.
+     */
+    static int dropOutdated(Path dir) {
+        Path stamp = dir.resolve("format.txt");
+        int dropped = 0;
+        try {
+            if (Files.exists(stamp) && Files.readString(stamp, StandardCharsets.UTF_8).trim().equals(Integer.toString(VERSION))) return 0;
+            if (Files.isDirectory(dir)) {
+                List<Path> old = new ArrayList<>();
+                try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, "r.*.png")) {
+                    for (Path p : stream) {
+                        Matcher m = TILE_FILE.matcher(p.getFileName().toString());
+                        if (m.matches() && !isCurrentVersion(dir.resolve("r." + m.group(1) + "." + m.group(2) + ".dat"))) old.add(p);
+                    }
+                }
+                for (Path png : old) {
+                    String base = png.getFileName().toString();
+                    base = base.substring(0, base.length() - ".png".length());
+                    Files.deleteIfExists(png);
+                    Files.deleteIfExists(dir.resolve(base + ".dat"));
+                    Files.deleteIfExists(dir.resolve(base + ".lod.png"));
+                }
+                dropped = old.size();
+                if (dropped > 0) {
+                    Files.deleteIfExists(dir.resolve("index.txt"));
+                    Files.deleteIfExists(dir.resolve("biomes.idx"));
+                    TeyvatCartographia.LOGGER.info("Deleted {} map regions of an older format in {}", dropped, dir);
+                }
+            }
+            Files.createDirectories(dir);
+            Files.writeString(stamp, Integer.toString(VERSION), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            TeyvatCartographia.LOGGER.warn("Could not check the map format in {}", dir, e);
+        }
+        return dropped;
+    }
     private static boolean isCurrentVersion(Path dat) {
         if (!Files.exists(dat)) return false;
         try (DataInputStream in = new DataInputStream(new BufferedInputStream(new GZIPInputStream(Files.newInputStream(dat))))) {

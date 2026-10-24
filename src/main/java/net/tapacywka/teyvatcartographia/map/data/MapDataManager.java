@@ -602,6 +602,9 @@ public final class MapDataManager {
     }
 
     private static final int[][] DIRS = {{0, -1, 2}, {0, 1, 1}, {-1, 0, 8}, {1, 0, 4}}; // dx, dz, bit the neighbour needs
+    /** The chunk's own bit for each of {@link #DIRS} (as {@code neighbourhood} sets it: north 1, south 2, west 4, east 8). */
+    private static final int[] OWN_BITS = {1, 2, 4, 8};
+
 
     private void applyResults() {
         int limit = 96;
@@ -619,6 +622,15 @@ public final class MapDataManager {
             ChunkShader.Result r = (ChunkShader.Result) e[1];
             int edges = active.apply(r);
             mappedNow++;
+            // Shaded while a neighbour was not on the map, and that neighbour was applied meanwhile (both were on the
+            // workers at once): it could not redo this chunk then, as this one was not on the map yet. Left so, the
+            // chunk kept the edge it had beside an unloaded neighbour, a dark line along the loading front (fixed
+            // 24.10.2026), so it is redone itself.
+            int around = 0;
+            for (int i = 0; i < DIRS.length; i++) if (active.hasChunk(r.cx() + DIRS[i][0], r.cz() + DIRS[i][1])) around |= OWN_BITS[i];
+            if (MapTile.needsRedo(around, r.neighbourMask()) && level.getChunkSource().getChunk(r.cx(), r.cz(), ChunkStatus.FULL, false) != null) {
+                enqueue(r.cx(), r.cz(), false);
+            }
             // Neighbours shaded before this chunk existed lack correct edges (coast rim, contours), and those shaded
             // with its old edge before the land there changed (a forest cut, ground levelled) show a line along the
             // border: redo them. Their own heights do not change, so this goes no further.

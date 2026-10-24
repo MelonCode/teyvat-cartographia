@@ -40,13 +40,13 @@ class ConfigDefaultsTest {
         assertTrue(MapConfig.MINIMAP_SHOW_TIME.getDefault());
         assertEquals(MapConfig.TimeSource.GAME_TIME, MapConfig.MINIMAP_TIME_SOURCE.getDefault());
         assertTrue(MapConfig.MINIMAP_SHOW_DAY.getDefault(), "the day counter is on");
-        // Since 0.1.3: no inner padding, the outer 15% of the radius fading out completely, pills 2 units apart.
+        // Since 0.2.0: no inner padding, the outer 15% of the radius fading out completely, pills 2 units apart.
         assertEquals(0, MapConfig.MINIMAP_PADDING.getDefault());
         assertEquals(15, MapConfig.MINIMAP_FADE_WIDTH.getDefault());
         assertEquals(100, MapConfig.MINIMAP_FADE_STRENGTH.getDefault());
-        assertEquals(2, MapConfig.MINIMAP_INFO_GAP.getDefault());
+        assertEquals(0, MapConfig.MINIMAP_INFO_GAP.getDefault(), "the lines right under the minimap (user decision 24.10.2026)");
         assertEquals(0, MapConfig.MINIMAP_TEXT_SIZE.getDefault(), "Auto");
-        assertEquals(70, MapConfig.MINIMAP_PILL_OPACITY.getDefault(), "the background of the lines as before (the theme's 0xB3)");
+        assertEquals(0, MapConfig.MINIMAP_PILL_OPACITY.getDefault(), "text only (user decision 24.10.2026)");
     }
 
     @Test
@@ -62,6 +62,7 @@ class ConfigDefaultsTest {
     @Test
     void cartography() {
         assertTrue(MapConfig.CAVES_ENABLED.getDefault());
+        assertTrue(MapConfig.PLAYER_CONE.getDefault()); // the view cone and glow stay on
         assertEquals(MapConfig.Detail.HIGH, MapConfig.DETAIL.getDefault());
         assertEquals(16, MapConfig.SCAN_RADIUS.getDefault());
         assertEquals(6, MapConfig.CHUNKS_PER_TICK.getDefault());
@@ -71,8 +72,7 @@ class ConfigDefaultsTest {
     @Test
     void colours() {
         assertTrue(MapConfig.MAP_PLANTS.getDefault());
-        assertEquals(java.util.List.of("minecraft:cactus", "minecraft:dead_bush", "minecraft:chorus_plant", "minecraft:chorus_flower"),
-                MapConfig.PLANTS_SHOWN.getDefault(), "only the cactus, the dead bush and chorus at first (user decision 24.10.2026)");
+        assertTrue(MapConfig.PLANTS_HIDDEN.getDefault().isEmpty(), "every plant on at first (user decision 24.10.2026, the list holds those switched off)");
         assertEquals(100, MapConfig.WATER_DEPTH.getDefault());
         assertEquals(0, MapConfig.SHALLOW_WATER.getDefault(), "clear shallow water off");
     }

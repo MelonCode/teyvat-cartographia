@@ -69,6 +69,7 @@ public final class TileStore {
         this.io = io;
         this.generation = generation;
         this.lod = new LodStore(this, io);
+        MapStorage.dropOutdated(dir);
         onDisk.addAll(MapStorage.listTiles(dir));
         readIndex();
         try {

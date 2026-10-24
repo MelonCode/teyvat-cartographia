@@ -49,7 +49,7 @@ class MarkerTypeTest {
         assertEquals(MarkerType.SIGN, parse("WAYPOINT"));
         assertEquals(MarkerType.PARTY, parse("STATUE"));
         assertEquals(MarkerType.STRUCTURE, parse("DOMAIN"));
-        // And the custom ones, named by what they show since 0.1.3.
+        // And the custom ones, named by what they show since 0.2.0.
         assertEquals(MarkerType.DEMON, parse("BOSS"));
         assertEquals(MarkerType.MEAT, parse("FOOD"));
         assertEquals(MarkerType.FLOWER, parse("CLOVER"));

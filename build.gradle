@@ -129,6 +129,9 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    // Source file names and line numbers (crash reports still point at the line), no tables of local variable names:
+    // 58 KB less in the JAR.
+    options.debugOptions.debugLevel = 'source,lines'
 }
 
 idea {

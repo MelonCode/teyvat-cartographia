@@ -606,8 +606,6 @@ public final class TeyvatConfigScreen extends Screen {
             "teyvatcartographia.config.step.maps", "teyvatcartographia.config.step.world", "teyvatcartographia.config.step.everywhere"};
     private static final String[] PATH_STEPS = {"teyvatcartographia.config.step.off", "teyvatcartographia.config.step.map",
             "teyvatcartographia.config.step.maps", "teyvatcartographia.config.step.everywhere"};
-    private static final String[] DETAIL_STEPS = {"teyvatcartographia.config.value.low", "teyvatcartographia.config.value.medium",
-            "teyvatcartographia.config.value.high"};
 
     /** Sets an on/off setting and its three parts from a step (see {@link StepChoice}); off leaves the parts as they are. */
     private static void setSteps(int step, ModConfigSpec.BooleanValue on, ModConfigSpec.BooleanValue map,
@@ -635,10 +633,11 @@ public final class TeyvatConfigScreen extends Screen {
         plantsRow.then(remap);
         map.add(plantsRow);
         map.add(new BoolRow("teyvatcartographia.config.caves", MapConfig.CAVES_ENABLED));
+        map.add(new BoolRow("teyvatcartographia.config.player_cone", MapConfig.PLAYER_CONE));
         // How the map is coloured: relief, biome colours, blocks coloured in the world, water.
         map.add(new Section("teyvatcartographia.config.section.colours"));
-        map.add(SliderRow.ofSteps("teyvatcartographia.config.detail", DETAIL_STEPS, () -> MapConfig.get(MapConfig.DETAIL).ordinal(),
-                s -> MapConfig.DETAIL.set(MapConfig.Detail.values()[s])).then(remap));
+        // A choice with arrows, not a slider (user request 24.10.2026: three steps made it the one short slider).
+        map.add(new EnumRow<>("teyvatcartographia.config.detail", MapConfig.DETAIL, MapConfig.Detail.values(), remap));
         map.add(SliderRow.ofPercent("teyvatcartographia.config.water_depth", MapConfig.WATER_DEPTH, 0, 100).then(remap));
         map.add(SliderRow.ofPercent("teyvatcartographia.config.shallow_water", MapConfig.SHALLOW_WATER, 0, 100).then(remap));
         map.add(new Section("teyvatcartographia.config.section.worldmap"));
@@ -1127,7 +1126,7 @@ public final class TeyvatConfigScreen extends Screen {
             net.tapacywka.teyvatcartographia.render.MapLayerRenderer.drawBiomeLabels(g, store, previewView, x, y, x + w, y + h, List.of());
         }
         float heading = (float) previewView.headingOnScreen(mc.player.getViewYRot(pt));
-        Draw.sector(g, mx, my, 24, heading, 0.7f, Theme.VIEW_CONE, Theme.withAlpha(Theme.VIEW_CONE, 0f));
+        if (MapConfig.get(MapConfig.PLAYER_CONE)) Draw.sector(g, mx, my, 24, heading, 0.7f, Theme.VIEW_CONE, Theme.withAlpha(Theme.VIEW_CONE, 0f));
         net.tapacywka.teyvatcartographia.render.MarkerRenderer.player(g, mx, my, 16, heading, 1f);
         g.disableScissor();
         Draw.frame(g, x, y, w, h, 1, Theme.PANEL_LINE);

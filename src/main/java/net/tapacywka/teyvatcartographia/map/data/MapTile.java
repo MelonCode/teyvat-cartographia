@@ -125,6 +125,11 @@ public final class MapTile {
         return (chunkState[lcz * CHUNKS + lcx] & 0x80) != 0;
     }
 
+    /** A chunk is shaded again when a neighbour is on the map now that was not when it was shaded (masks as {@link #neighbourMask}). */
+    static boolean needsRedo(int neighboursNow, int neighboursShaded) {
+        return (neighboursNow & ~neighboursShaded) != 0;
+    }
+
     public int neighbourMask(int lcx, int lcz) {
         return chunkState[lcz * CHUNKS + lcx] & 0x0F;
     }

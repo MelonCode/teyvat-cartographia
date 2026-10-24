@@ -57,4 +57,19 @@ class TintGridTest {
         ChunkScanner.TintGrid left = new ChunkScanner.TintGrid(source, 0, 0);
         for (int x = 0; x < 16; x++) assertEquals(A, left.at(x, 64, 8), "column " + x);
     }
+
+    /**
+     * The blend over the game's Biome Blend radius takes only loaded chunks (24.10.2026): an unloaded neighbour (the game
+     * answers with its default biome) left a darker band of water along that border, kept even when mapped again.
+     */
+    @Test
+    void theBlendLeavesOutUnloadedChunks() {
+        // Chunk 0 is all A; chunk -1 would answer B (the default biome) while it is not loaded.
+        java.util.function.IntBinaryOperator colour = (x, z) -> x < 0 ? B : A;
+        assertEquals(A, ChunkScanner.TintGrid.blend(1, 8, 3, (cx, cz) -> cx >= 0, colour), "unloaded: the chunk's own colour only");
+        int both = ChunkScanner.TintGrid.blend(1, 8, 3, (cx, cz) -> true, colour);
+        assertTrue(green(both) > green(A) && green(both) < green(B), "loaded: blended with the neighbour");
+        assertEquals(A, ChunkScanner.TintGrid.blend(8, 8, 0, (cx, cz) -> true, colour), "radius 0: the block alone");
+        assertEquals(B, ChunkScanner.TintGrid.blend(-1, 8, 2, (cx, cz) -> false, colour), "nothing loaded: the block alone");
+    }
 }

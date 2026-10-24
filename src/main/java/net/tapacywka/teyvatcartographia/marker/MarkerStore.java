@@ -162,7 +162,7 @@ public final class MarkerStore {
     }
 
     /**
-     * Single player, once per world: the interactive pins 0.1.1 to 0.1.3 kept in the world save as shared pins
+     * Single player, once per world: the interactive pins 0.1.1 and 0.1.2 kept in the world save as shared pins
      * ({@code data/teyvatcartographia_pins.dat}) become the player's own; the file is renamed so it is read only once.
      * On a server they stay in its save, out of reach of the client.
      */

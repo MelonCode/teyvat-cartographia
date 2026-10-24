@@ -14,12 +14,12 @@ import java.util.List;
  * The world map's context menu (a right click, user request 24.10.2026): a short column of actions beside the
  * pointer, drawn exactly like the rows of the pin pick list ({@link MarkerPickList}): dark bands fading out to the
  * right with an icon, the row under
- * the pointer outlined and pointed at. On empty ground "New pin" and, for operators, "Teleport here"; on a pin "Edit"
- * (or "Open" for an automatic point) and "Track". Any click closes it; a click on an enabled row runs that row.
+ * the pointer outlined and pointed at. On empty ground "New pin" and, for operators, "Teleport"; on a pin "Edit"
+ * (or "Open" for an automatic point) and "Track". Any click closes it; a click on a row runs that row.
  */
 final class MapContextMenu {
-    /** One row: its icon, its text, whether it can be chosen now (a muted row cannot) and what it does. */
-    record Item(Icon icon, Component label, boolean enabled, Runnable action) {}
+    /** One row: its icon, its text and what it does. */
+    record Item(Icon icon, Component label, Runnable action) {}
 
     private static final int ROW_H = Grid.ACTION_H, STEP = ROW_H + Grid.GAP;
     private static final int MIN_W = 190; // the pick list's width
@@ -71,19 +71,19 @@ final class MapContextMenu {
     /** {@code time}: seconds, drives the swaying pointer and the pulsing outline of the row under the mouse. */
     void render(GuiGraphics g, int mx, int my, float time) {
         Item hover = rowAt(mx, my);
-        if (hover != null && hover.enabled()) Cursors.want(Cursors.Shape.HAND);
+        if (hover != null) Cursors.want(Cursors.Shape.HAND);
         float phase = 0.5f + 0.5f * (float) Math.sin(time * HOVER_SPEED);
         for (int i = 0; i < items.size(); i++) {
             Item it = items.get(i);
             float ry = y + i * STEP, cap = ROW_H / 2f;
-            boolean hot = it == hover && it.enabled();
+            boolean hot = it == hover;
             row(g, ry, hot, phase);
             if (hot) {
                 float cy = ry + cap, px = x - 3 - POINTER_SWAY * phase;
                 Draw.triangle(g, px, cy, px - 5, cy - 4, px - 5, cy + 4, Theme.PICK_POINTER);
             }
-            int color = !it.enabled() ? Theme.TEXT_MUTED : hot ? Theme.WHITE : Theme.CREAM;
-            Draw.icon(g, it.icon(), x + cap, ry + cap, Grid.ICON_L, it.enabled() ? Theme.WHITE : Theme.TEXT_MUTED);
+            int color = hot ? Theme.WHITE : Theme.CREAM;
+            Draw.icon(g, it.icon(), x + cap, ry + cap, Grid.ICON_L, Theme.WHITE);
             DrawText.text(g, labels[i], x + ROW_H + Grid.GAP, DrawText.textY(ry, ROW_H), color, false);
         }
     }

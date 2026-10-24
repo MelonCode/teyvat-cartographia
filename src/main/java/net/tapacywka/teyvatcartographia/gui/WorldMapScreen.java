@@ -780,7 +780,7 @@ public final class WorldMapScreen extends Screen {
         float sx = view.screenX(pos.x, pos.z), sy = view.screenY(pos.x, pos.z);
         float heading = (float) view.headingOnScreen(p.getViewYRot(pt));
         if (inArea(sx, sy)) {
-            Draw.sector(g, sx, sy, 32, heading, 0.7f, Theme.VIEW_CONE, Theme.withAlpha(Theme.VIEW_CONE, 0f));
+            if (MapConfig.get(MapConfig.PLAYER_CONE)) Draw.sector(g, sx, sy, 32, heading, 0.7f, Theme.VIEW_CONE, Theme.withAlpha(Theme.VIEW_CONE, 0f));
             MarkerRenderer.player(g, sx, sy, 20, heading, 1f);
             return;
         }
@@ -1332,7 +1332,7 @@ public final class WorldMapScreen extends Screen {
             boolean inside = menu.contains(mx, my);
             MapContextMenu.Item it = button == 0 ? menu.rowAt(mx, my) : null;
             closeMenu();
-            if (it != null && it.enabled()) it.action().run();
+            if (it != null) it.action().run();
             if (button != 1 || inside) return true;
         }
         if (button == 1) {
@@ -1515,7 +1515,7 @@ public final class WorldMapScreen extends Screen {
     /**
      * The context menu at the point: on a pin (the nearest of those under it) "Edit", or "Open" for an automatic
      * point, and "Track" or "Stop tracking"; on empty ground "New pin" and, for operators (cheats in single player),
-     * "Teleport here", muted where the map does not know the ground's height. The spot is marked while it is open.
+     * "Teleport" (unexplored ground too, see teleportTo). The spot is marked while it is open.
      */
     private void openMenuAt(double mx, double my) {
         if (viewedDim == null) return;
@@ -1524,9 +1524,9 @@ public final class WorldMapScreen extends Screen {
         if (!hits.isEmpty()) {
             Marker m = hits.get(0);
             items.add(new MapContextMenu.Item(m.automatic ? Icon.VIEW : Icon.PENCIL,
-                    Component.translatable(m.automatic ? "teyvatcartographia.map.menu.open" : "teyvatcartographia.map.menu.edit"), true, () -> selectMarker(m)));
+                    Component.translatable(m.automatic ? "teyvatcartographia.map.menu.open" : "teyvatcartographia.map.menu.edit"), () -> selectMarker(m)));
             items.add(new MapContextMenu.Item(Icon.LOCATE,
-                    Component.translatable(Navigation.isTracking(m) ? "teyvatcartographia.map.menu.untrack" : "teyvatcartographia.map.menu.track"), true, () -> {
+                    Component.translatable(Navigation.isTracking(m) ? "teyvatcartographia.pin.untrack" : "teyvatcartographia.pin.track"), () -> {
                 if (Navigation.isTracking(m)) Navigation.clear();
                 else Navigation.track(m);
             }));
@@ -1537,9 +1537,9 @@ public final class WorldMapScreen extends Screen {
             selected = null;
             selX = bx + 0.5;
             selZ = bz + 0.5;
-            items.add(new MapContextMenu.Item(Icon.PLUS, Component.translatable("teyvatcartographia.map.menu.new_pin"), true, () -> newPinAt(bx, y, bz)));
+            items.add(new MapContextMenu.Item(Icon.NEW_PIN, Component.translatable("teyvatcartographia.map.menu.new_pin"), () -> newPinAt(bx, y, bz)));
             if (net.tapacywka.teyvatcartographia.marker.MarkerType.isOperator()) {
-                items.add(new MapContextMenu.Item(Icon.TARGET, Component.translatable("teyvatcartographia.map.menu.teleport"), y != Integer.MIN_VALUE,
+                items.add(new MapContextMenu.Item(Icon.TARGET, Component.translatable("teyvatcartographia.map.menu.teleport"),
                         () -> teleportTo(viewedDim, bx, y, bz)));
             }
         }
@@ -1552,12 +1552,44 @@ public final class WorldMapScreen extends Screen {
         if (panel == null) clearSelection(); // the spot marked for the menu
     }
 
-    /** The vanilla /tp, in the viewed dimension; the server checks the rights again. The map closes. */
+    /**
+     * The vanilla /tp, in the viewed dimension; the server checks the rights again. The map closes. Where the map does
+     * not know the ground (unexplored, {@code y} is {@link Integer#MIN_VALUE}) the server finds it: in the Nether (under
+     * its roof) and the End /spreadplayers (it refuses the void and lava, then the player stays); elsewhere the player
+     * goes up to {@link #TELEPORT_HIGH} over the spot first (the server loads the chunk; "positioned over" needs it
+     * loaded) and down onto its top block once the chunk has reached this client ({@link #tickTeleport}).
+     */
     private static void teleportTo(ResourceKey<Level> dim, int bx, int y, int bz) {
         LocalPlayer p = Minecraft.getInstance().player;
         if (p == null || !net.tapacywka.teyvatcartographia.marker.MarkerType.isOperator()) return; // re-checked: /deop meanwhile
-        p.connection.sendCommand("execute in " + dim.location() + " run tp @s " + bx + ".5 " + y + " " + bz + ".5");
+        String in = "execute in " + dim.location() + " ";
+        if (y != Integer.MIN_VALUE) p.connection.sendCommand(in + "run tp @s " + bx + ".5 " + y + " " + bz + ".5");
+        else if (dim == Level.NETHER) p.connection.sendCommand(in + "run spreadplayers " + bx + ".5 " + bz + ".5 0 8 under 120 false @s");
+        else if (dim == Level.END) p.connection.sendCommand(in + "run spreadplayers " + bx + ".5 " + bz + ".5 0 8 false @s");
+        else {
+            p.connection.sendCommand(in + "run tp @s " + bx + ".5 " + TELEPORT_HIGH + " " + bz + ".5");
+            landDim = dim;
+            landX = bx;
+            landZ = bz;
+            landTicks = LAND_WAIT;
+        }
         Minecraft.getInstance().setScreen(null);
+    }
+
+    /** Height of the first step of a teleport to unexplored ground, and how long the second step waits (ticks). */
+    private static final int TELEPORT_HIGH = 320, LAND_WAIT = 200;
+    private static ResourceKey<Level> landDim;
+    private static int landX, landZ, landTicks;
+
+    /** Client tick: the second step of a teleport to unexplored ground, onto the top block, once its chunk is here. */
+    public static void tickTeleport(Minecraft mc) {
+        if (landTicks <= 0) return;
+        landTicks--;
+        LocalPlayer p = mc.player;
+        if (p == null || p.level().dimension() != landDim || !p.level().hasChunk(landX >> 4, landZ >> 4)
+                || Math.abs(p.getX() - landX - 0.5) > 1 || Math.abs(p.getZ() - landZ - 0.5) > 1) return;
+        landTicks = 0;
+        p.connection.sendCommand("execute in " + landDim.location() + " positioned " + landX + ".5 0 " + landZ + ".5 positioned over motion_blocking run tp @s ~ ~ ~");
     }
 
     /** Over a button, the zoom slider, the layer field or an off-screen indicator (a right click there opens no menu). */
