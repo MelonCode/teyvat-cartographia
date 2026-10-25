@@ -11,6 +11,7 @@ import net.tapacywka.teyvatcartographia.marker.MarkerType;
 import net.tapacywka.teyvatcartographia.render.Backdrop;
 import net.tapacywka.teyvatcartographia.render.Draw;
 import net.tapacywka.teyvatcartographia.render.DrawText;
+import net.tapacywka.teyvatcartographia.render.EdgeFade;
 import net.tapacywka.teyvatcartographia.render.FogTexture;
 import net.tapacywka.teyvatcartographia.render.Icon;
 import net.tapacywka.teyvatcartographia.render.Theme;
@@ -53,7 +54,14 @@ public final class TeyvatConfigScreen extends Screen {
     /** The tab shown: kept while the game runs, like the open sub-sections. */
     private static int tab;
     private static final int TAB_H = Grid.ROW;
+    /**
+     * The list's scroll, without steps and eased like the map's zoom (user request 25.10.2026); {@code scroll} is the
+     * position drawn this frame. The rows at its edges dissolve into the panel ({@link EdgeFade}) while more lies beyond.
+     */
+    private final SmoothScroll scroller = new SmoothScroll();
     private float scroll;
+    /** Height of the dissolving edges of the list, GUI units. */
+    private static final float FADE = 12;
     private Row draggingRow;
     /** The scrollbar is being dragged; where on its thumb it was taken. */
     private boolean draggingBar;
@@ -274,7 +282,7 @@ public final class TeyvatConfigScreen extends Screen {
                 if (plantList != null) closePlants();
                 else if (MapConfig.get(value)) {
                     plantList = new PlantList();
-                    scroll = Math.min(rowTop(this), maxScroll()); // the row as high as the list goes, so the plants get room
+                    scroller.to(rowTop(this)); // the row as high as the list goes, so the plants get room
                 }
                 return true;
             }
@@ -782,9 +790,14 @@ public final class TeyvatConfigScreen extends Screen {
         return total;
     }
 
-    // The list scrolls only to the top of a row and draws only the rows it holds whole: no row is cut at its edges.
+    // The list scrolls without steps (SmoothScroll), from its top to its last row on the list's bottom edge; rows cut by
+    // its edges are drawn too and dissolve into the panel (EdgeFade; user requests 25.10.2026: it stopped at row tops,
+    // drew whole rows only and left up to a row empty below the last setting).
 
-    /** Where row {@code row} starts in the list (scrolled 0), a row top the list can scroll to. */
+    /** One wheel notch, GUI units: a row. */
+    private static final float WHEEL = Grid.ROW + Grid.GAP;
+
+    /** Where row {@code row} starts in the list (scrolled 0). */
     private float rowTop(Row row) {
         float at = 0;
         for (Row r : rows) {
@@ -794,47 +807,20 @@ public final class TeyvatConfigScreen extends Screen {
         return 0;
     }
 
-    /** The furthest scroll: the first row top from which the rest of the list fits. */
+    /** The furthest scroll: the last row ends at the bottom of the list. */
     private float maxScroll() {
-        float total = total(), view = listBottom - listTop, at = 0;
-        if (total <= view) return 0;
-        for (Row r : rows) {
-            if (total - at <= view) return at;
-            at += r.listHeight();
-        }
-        return at;
+        return Math.max(0, total() - (listBottom - listTop));
     }
 
-    /** The row top at or above {@code s} ({@code nearest}: the closest one), within the furthest scroll. */
-    private float snap(float s, boolean nearest) {
-        float max = maxScroll(), at = 0, best = 0;
-        for (Row r : rows) {
-            if (at > max) break;
-            if (r.listHeight() > 0) {
-                if (at <= s || nearest && at - s < s - best) best = at;
-                else break;
-            }
-            at += r.listHeight();
-        }
-        return Math.min(best, max);
-    }
-
-    /** The next row top below the scroll ({@code down}) or above it. */
-    private float step(boolean down) {
-        float max = maxScroll(), at = 0, before = 0;
-        for (Row r : rows) {
-            if (r.listHeight() > 0) {
-                if (down && at > scroll) return Math.min(at, max);
-                if (!down && at >= scroll) return before;
-                before = at;
-            }
-            at += r.listHeight();
-        }
-        return down ? max : before;
-    }
-
+    /** Some of the row shows in the list as it is drawn now (the pointer is checked against the list apart). */
     private boolean inView(Row r) {
-        return r.shown() && r.y >= listTop - 0.5f && r.y + r.height() <= listBottom + 0.5f;
+        return r.shown() && r.y + r.height() > listTop && r.y < listBottom;
+    }
+
+    /** The row is whole in the list scrolled to {@code s}. */
+    private boolean inViewAt(Row r, float s) {
+        float top = listTop + rowTop(r) - s;
+        return r.shown() && top >= listTop - 0.5f && top + r.height() <= listBottom + 0.5f;
     }
 
     // ------------------------------------------------------------------ scrollbar: in the right margin beside the list
@@ -861,7 +847,7 @@ public final class TeyvatConfigScreen extends Screen {
     private void dragBar(double my) {
         float total = total(), view = listBottom - listTop, th = thumbH(total);
         float t = (float) ((my - barGrab - listTop) / (view - th));
-        scroll = snap(Math.max(0, Math.min(1, t)) * maxScroll(), true);
+        scroller.toFraction(t);
     }
 
     /** The track along the list and the thumb over the part shown; lit while pointed at or dragged. */
@@ -1134,7 +1120,7 @@ public final class TeyvatConfigScreen extends Screen {
 
     /** The chunk and region grid, as the world map draws it (from zoom 1; chunks from 2). */
     private void previewGrid(GuiGraphics g, float x, float y, float w, float h, double zoom) {
-        if (zoom < 1.0) return;
+        if (zoom < net.tapacywka.teyvatcartographia.map.MapView.DETAIL_FROM - 1e-6) return; // like the world map
         int step = zoom >= 2 ? 16 : 256;
         double wx0 = previewView.worldX(x, y), wz0 = previewView.worldZ(x, y), wx1 = previewView.worldX(x + w, y + h), wz1 = previewView.worldZ(x + w, y + h);
         for (long gx = (long) Math.floor(wx0 / step) * step; gx <= wx1; gx += step) {
@@ -1221,20 +1207,30 @@ public final class TeyvatConfigScreen extends Screen {
         boolean overlay = !previewCard && previewOpen;
         if (tabs.size() > 1) for (int i = 0; i < tabs.size(); i++) renderTab(g, i, tabs.get(i).key(), i == tab, mx, my);
         float total = total();
-        scroll = snap(scroll, false);
+        if (scroll != scroller.pos()) scroller.jump(scroll); // set from outside (the in-game tests): taken at once
+        scroll = scroller.update(maxScroll());
 
+        if (!overlay) EdgeFade.capture(g); // the panel under the rows, for their dissolving edges
         g.enableScissor((int) panelX, (int) listTop, (int) (panelX + panelW), (int) listBottom);
         float yy = listTop - scroll;
         int rowMy = my >= listTop && my < listBottom && !overlay && (plantList == null || !plantList.over(mx, my)) ? my : -10_000;
         for (Row r : rows) {
             r.y = yy;
-            if (!overlay && inView(r)) r.render(g, contentX(), contentW(), mx, rowMy);
+            // Rows cut by the edges too: they dissolve there (while scrolling, and the row beyond the last whole one).
+            if (!overlay && r.shown() && yy + r.height() > listTop && yy < listBottom) r.render(g, contentX(), contentW(), mx, rowMy);
             yy += r.listHeight();
         }
         g.disableScissor();
-        // The list of plants, under its row and over the rows below it; it closes when its row is out of view.
+        if (!overlay) {
+            float view = listBottom - listTop;
+            EdgeFade.draw(g, panelX, barX() - Grid.GAP, listTop, listBottom, FADE,
+                    Math.min(1, scroll / FADE), Math.min(1, Math.max(0, total - scroll - view) / FADE));
+        }
+        EdgeFade.release();
+        // The list of plants, under its row and over the rows below it; it closes when its row is out of view (where
+        // the list is going: it may slide in while the plants open).
         if (plantList != null) {
-            if (overlay || !rows.contains(plantsRow) || !inView(plantsRow)) closePlants();
+            if (overlay || !rows.contains(plantsRow) || !inViewAt(plantsRow, scroller.target())) closePlants();
             else {
                 float top = plantsRow.y + Grid.ROW;
                 g.enableScissor((int) panelX, (int) listTop, (int) (panelX + panelW), (int) listBottom);
@@ -1279,7 +1275,8 @@ public final class TeyvatConfigScreen extends Screen {
                 previewOpen = false;
                 previewRow = null;
                 closePlants();
-                scroll = 0;
+                scroller.jump(0);
+                scroll = 0f;
                 return true;
             }
         }
@@ -1346,7 +1343,7 @@ public final class TeyvatConfigScreen extends Screen {
             plantList.scrollBy(sy);
             return true;
         }
-        for (int i = 0; i < Math.max(1, Math.round(Math.abs(sy))) && sy != 0; i++) scroll = step(sy < 0);
+        scroller.wheel(sy, WHEEL);
         return true;
     }
 
@@ -1369,6 +1366,7 @@ public final class TeyvatConfigScreen extends Screen {
     public void removed() {
         closePlants();
         Cursors.reset();
+        EdgeFade.dispose();
     }
 
     @Override

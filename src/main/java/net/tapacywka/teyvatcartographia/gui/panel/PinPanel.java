@@ -4,6 +4,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.resources.ResourceKey;
 import net.tapacywka.teyvatcartographia.gui.ChipField;
 import net.tapacywka.teyvatcartographia.gui.Cursors;
+import net.tapacywka.teyvatcartographia.gui.SmoothScroll;
 import net.tapacywka.teyvatcartographia.gui.Ui;
 import net.tapacywka.teyvatcartographia.gui.Ui.Grid;
 import net.tapacywka.teyvatcartographia.gui.WorldMapScreen;
@@ -194,7 +195,11 @@ public final class PinPanel extends SidePanel {
 
     // ------------------------------------------------------------------ grid scrolling (short screens, B20)
 
-    /** How far the type grid is scrolled down; whether it was drawn yet (its first scroll shows the selected type). */
+    /**
+     * How far the type grid is scrolled down (as drawn this frame; eased, without steps, like the other lists); whether
+     * it was drawn yet (its first scroll shows the selected type).
+     */
+    private final SmoothScroll gridScroller = new SmoothScroll();
     private float gridScroll;
     private boolean gridShown;
 
@@ -242,10 +247,10 @@ public final class PinPanel extends SidePanel {
                 gridShown = true;
                 for (int k = 0; k < sections().size(); k++) {
                     int i = types(k).indexOf(type);
-                    if (i >= 0) gridScroll = slotY(k, i) + Grid.SLOT - gridViewBottom();
+                    if (i >= 0) gridScroller.jump(slotY(k, i) + Grid.SLOT - gridViewBottom());
                 }
             }
-            gridScroll = Math.max(0, Math.min(max, gridScroll));
+            gridScroll = gridScroller.update(max);
             float viewTop = gridY(), viewBottom = gridViewBottom();
             if (max > 0) g.enableScissor((int) Math.floor(x), (int) viewTop, (int) Math.ceil(x + w), (int) viewBottom);
             boolean hoverGrid = max == 0 || inGridView(my);
@@ -367,7 +372,7 @@ public final class PinPanel extends SidePanel {
     public boolean mouseScrolled(double mx, double my, double amount) {
         if (!contains(mx, my)) return false;
         // Half a tile per wheel step; only the type grid scrolls, and only where it does not fit.
-        if (!readOnly()) gridScroll = Math.max(0, Math.min(maxGridScroll(), gridScroll - (float) Math.signum(amount) * CELL / 2f));
+        if (!readOnly()) gridScroller.wheel(amount, CELL / 2f);
         return true;
     }
 

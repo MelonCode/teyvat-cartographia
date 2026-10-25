@@ -38,11 +38,11 @@ import org.joml.Vector4f;
  * The tracked target as a marker in the 3D world (references: ingame_waypoint_*), drawn on the HUD at the target's
  * projected position, so it keeps a constant size and shows through terrain:
  * <ul>
- *   <li>in view: the glyph with the distance in blocks under it; within 225 blocks a golden beam of light rises from
+ *   <li>in view: the glyph with the distance in blocks under it; at any distance a golden beam of light rises from
  *       the target in the world ({@link #renderBeam});</li>
  *   <li>outside the limiter ellipse around the screen centre (also behind the camera): held on that ellipse, like
  *       in Genshin Impact, going around the minimap, with a pointer towards the target and no distance;</li>
- *   <li>closer than 10 blocks it fades out, gone at the target; within 225 blocks an arrow shows a target above or
+ *   <li>closer than 10 blocks it fades out, gone at the target; at any distance an arrow shows a target above or
  *       below the player ({@link Navigation#level});</li>
  *   <li>the pulse key makes a diamond, white turning gold, close in on it ({@link #pulse}); the marker never pulses
  *       on its own.</li>
@@ -53,11 +53,7 @@ import org.joml.Vector4f;
  * frame; the beam is one small vertex batch of 16 quads.
  */
 public final class WorldMarkerLayer implements LayeredDraw.Layer {
-    /**
-     * The above / below arrow is shown only within {@code LEVEL_FAR} blocks (farther it reads like a second pointer),
-     * {@code LEVEL_GAP} GUI units past the glyph's edge.
-     */
-    private static final double LEVEL_FAR = 225;
+    /** The above / below arrow, {@code LEVEL_GAP} GUI units past the glyph's edge, at any distance. */
     private static final float LEVEL_GAP = 2;
     /**
      * Glyph box on screen (GUI units), the same at every distance: at GUI scale 3 the glyph is about 30 pixels, like
@@ -71,13 +67,15 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
     /** Closer than {@code FADE_FAR} blocks the marker fades out; it is gone at the target itself. */
     private static final double FADE_FAR = 10;
     /**
-     * A beam of light rises from the target within {@code BEAM_FAR} blocks, like the golden shaft of light over a
-     * Genshin Impact waypoint (ingame_waypoint_beam_01): a soft wide glow with a narrow bright core, faint at the marker
-     * and full {@code BEAM_RISE} blocks above it, fading out towards its top. It always faces the camera and keeps about
-     * the same width on screen at any distance; terrain hides it. It fades in over the last {@code BEAM_FADE} blocks
-     * of its range and fades out with the marker close to the target.
+     * A beam of light rises from the target at any distance (until 25.10.2026 within 225 blocks), like the golden shaft
+     * of light over a Genshin Impact waypoint (ingame_waypoint_beam_01): a soft wide glow with a narrow bright core,
+     * faint at the marker and full {@code BEAM_RISE} blocks above it, fading out towards its top. It always faces the
+     * camera and keeps about the same width on screen at any distance; terrain hides it. Beyond {@code BEAM_NEAR} of the
+     * camera's far plane it is drawn that far along the same line of sight, all its sizes scaled alike, so it looks the
+     * same and is not cut off. It fades in over a second when the marker comes onto the screen, out over a second on
+     * the limiter ellipse ({@link MarkerTiming#edgeStep}), and out with the marker close to the target.
      */
-    private static final double BEAM_FAR = 225, BEAM_FADE = 25;
+    private static final float BEAM_NEAR = 0.8f;
     /** Beam length above the marker, and where it is fully bright (at least, or this share of the distance). */
     private static final float BEAM_HEIGHT = 320, BEAM_RISE = 3, BEAM_RISE_SHARE = 0.1f;
     /**
@@ -109,6 +107,9 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
     private static boolean glyphInView;
     /** Fade of the beam as the glyph nears the limiter ellipse on the last HUD frame, 0..1 (gone on the ellipse). */
     private static float edgeFade;
+    /** The beam's timed fade at the screen's edge before smoothing ({@link MarkerTiming#edgeStep}), and when it was last moved. */
+    private static float edgeT;
+    private static long edgeMs;
 
     /**
      * {@link RenderLevelStageEvent} listener: draws the stars after the particles and the beam after the clouds and
@@ -235,7 +236,14 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
         boolean inside = front && ellipse <= 1f;
         boolean inView = inside && !inHud(sx, sy);
         glyphInView = inView;
-        edgeFade = inView ? MarkerTiming.edgeFade(ellipse) : 0f;
+        // The beam fades in over a second once the marker is on the screen, and out over a second on the ellipse (not
+        // shown for a while, e.g. a new target: it starts faded out).
+        long nowMs = Util.getMillis();
+        float dtS = nowMs - edgeMs > 250 ? 0f : (nowMs - edgeMs) / 1000f;
+        if (nowMs - edgeMs > 250) edgeT = 0f;
+        edgeMs = nowMs;
+        edgeT = MarkerTiming.edgeStep(edgeT, inView, dtS);
+        edgeFade = MarkerTiming.smooth(edgeT);
 
         float dirX = 0, dirY = 0;
         if (!inView) {
@@ -266,10 +274,10 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
         if (pulsing) MarkerRenderer.worldPulse(g, sx, sy, SIZE, pulseSeconds, SIZE * MarkerRenderer.WORLD_PULSE_START, pulseColor, alpha);
 
         // 2. Halo, glyph, the above / below arrow and the distance: in view only (on the limiter the edge pointer is the
-        // only arrow); the level arrow only within LEVEL_FAR blocks. The same number as on the minimap and
+        // only arrow); the level arrow at any distance (it stopped at 225 blocks until 25.10.2026). The same number as on the minimap and
         // the world map (Navigation.distance), not the interpolated one.
         double shownDist = Navigation.distance(player);
-        int level = inView && shownDist <= LEVEL_FAR ? Navigation.level(player) : 0;
+        int level = inView ? Navigation.level(player) : 0;
         Component text = inView && alpha > 0.03f ? distanceText(Math.round(shownDist)) : null;
         Icon icon = targetIcon(t);
         if (pulsing) {
@@ -401,8 +409,7 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
         double ty = targetY(mc, t, py);
         double dx = t.x() - px, dy = ty - py, dz = t.z() - pz;
         float dist = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (dist >= BEAM_FAR) return;
-        float a = shown * nearFade * edgeFade * smooth((BEAM_FAR - dist) / BEAM_FADE);
+        float a = shown * nearFade * edgeFade;
         if (a <= 0.01f) return;
 
         Vec3 cam = event.getCamera().getPosition();
@@ -412,11 +419,18 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
         // Across the view: perpendicular to the horizontal direction from the camera to the beam.
         float len = (float) Math.sqrt(bx * bx + bz * bz);
         float rx = len < 1e-3f ? 1f : -bz / len, rz = len < 1e-3f ? 0f : bx / len;
+        float glow = Math.max(0.3f, dist * BEAM_GLOW_K), core = Math.max(0.06f, dist * BEAM_CORE_K);
+        // Farther than the far plane allows: the same beam nearer along the line of sight, everything scaled alike.
+        float near = mc.gameRenderer.getDepthFar() * BEAM_NEAR;
+        if (len > near) {
+            float k = near / len;
+            bx *= k; bz *= k; y0 *= k; y1 *= k; y2 *= k; y3 *= k; glow *= k; core *= k;
+        }
         MapConfig.PinKind kind = MarkerVisibility.kind(t); // the beam's colour
 
         BufferBuilder b = WorldGlow.begin(VertexFormat.Mode.QUADS);
-        beamLayer(b, bx, bz, rx, rz, Math.max(0.3f, dist * BEAM_GLOW_K), y0, y1, y2, y3, Theme.withAlpha(Theme.worldMarkerBeam(kind), a));
-        beamLayer(b, bx, bz, rx, rz, Math.max(0.06f, dist * BEAM_CORE_K), y0, y1, y2, y3, Theme.withAlpha(Theme.worldMarkerBeamCore(kind), a));
+        beamLayer(b, bx, bz, rx, rz, glow, y0, y1, y2, y3, Theme.withAlpha(Theme.worldMarkerBeam(kind), a));
+        beamLayer(b, bx, bz, rx, rz, core, y0, y1, y2, y3, Theme.withAlpha(Theme.worldMarkerBeamCore(kind), a));
         WorldGlow.draw(b);
     }
 

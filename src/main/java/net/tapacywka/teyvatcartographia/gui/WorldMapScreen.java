@@ -24,6 +24,7 @@ import net.tapacywka.teyvatcartographia.render.CachedLayer;
 import net.tapacywka.teyvatcartographia.render.DistanceText;
 import net.tapacywka.teyvatcartographia.render.Draw;
 import net.tapacywka.teyvatcartographia.render.DrawText;
+import net.tapacywka.teyvatcartographia.render.EdgeFade;
 import net.tapacywka.teyvatcartographia.render.Icon;
 import net.tapacywka.teyvatcartographia.render.MapLayerRenderer;
 import net.tapacywka.teyvatcartographia.render.MarkerRenderer;
@@ -229,7 +230,7 @@ public final class WorldMapScreen extends Screen {
 
     public void focusMarker(Marker m) {
         flyTo(m.centerX(), m.centerZ());
-        if (scale < 1) {
+        if (MarkerVisibility.pinsHidden(scale)) {
             targetScale = 1;
             thumbAtTarget = false;
         }
@@ -344,6 +345,7 @@ public final class WorldMapScreen extends Screen {
         MapDataManager.get().releaseViewStores();
         chrome.destroy();
         picture.destroy();
+        EdgeFade.dispose(); // the pin list's and pick list's dissolving edges
     }
 
     @Override
@@ -498,7 +500,8 @@ public final class WorldMapScreen extends Screen {
     private int[] gridColors = new int[64];
 
     private void drawGrid(GuiGraphics g) {
-        if (scale < 1.0) return;
+        // Region lines from 1/8 like the pins and the biome names, chunk lines from 2 (closer, they fill the map).
+        if (scale < MapView.DETAIL_FROM - 1e-6) return;
         int step = scale >= 2 ? 16 : 256;
         double wx0 = view.worldX(0, 0), wz0 = view.worldZ(0, 0), wx1 = view.worldX(width, height), wz1 = view.worldZ(width, height);
         int n = 0;
@@ -894,7 +897,7 @@ public final class WorldMapScreen extends Screen {
         if (player != null) barLeft -= Ui.pillWidth(player, true);
         setRect(0, barLeft - pad, 0, width, M + COMPASS_D + pad);
         // Zoom slider column
-        setRect(1, 0, sliderPlusY() - 9 - pad, M + COMPASS_D + pad, sliderMinusY() + 9 + pad);
+        setRect(1, 0, sliderPlusY() - 9 - pad, leftColumnX() + ZOOM_LABEL_GAP + ZOOM_LABEL_W + pad, sliderMinusY() + 9 + pad); // with the zoom label
         // Bottom-left button row
         setRect(2, 0, height - M - COMPASS_D - pad, rowButtonX(2) + R + pad, height);
         // Bottom-right: area name, explored line, compass button
@@ -1098,7 +1101,22 @@ public final class WorldMapScreen extends Screen {
             Draw.diamond(g, x, ty, thumbHover ? 9 : 8, Theme.ZOOM_THUMB);
             Draw.diamond(g, x, ty, 4, Theme.ZOOM_THUMB_CORE);
         }
+        // The zoom beside the thumb, moving with it (user request 25.10.2026): "1/4", "1", "8", outlined like the
+        // biome names so it reads over any land.
+        String label = MapView.zoomLabel(thumbAtTarget ? targetScale : scale);
+        if (!label.equals(zoomLabel)) {
+            zoomLabel = label;
+            zoomText = Component.literal(label);
+        }
+        DrawText.room(zoomText, ZOOM_LABEL_W);
+        float lw = DrawText.width(zoomText);
+        DrawText.textOutlined(g, zoomText, x + ZOOM_LABEL_GAP + lw / 2f, ty, Theme.LABEL_TEXT, Theme.LABEL_OUTLINE, false);
     }
+
+    /** The zoom label beside the slider's thumb: its gap from the track's centre and the room it may take ("1/32"). */
+    private static final float ZOOM_LABEL_GAP = 13, ZOOM_LABEL_W = 24;
+    private String zoomLabel;
+    private Component zoomText;
 
     private void drawBottomLeft(GuiGraphics g, int mx, int my) {
         float y = rowButtonY();

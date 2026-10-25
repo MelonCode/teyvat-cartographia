@@ -8,11 +8,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The zoom steps shared by the world map, the minimap and the settings sliders. */
 class MapViewTest {
     @Test
-    void stepsGoUpFrom1Over16To16() {
+    void stepsDoubleFrom1Over32To32() {
         double[] s = MapView.ZOOM_STEPS;
-        assertEquals(1 / 16.0, s[0]);
-        assertEquals(16.0, s[s.length - 1]);
-        for (int i = 1; i < s.length; i++) assertTrue(s[i] > s[i - 1], "step " + i + " is larger than the one before");
+        assertEquals(1 / 32.0, s[0]);
+        assertEquals(32.0, s[s.length - 1]);
+        for (int i = 1; i < s.length; i++) {
+            assertTrue(s[i] > s[i - 1], "step " + i + " is larger than the one before");
+            assertEquals(2 * s[i - 1], s[i], 1e-12, "step " + i + " doubles the one before (no 1/3 or 3 since 25.10.2026)");
+        }
         assertEquals(1.0, s[MapView.ZOOM_DEFAULT]);
     }
 
@@ -20,8 +23,9 @@ class MapViewTest {
     void oneStepUpAndDownStopsAtTheEnds() {
         assertEquals(2.0, MapView.stepZoom(1, 1));
         assertEquals(0.5, MapView.stepZoom(1, -1));
-        assertEquals(16.0, MapView.stepZoom(16, 1));
-        assertEquals(1 / 16.0, MapView.stepZoom(1 / 16.0, -1));
+        assertEquals(32.0, MapView.stepZoom(32, 1));
+        assertEquals(1 / 32.0, MapView.stepZoom(1 / 32.0, -1));
+        assertEquals(4.0, MapView.stepZoom(2, 1), "2 to 4, no 3");
     }
 
     @Test
@@ -52,11 +56,12 @@ class MapViewTest {
     }
 
     @Test
-    void nearestStepTellsAThirdFromAQuarter() {
-        assertEquals("1/3", MapView.zoomLabel(0.32));
+    void nearestStepAndItsLabel() {
         assertEquals("1/4", MapView.zoomLabel(0.26));
         assertEquals("8", MapView.zoomLabel(7));
-        assertEquals("1/16", MapView.zoomLabel(0.0001));
-        assertEquals(1 / 3.0, MapView.snapZoom(0.34));
+        assertEquals("1/32", MapView.zoomLabel(0.0001));
+        assertEquals("32", MapView.zoomLabel(1000));
+        assertEquals(4.0, MapView.snapZoom(3.1), "an old 3 in a settings file goes to 4");
+        assertEquals(0.25, MapView.snapZoom(0.3), "an old 1/3 goes to 1/4");
     }
 }

@@ -33,20 +33,17 @@ class MarkerTimingTest {
         }
     }
 
+    /** The beam fades in over one second when the marker comes onto the screen, and out when it goes onto the ellipse. */
     @Test
-    void theBeamFadesOutNearTheLimiterEllipse() {
-        assertEquals(1f, MarkerTiming.edgeFade(0f), 1e-6, "at the screen centre");
-        assertEquals(1f, MarkerTiming.edgeFade(0.85f * 0.85f), 1e-6, "where the fade begins");
-        float mid = MarkerTiming.edgeFade(0.925f * 0.925f);
-        assertTrue(mid > 0.3f && mid < 0.7f, "halfway through the fade: " + mid);
-        assertEquals(0f, MarkerTiming.edgeFade(1f), 1e-6, "gone on the ellipse");
-        assertEquals(0f, MarkerTiming.edgeFade(1.5f), 1e-6, "and beyond it");
-        float last = 1f;
-        for (float r = 0.85f; r <= 1f; r += 0.01f) {
-            float f = MarkerTiming.edgeFade(r * r);
-            assertTrue(f <= last + 1e-6f, "never brighter further out (" + r + ")");
-            last = f;
-        }
+    void theBeamFadesInAndOutInOneSecond() {
+        assertEquals(0.5f, MarkerTiming.edgeStep(0f, true, 0.5f), 1e-6, "half a second in");
+        assertEquals(1f, MarkerTiming.edgeStep(0f, true, 1f), 1e-6, "in after a second");
+        assertEquals(1f, MarkerTiming.edgeStep(1f, true, 5f), 1e-6, "and stays there");
+        assertEquals(0.75f, MarkerTiming.edgeStep(1f, false, 0.25f), 1e-6, "going out");
+        assertEquals(0f, MarkerTiming.edgeStep(0.2f, false, 1f), 1e-6, "out, never below 0");
+        float f = 0f;
+        for (int i = 0; i < 30; i++) f = MarkerTiming.edgeStep(f, true, 1 / 60f);
+        assertEquals(0.5f, f, 1e-4, "30 frames at 60 per second: half the way");
     }
 
     @Test

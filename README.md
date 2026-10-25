@@ -129,7 +129,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 <h2 id="installation">📥 Installation</h2>
 
 1. Install [NeoForge](https://neoforged.net) 21.1 for Minecraft 1.21.1.
-2. Download `teyvatcartographia-v0.2.0+mc1.21.1-neoforge.jar` from
+2. Download `teyvatcartographia-v0.3.0+mc1.21.1-neoforge.jar` from
    [Modrinth](https://modrinth.com/mod/teyvat-cartographia), [CurseForge](https://www.curseforge.com/minecraft/mc-mods/teyvat-cartographia) or the
    [latest GitHub release](https://github.com/Tapacywka/teyvat-cartographia/releases/latest) and put it into your
    `mods/` folder.
@@ -168,8 +168,9 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * Fog of War over unexplored land, painted regions with relief shading and contour lines. The map darkens at night,
   while torches, lava and other lights keep their colour. The Nether (smoke and embers) and The End (a starry void)
   have a fog of their own, soft wisps and glowing motes like the fog of the Genshin Impact map.
-* Biome name labels (zoom 1/4 to 4), biome under the cursor, player and cursor coordinates, explored chunk counter,
-  zoom slider (1/16 to 16), optional chunk grid.
+* Biome name labels, biome under the cursor, player and cursor coordinates, explored chunk counter, zoom slider
+  (1/32 to 32, the zoom shown beside its thumb), optional chunk grid. At 1/16 and 1/32 the map shows the land alone:
+  no pins but the tracked one, no biome names, no grid.
 * **Search** in the pin list (or **Ctrl+F**): pins of every dimension by name, and the explored biomes by name. A
   click flies the map to the result, switching the dimension if needed. A biome goes to its nearest explored place,
   and each further click to the next one ("Place 2 of 5"); the spot is marked with a few rings.
@@ -242,8 +243,9 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * The tracked pin is shown in the 3D world (from the *In the world* step of its kind) like a Genshin Impact waypoint for a minute after you start tracking or
   press the pulse key: constant size, visible through terrain, the distance in blocks under it.
 * Off screen it slides along an ellipse around the centre, above the hotbar and around the minimap.
-* Within 225 blocks a beam of light in the pin's colour rises from the target (hidden behind terrain, drawn after the
-  clouds); closer than 10 blocks the pin fades out. A white arrow shows a target well above or below you.
+* A beam of light in the pin's colour rises from the target at any distance (hidden behind terrain, drawn after the
+  clouds); it fades in over a second when the pin comes onto the screen and out when it goes to the edge. Closer than
+  10 blocks the pin fades out. A white arrow shows a target well above or below you.
 * The pulse key sends a thin diamond closing in on the pin in one second, and the glyph flashes when it arrives.
 
 <h3 id="walking-path">Walking path</h3>
@@ -272,6 +274,8 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * A setting with parts is one slider in steps: each pin kind goes Off, Map, Both maps, In the world (the marker over a
   tracked pin), Everywhere (its beam too); its path Off, Map, Both maps, Everywhere (the stars); the clock Off, Game,
   Real, Both.
+* Every list (the settings, plants, pins, overlapping pins on the map) glides as it scrolls, with no steps, and its
+  rows dissolve softly at the top and bottom edges.
 * Reset to defaults and a shortcut to key binds. Stored in `config/teyvatcartographia-client.toml`.
 
 <h2 id="compatibility">🧩 Compatibility with mods</h2>
@@ -344,7 +348,7 @@ The mod is meant to cost at most 2 to 3% FPS:
 * The first search in a world reads the explored map once on a background thread (about 1 second per 1000 map
   regions) and keeps a small biome index; later searches only read what was explored since.
 * On the world map, the fog is one quad, and the grid, the path and the labels are each drawn in a single call. Far
-  out the map is drawn from small copies of the regions, so even zoom 1/16 costs only a few textures.
+  out the map is drawn from small copies of the regions, so even zoom 1/32 costs only a few textures.
 
 <h2 id="where-data-is-stored">💾 Where data is stored</h2>
 

@@ -29,12 +29,15 @@ class VisibilityTest {
     }
 
     @Test
-    void belowScale1OnlyTheTrackedPin() {
-        assertFalse(MarkerVisibility.shown(false, 0.5, true, true));
+    void at1Over16And1Over32OnlyTheTrackedPin() {
+        assertTrue(MarkerVisibility.shown(false, 0.5, true, true), "pins down to 1/8 since 25.10.2026");
+        assertTrue(MarkerVisibility.shown(false, 1 / 8.0, true, true));
         assertFalse(MarkerVisibility.shown(false, 1 / 16.0, true, true));
-        assertTrue(MarkerVisibility.shown(true, 1 / 16.0, true, true));
-        assertTrue(MarkerVisibility.pinsHidden(0.99));
-        assertFalse(MarkerVisibility.pinsHidden(1));
+        assertFalse(MarkerVisibility.shown(false, 1 / 32.0, true, true));
+        assertTrue(MarkerVisibility.shown(true, 1 / 32.0, true, true));
+        assertTrue(MarkerVisibility.pinsHidden(1 / 16.0));
+        assertFalse(MarkerVisibility.pinsHidden(1 / 8.0));
+        assertTrue(MarkerVisibility.shown(false, 32, true, true));
     }
 
     @Test

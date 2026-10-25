@@ -8,6 +8,7 @@ import net.tapacywka.teyvatcartographia.gui.Cursors;
 import net.tapacywka.teyvatcartographia.gui.FileDialogs;
 import net.tapacywka.teyvatcartographia.gui.MapSearch;
 import net.tapacywka.teyvatcartographia.gui.PinTransfer;
+import net.tapacywka.teyvatcartographia.gui.SmoothScroll;
 import net.tapacywka.teyvatcartographia.gui.Ui;
 import net.tapacywka.teyvatcartographia.gui.Ui.Grid;
 import net.tapacywka.teyvatcartographia.gui.WorldMapScreen;
@@ -20,6 +21,7 @@ import net.tapacywka.teyvatcartographia.nav.Navigation;
 import net.tapacywka.teyvatcartographia.render.DistanceText;
 import net.tapacywka.teyvatcartographia.render.Draw;
 import net.tapacywka.teyvatcartographia.render.DrawText;
+import net.tapacywka.teyvatcartographia.render.EdgeFade;
 import net.tapacywka.teyvatcartographia.render.Icon;
 import net.tapacywka.teyvatcartographia.render.MarkerRenderer;
 import net.tapacywka.teyvatcartographia.render.Theme;
@@ -67,8 +69,10 @@ public final class MarkerListPanel extends SidePanel {
         }
     }
 
-    /** First visible row. */
-    private int scroll;
+    /** How far the rows are scrolled, without steps. */
+    private final SmoothScroll scroller = new SmoothScroll();
+    /** Height of the dissolving edges of the rows, GUI units. */
+    private static final float FADE = 10;
     private List<Marker> items = List.of();
     private List<Row> rows = List.of();
     private float rowsWidth = -1;
@@ -83,7 +87,7 @@ public final class MarkerListPanel extends SidePanel {
         field.setValue(search.query());
         field.setResponder(q -> {
             search.setQuery(q);
-            scroll = 0;
+            scroller.jump(0);
         });
     }
 
@@ -324,32 +328,20 @@ public final class MarkerListPanel extends SidePanel {
         return Draw.snap(listAreaTop() + (listBottom() - listAreaTop() - blockHeight()) / 2f);
     }
 
-    /** Rows shown from {@code first} on: as many as fit in the block. */
-    private int fitFrom(int first) {
-        float used = -Grid.GAP;
-        int n = 0;
-        for (int i = first; i < rows.size(); i++) {
-            used += rows.get(i).height() + Grid.GAP;
-            if (used > blockHeight() + 0.01f) break;
-            n++;
-        }
-        return Math.max(n, Math.min(1, rows.size() - first));
+    /** Height of all the rows with the gaps between them. */
+    private float total() {
+        float total = -Grid.GAP;
+        for (Row r : rows) total += r.height() + Grid.GAP;
+        return Math.max(0, total);
     }
 
-    /** The last useful first row: from it on, the rest of the list fits. */
-    private int maxScroll() {
-        float used = -Grid.GAP;
-        int first = rows.size();
-        while (first > 0) {
-            used += rows.get(first - 1).height() + Grid.GAP;
-            if (used > blockHeight() + 0.01f) break;
-            first--;
-        }
-        return Math.min(first, Math.max(0, rows.size() - 1));
+    /** The furthest scroll: the last row on the block's bottom edge. */
+    private float maxScroll() {
+        return Math.max(0, total() - blockHeight());
     }
 
     private boolean scrollable() {
-        return maxScroll() > 0;
+        return maxScroll() > 0.01f;
     }
 
     /** Row width: narrower by the scroll bar when the list scrolls. */
@@ -365,24 +357,29 @@ public final class MarkerListPanel extends SidePanel {
         // Again when the list changed, or when the room for it did (the import choice, the window size).
         if (rebuilt || rowWidth(bw) != rowsWidth) buildRows(bw);
         float rw = rowsWidth;
-        scroll = Math.max(0, Math.min(maxScroll(), scroll));
+        float s = scroller.update(maxScroll());
         if (rows.isEmpty()) {
             DrawText.text(g, Component.translatable("teyvatcartographia.list.empty"), bx, DrawText.textY(listTop(), Grid.ROW), Theme.TEXT_MUTED, false);
             return;
         }
-        float top = listTop(), ry = top;
-        for (int k = scroll, end = scroll + fitFrom(scroll); k < end; k++) {
-            Row r = rows.get(k);
-            renderRow(g, r, bx, ry, rw, mx, my);
+        float top = listTop(), h = blockHeight(), ry = top - s;
+        // Rows cut by the block's edges too, dissolving there like the settings list's own.
+        EdgeFade.capture(g);
+        g.enableScissor((int) bx, (int) top, (int) Math.ceil(bx + bw), (int) Math.ceil(top + h));
+        int hoverY = my >= top && my < top + h ? my : -10_000;
+        for (Row r : rows) {
+            if (ry + r.height() > top && ry < top + h) renderRow(g, r, bx, ry, rw, mx, hoverY);
             ry += r.height() + Grid.GAP;
         }
+        g.disableScissor();
+        EdgeFade.draw(g, bx, bx + rw, top, top + h, FADE, Math.min(1, s / FADE), Math.min(1, (scroller.max() - s) / FADE));
+        EdgeFade.release();
         if (scrollable()) {
             // Track over the block of rows, thumb over the visible part (as in the map's pick list).
-            float barX = bx + bw - BAR_W, h = blockHeight();
+            float barX = bx + bw - BAR_W;
             Draw.rect(g, barX, top, barX + BAR_W, top + h, Theme.SCROLL_TRACK);
-            int max = maxScroll(), shown = fitFrom(scroll);
-            float th = Math.max(8, h * shown / (float) rows.size());
-            float ty = top + (h - th) * scroll / max;
+            float th = Math.max(8, h * h / total());
+            float ty = top + (h - th) * scroller.fraction();
             Draw.rect(g, barX, ty, barX + BAR_W, ty + th, Theme.SCROLL_THUMB);
         }
     }
@@ -416,9 +413,9 @@ public final class MarkerListPanel extends SidePanel {
 
     /** The row under the mouse, or null. */
     private Row rowAt(double mx, double my) {
-        float rw = rowWidth(contentW()), ry = listTop();
-        for (int k = scroll, end = scroll + fitFrom(scroll); k < end; k++) {
-            Row r = rows.get(k);
+        float rw = rowWidth(contentW()), top = listTop(), ry = top - scroller.pos();
+        if (my < top || my >= top + blockHeight()) return null;
+        for (Row r : rows) {
             if (r.clickable() && Draw.inRect(mx, my, contentX(), ry, rw, ROW_H)) return r;
             ry += r.height() + Grid.GAP;
         }
@@ -450,7 +447,7 @@ public final class MarkerListPanel extends SidePanel {
     @Override
     public boolean mouseScrolled(double mx, double my, double amount) {
         if (!contains(mx, my)) return false;
-        scroll = Math.max(0, Math.min(maxScroll(), scroll - (int) Math.signum(amount)));
+        scroller.wheel(amount, ROW_STEP);
         return true;
     }
 

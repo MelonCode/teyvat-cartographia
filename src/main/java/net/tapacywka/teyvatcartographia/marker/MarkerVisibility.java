@@ -31,8 +31,8 @@ public final class MarkerVisibility {
      * Whether pin {@code m} is drawn at {@code scale} (GUI pixels per block) on the minimap or the world map:
      * <ul>
      *   <li>the tracked target always;</li>
-     *   <li>below scale 1 nothing else;</li>
-     *   <li>at 1 and above: by the settings of its kind, separately for the map and the minimap.</li>
+     *   <li>at 1/16 and 1/32 nothing else ({@link net.tapacywka.teyvatcartographia.map.MapView#DETAIL_FROM});</li>
+     *   <li>from 1/8 up: by the settings of its kind, separately for the map and the minimap.</li>
      * </ul>
      */
     public static boolean shown(Marker m, double scale, boolean minimap) {
@@ -68,9 +68,9 @@ public final class MarkerVisibility {
         return 2 * seaLevel + 1;
     }
 
-    /** Below scale 1 the map and the minimap show only the tracked target. */
+    /** At 1/16 and 1/32 the map and the minimap show only the tracked target (below 1 until 25.10.2026). */
     public static boolean pinsHidden(double scale) {
-        return scale < 1 - 1e-6;
+        return scale < net.tapacywka.teyvatcartographia.map.MapView.DETAIL_FROM - 1e-6;
     }
 
     /** Everything {@link #shown} depends on apart from the pin itself, as one number (for redraw checks). */

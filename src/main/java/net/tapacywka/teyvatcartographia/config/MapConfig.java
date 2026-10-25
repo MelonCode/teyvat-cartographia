@@ -198,7 +198,7 @@ public final class MapConfig {
         MINIMAP_INFO_GAP = b.comment("Gap between the minimap and the lines under it (coordinates, biome, clock, day) and between those lines, in GUI pixels").translation("teyvatcartographia.config.minimap_info_gap").defineInRange("infoGap", 0, 0, 8);
         MINIMAP_TEXT_SIZE = b.comment("Size of the text under the minimap and of its compass letters: 0 = Auto (a step below the GUI scale), else 1 to 4 screen pixels per font pixel, at most the GUI scale").translation("teyvatcartographia.config.minimap_text_size").defineInRange("textSize", 0, 0, 4);
         MINIMAP_PILL_OPACITY = b.comment("Opacity of the background of the lines under the minimap, in percent (0: text only)").translation("teyvatcartographia.config.minimap_pill_opacity").defineInRange("pillOpacity", 0, 0, 100);
-        MINIMAP_ZOOM = b.comment("Minimap scale in GUI pixels per block: 1/16, 1/8, 1/4, 1/3, 1/2, 1, 2, 3, 4, 8 or 16 (other values snap to the nearest). Below 1 only the tracked target keeps its pin").translation("teyvatcartographia.config.minimap_zoom").defineInRange("zoom", 1.0, 1 / 16.0, 16.0);
+        MINIMAP_ZOOM = b.comment("Minimap scale in GUI pixels per block: 1/32, 1/16, 1/8, 1/4, 1/2, 1, 2, 4, 8, 16 or 32 (other values snap to the nearest). At 1/16 and 1/32 only the tracked target keeps its pin").translation("teyvatcartographia.config.minimap_zoom").defineInRange("zoom", 1.0, 1 / 32.0, 32.0);
         MINIMAP_ORIENTATION = b.comment("NORTH_UP: north is always up. PLAYER_UP: the map rotates with the view direction").translation("teyvatcartographia.config.minimap_orientation").defineEnum("orientation", Orientation.NORTH_UP);
         MINIMAP_UPDATE_RATE = b.comment("How many times per second the minimap is redrawn while you move or turn: RATE_10, RATE_20, RATE_30, RATE_60 or UNLIMITED (every frame). Lower gives more FPS").translation("teyvatcartographia.config.minimap_rate").defineEnum("updateRate", UpdateRate.RATE_30);
         MINIMAP_SHOW_COORDS = b.comment("Show player coordinates under the minimap").translation("teyvatcartographia.config.minimap_coords").define("showCoordinates", true);
@@ -218,7 +218,7 @@ public final class MapConfig {
         MAP_SHOW_LABELS = b.comment("Show biome name labels").translation("teyvatcartographia.config.map_labels").define("showLabels", false);
         MAP_SHOW_GRID = b.comment("Show the chunk/region grid when zoomed in").translation("teyvatcartographia.config.map_grid").define("showGrid", false);
 
-        MAP_DEFAULT_ZOOM = b.comment("Initial world map scale (GUI pixels per block): 1/16, 1/8, 1/4, 1/3, 1/2, 1, 2, 3, 4, 8 or 16 (other values snap to the nearest)").translation("teyvatcartographia.config.map_zoom").defineInRange("defaultZoom", 1.0, 1 / 16.0, 16.0);
+        MAP_DEFAULT_ZOOM = b.comment("Initial world map scale (GUI pixels per block): 1/32, 1/16, 1/8, 1/4, 1/2, 1, 2, 4, 8, 16 or 32 (other values snap to the nearest)").translation("teyvatcartographia.config.map_zoom").defineInRange("defaultZoom", 1.0, 1 / 32.0, 32.0);
         b.pop();
 
         b.push("cartography");

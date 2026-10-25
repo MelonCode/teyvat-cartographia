@@ -229,8 +229,8 @@ public final class MapLayerRenderer {
      */
     public static void drawBiomeLabels(GuiGraphics g, TileStore store, MapView view, float x0, float y0, float x1, float y1,
                                        java.util.List<float[]> avoid) {
-        // Shown from 1/4 to 4: further out they crowd, closer in one region fills the screen.
-        if (store == null || view.scale < 0.2 || view.scale > 4) return;
+        // Shown from 1/8 up (user request 25.10.2026, they were shown from 1/4 to 4): at 1/16 and 1/32 they crowd.
+        if (store == null || view.scale < MapView.DETAIL_FROM - 1e-6) return;
         int count = 0;
         float minDist = (float) Math.max(90, MapTile.SIZE * view.scale * 0.9);
         for (MapTile t : store.loadedTiles()) {

@@ -4,6 +4,7 @@ import net.tapacywka.teyvatcartographia.gui.Ui.Grid;
 import net.tapacywka.teyvatcartographia.marker.Marker;
 import net.tapacywka.teyvatcartographia.render.Draw;
 import net.tapacywka.teyvatcartographia.render.DrawText;
+import net.tapacywka.teyvatcartographia.render.EdgeFade;
 import net.tapacywka.teyvatcartographia.render.Theme;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -13,7 +14,8 @@ import java.util.List;
  * Pick list for overlapping pins (like Genshin Impact): a click on a spot where several pins overlap opens a column
  * of rows (icon + name) at the right edge of the screen; clicking a row selects that pin.
  * <ul>
- *   <li>At most {@link #MAX_ROWS} rows at a time; longer lists scroll (mouse wheel) and show a thin scroll bar.</li>
+ *   <li>At most {@link #MAX_ROWS} rows at a time; longer lists scroll without steps (mouse wheel), their rows
+ *   dissolving at the edges, and show a thin scroll bar.</li>
  *   <li>Rows are dark bands with a rounded (rounded style) or straight left end that fade out to the right.</li>
  *   <li>The list sits in the lower right corner, with the off-screen indicators' gap to the right and bottom edges.</li>
  * </ul>
@@ -34,7 +36,10 @@ final class MarkerPickList {
     private final List<Marker> items;
     private final float x, y, w;
     private final int visible;
-    private int scroll;
+    /** How far the rows are scrolled, without steps. */
+    private final SmoothScroll scroller = new SmoothScroll();
+    /** Height of the dissolving edges of the rows, GUI units. */
+    private static final float FADE = 10;
 
     /**
      * Anchored to the right edge of the screen at distance {@code edge} (the gap between an off-screen indicator
@@ -65,16 +70,21 @@ final class MarkerPickList {
     /** Pin of the row under the point, or null. */
     Marker rowAt(double mx, double my) {
         if (!contains(mx, my)) return null;
-        int i = (int) ((my - y) / STEP);
-        if (my - y - i * STEP >= ROW_H) return null; // in the gap between rows
-        int k = scroll + i;
+        double at = my - y + scroller.pos();
+        int k = (int) (at / STEP);
+        if (at - k * STEP >= ROW_H) return null; // in the gap between rows
         return k >= 0 && k < items.size() ? items.get(k) : null;
     }
 
     boolean scroll(double mx, double my, double amount) {
         if (!contains(mx, my)) return false;
-        scroll = Math.max(0, Math.min(items.size() - visible, scroll - (int) Math.signum(amount)));
+        scroller.wheel(amount, STEP);
         return true;
+    }
+
+    /** The furthest scroll: the last row on the list's bottom edge. */
+    private float maxScroll() {
+        return Math.max(0, items.size() * STEP - Grid.GAP - height());
     }
 
     /** {@code time}: seconds, drives the swaying pointer and the pulsing outline of the hovered row. */
@@ -82,9 +92,18 @@ final class MarkerPickList {
         Marker hover = rowAt(mx, my);
         if (hover != null) Cursors.want(Cursors.Shape.HAND);
         float phase = 0.5f + 0.5f * (float) Math.sin(time * HOVER_SPEED); // 0 = grey / pointer in, 1 = white / out
-        for (int i = 0; i < visible; i++) {
-            Marker m = items.get(scroll + i);
-            float ry = y + i * STEP;
+        float s = scroller.update(maxScroll()), h = height(), left = x - 3 - POINTER_SWAY - 6;
+        // Rows cut by the list's edges too, dissolving there (over the map) like the settings list's own.
+        boolean scrolls = items.size() > visible;
+        if (scrolls) {
+            EdgeFade.capture(g);
+            g.enableScissor((int) left, (int) y, (int) Math.ceil(x + w), (int) Math.ceil(y + h));
+        }
+        int first = (int) (s / STEP);
+        for (int i = first; i < items.size(); i++) {
+            Marker m = items.get(i);
+            float ry = y + i * STEP - s;
+            if (ry >= y + h) break;
             boolean hot = m == hover;
             row(g, ry, hot, phase);
             float cap = ROW_H / 2f;
@@ -93,9 +112,14 @@ final class MarkerPickList {
                 Draw.triangle(g, px, cy, px - 5, cy - 4, px - 5, cy + 4, Theme.PICK_POINTER);
             }
             Draw.icon(g, m.type.icon, x + cap, ry + cap, Grid.ICON_L, Theme.WHITE);
-            DrawText.text(g, names[scroll + i], x + ROW_H + Grid.GAP, DrawText.textY(ry, ROW_H), hot ? Theme.WHITE : Theme.CREAM, false);
+            DrawText.text(g, names[i], x + ROW_H + Grid.GAP, DrawText.textY(ry, ROW_H), hot ? Theme.WHITE : Theme.CREAM, false);
         }
-        if (items.size() > visible) scrollBar(g);
+        if (scrolls) {
+            g.disableScissor();
+            EdgeFade.draw(g, left, x + w - BAR_W - 1, y, y + h, FADE, Math.min(1, s / FADE), Math.min(1, (scroller.max() - s) / FADE));
+            EdgeFade.release();
+            scrollBar(g);
+        }
     }
 
     /**
@@ -132,8 +156,8 @@ final class MarkerPickList {
     private void scrollBar(GuiGraphics g) {
         float bx = x + w - BAR_W, h = height();
         Draw.rect(g, bx, y, bx + BAR_W, y + h, Theme.SCROLL_TRACK);
-        float th = Math.max(8, h * visible / items.size());
-        float ty = y + (h - th) * scroll / (items.size() - visible);
+        float th = Math.max(8, h * h / (items.size() * STEP - Grid.GAP));
+        float ty = y + (h - th) * scroller.fraction();
         Draw.rect(g, bx, ty, bx + BAR_W, ty + th, Theme.SCROLL_THUMB);
     }
 }

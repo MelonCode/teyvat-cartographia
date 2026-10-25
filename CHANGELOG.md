@@ -8,6 +8,26 @@ the build metadata after the version: `0.2.0+mc1.21.1-neoforge` is version 0.2.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-25
+
+### Added
+- The world map shows its zoom ("1/4", "1", "8") beside the thumb of its zoom slider.
+- Lists glide when they scroll, like the map's zoom, with no steps: the settings, the plant list, the pin list, the
+  list of overlapping pins on the map and the pin editor's types. The wheel and the scrollbar move them freely (they
+  stopped at the top of a row before), and their rows dissolve softly at the top and bottom edges while more of the
+  list lies beyond them.
+
+### Changed
+- Zoom goes from 1/32 to 32, each step twice the one before, on the world map, the minimap (also with its keys) and
+  in the settings; 1/3 and 3 are gone (a saved 3 becomes 4, 1/3 becomes 1/4).
+- Pins, biome names and the region grid show at every zoom down to 1/8; only at 1/16 and 1/32 the map shows the
+  land alone (the tracked pin stays). Pins showed from 1 before, biome names from 1/4 to 4.
+- The beam of light and the above / below arrow of the tracked pin show at any distance (they stopped at 225
+  blocks). The beam fades in over a second when the pin comes onto the screen and out over a second when it goes to
+  the edge (it faded by its way to the edge before).
+- The settings scrollbar runs along the list exactly, and the list fills its room down to the buttons: scrolled to
+  the end, the last setting sits on the bottom edge (up to a row was left empty below it).
+
 ### Fixed
 - Dark lines along chunk borders on water (and in grass and leaf colours) behind a player who was moving, flying or
   sailing: a chunk mapped while its neighbour was being unloaded took that neighbour's colour from the default biome.
@@ -183,7 +203,8 @@ The first public release, for Minecraft 1.21.1 on NeoForge 21.1. Client only.
 - Cached HUD layers, chunk work on worker threads and path searches in short slices: the mod is meant to cost at most
   2 to 3% FPS.
 
-[Unreleased]: https://github.com/Tapacywka/teyvat-cartographia/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Tapacywka/teyvat-cartographia/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Tapacywka/teyvat-cartographia/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Tapacywka/teyvat-cartographia/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/Tapacywka/teyvat-cartographia/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Tapacywka/teyvat-cartographia/compare/v0.1.0...v0.1.1

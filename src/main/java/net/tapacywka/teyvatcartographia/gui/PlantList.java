@@ -10,6 +10,7 @@ import net.tapacywka.teyvatcartographia.map.data.Plants;
 import net.tapacywka.teyvatcartographia.map.data.TextureColors;
 import net.tapacywka.teyvatcartographia.render.Draw;
 import net.tapacywka.teyvatcartographia.render.DrawText;
+import net.tapacywka.teyvatcartographia.render.EdgeFade;
 import net.tapacywka.teyvatcartographia.render.Icon;
 import net.tapacywka.teyvatcartographia.render.Theme;
 
@@ -32,7 +33,9 @@ final class PlantList {
     private final List<Entry> all = new ArrayList<>();
     private final List<Entry> shown = new ArrayList<>();
     private String filter = "";
-    private int scroll;
+    private final SmoothScroll scroller = new SmoothScroll();
+    /** Height of the dissolving edges of the rows, GUI units. */
+    private static final float FADE = 8;
     /** Whether a switch changed since opening: the chunks around are mapped again once the list closes. */
     private boolean changed;
     // Where the list was drawn last (for the mouse).
@@ -43,7 +46,7 @@ final class PlantList {
         field = new ChipField(ChipField.Style.DARK, Icon.SEARCH, hint, hint, 32);
         field.setResponder(s -> {
             filter = s.toLowerCase(Locale.ROOT).trim();
-            scroll = 0;
+            scroller.jump(0);
             refilter();
         });
         for (Block b : Plants.all()) {
@@ -65,10 +68,6 @@ final class PlantList {
         return Math.min(room, 2 * Grid.GAP + Grid.CHIP_H + Grid.GAP + Math.min(MAX_ROWS, Math.max(1, shown.size())) * ITEM_H + Grid.GAP);
     }
 
-    private int rowsFit() {
-        return Math.max(1, (int) ((h - 3 * Grid.GAP - Grid.CHIP_H - Grid.GAP) / ITEM_H));
-    }
-
     void render(GuiGraphics g, float x, float y, float w, float h, int mx, int my) {
         this.x = x;
         this.y = y;
@@ -85,13 +84,16 @@ final class PlantList {
         if (!field.focused()) {
             DrawText.textRight(g, count, x + w - 2 * Grid.GAP, DrawText.textY(fy, Grid.CHIP_H), Theme.TEXT_MUTED, false);
         }
-        int rows = rowsFit();
-        scroll = Math.max(0, Math.min(Math.max(0, shown.size() - rows), scroll));
-        float ry = fy + Grid.CHIP_H + Grid.GAP;
+        float top = listTop(), view = viewH(), s = scroller.update(shown.size() * ITEM_H - view);
         if (shown.isEmpty()) {
-            DrawText.text(g, Component.translatable("teyvatcartographia.config.plants.none"), x + 2 * Grid.GAP, DrawText.textY(ry, ITEM_H), Theme.TEXT_MUTED, false);
+            DrawText.text(g, Component.translatable("teyvatcartographia.config.plants.none"), x + 2 * Grid.GAP, DrawText.textY(top, ITEM_H), Theme.TEXT_MUTED, false);
         }
-        for (int i = scroll; i < shown.size() && i < scroll + rows; i++, ry += ITEM_H) {
+        // Rows cut by the edges too, dissolving there like the settings list's own.
+        EdgeFade.capture(g);
+        g.enableScissor((int) x, (int) top, (int) (x + w), (int) Math.ceil(top + view));
+        int first = (int) (s / ITEM_H);
+        float ry = top - (s - first * ITEM_H);
+        for (int i = first; i < shown.size() && ry < top + view; i++, ry += ITEM_H) {
             Entry e = shown.get(i);
             boolean listed = Plants.listed(e.block);
             float ix = x + 2 * Grid.GAP;
@@ -104,11 +106,15 @@ final class PlantList {
             }
             float nameW = toggleX() - Grid.GAP - (ix + 16 + Grid.GAP);
             DrawText.text(g, DrawText.fit(e.name.getString(), (int) nameW), ix + 16 + Grid.GAP, DrawText.textY(ry, ITEM_H), listed ? Theme.CREAM : Theme.TEXT_MUTED, false);
-            Ui.toggle(g, toggleX(), ry + (ITEM_H - Grid.TOGGLE_H) / 2f, listed, mx, my);
+            Ui.toggle(g, toggleX(), ry + (ITEM_H - Grid.TOGGLE_H) / 2f, listed, mx, inList(my) ? my : -10_000);
         }
+        g.disableScissor();
+        EdgeFade.draw(g, x + 1, barX() - Grid.GAP, top, top + view, FADE, Math.min(1, s / FADE),
+                Math.min(1, Math.max(0, scroller.max() - s) / FADE));
+        EdgeFade.release();
         // The scrollbar, drawn like the settings list's own, inside the frame.
-        if (shown.size() > rows) {
-            float bx = barX(), top = listTop(), track = rows * ITEM_H, th = thumbH(rows), ty = thumbY(rows);
+        if (scroller.max() > 0) {
+            float bx = barX(), track = view, th = thumbH(), ty = thumbY();
             boolean hover = barHit(mx, my);
             if (hover) Cursors.want(Cursors.Shape.RESIZE_V);
             int thumb = hover || dragging ? Theme.GOLD : Theme.SCROLL_THUMB;
@@ -135,27 +141,33 @@ final class PlantList {
         return y + Grid.GAP + Grid.CHIP_H + Grid.GAP;
     }
 
-    private float thumbH(int rows) {
-        float track = rows * ITEM_H;
-        return Math.max(Math.min(Grid.ROW, track / 3), track * rows / shown.size()); // short enough to move even over one row
+    /** Height of the rows' room under the field. */
+    private float viewH() {
+        return Math.max(ITEM_H, y + h - 2 * Grid.GAP - listTop());
     }
 
-    private float thumbY(int rows) {
-        return listTop() + (rows * ITEM_H - thumbH(rows)) * scroll / Math.max(1, shown.size() - rows);
+    private boolean inList(double my) {
+        return my >= listTop() && my < listTop() + viewH();
+    }
+
+    private float thumbH() {
+        float track = viewH();
+        return Math.max(Math.min(Grid.ROW, track / 3), track * track / Math.max(1, shown.size() * ITEM_H)); // short enough to move even over one row
+    }
+
+    private float thumbY() {
+        return listTop() + (viewH() - thumbH()) * scroller.fraction();
     }
 
     /** A little wider than the bar, so it is easy to take; only while the list is longer than its room. */
     private boolean barHit(double mx, double my) {
-        int rows = rowsFit();
-        return shown.size() > rows && my >= listTop() && my < listTop() + rows * ITEM_H && mx >= barX() - Grid.GAP && mx < barX() + BAR_W + Grid.GAP;
+        return scroller.max() > 0 && inList(my) && mx >= barX() - Grid.GAP && mx < barX() + BAR_W + Grid.GAP;
     }
 
     /** Drags the thumb (true while it is taken). */
     boolean drag(double my) {
         if (!dragging) return false;
-        int rows = rowsFit();
-        float t = (float) ((my - grab - listTop()) / Math.max(1, rows * ITEM_H - thumbH(rows)));
-        scroll = Math.round(Math.max(0, Math.min(1, t)) * (shown.size() - rows));
+        scroller.toFraction((float) ((my - grab - listTop()) / Math.max(1, viewH() - thumbH())));
         return true;
     }
 
@@ -180,28 +192,25 @@ final class PlantList {
         if (field.click(mx, my, button)) return true;
         if (barHit(mx, my)) {
             // Taken where pointed on the thumb, else by its middle (a click on the track jumps there).
-            int rows = rowsFit();
-            float ty = thumbY(rows), th = thumbH(rows);
+            float ty = thumbY(), th = thumbH();
             grab = my >= ty && my < ty + th ? (float) (my - ty) : th / 2f;
             dragging = true;
             drag(my);
             return true;
         }
-        float ry = y + Grid.GAP + Grid.CHIP_H + Grid.GAP;
-        int rows = rowsFit();
-        for (int i = scroll; i < shown.size() && i < scroll + rows; i++, ry += ITEM_H) {
-            if (Ui.toggleHit(toggleX(), ry + (ITEM_H - Grid.TOGGLE_H) / 2f, mx, my)) {
-                Block b = shown.get(i).block;
-                Plants.set(b, !Plants.listed(b));
-                changed = true;
-                return true;
-            }
+        if (!inList(my)) return true;
+        int i = (int) ((my - listTop() + scroller.pos()) / ITEM_H);
+        float ry = listTop() + i * ITEM_H - scroller.pos();
+        if (i < shown.size() && Ui.toggleHit(toggleX(), ry + (ITEM_H - Grid.TOGGLE_H) / 2f, mx, my)) {
+            Block b = shown.get(i).block;
+            Plants.set(b, !Plants.listed(b));
+            changed = true;
         }
         return true;
     }
 
     void scrollBy(double amount) {
-        scroll -= (int) Math.signum(amount) * Math.max(1, (int) Math.abs(amount));
+        scroller.wheel(amount, ITEM_H);
     }
 
     boolean keyPressed(int key, int scan, int mods) {

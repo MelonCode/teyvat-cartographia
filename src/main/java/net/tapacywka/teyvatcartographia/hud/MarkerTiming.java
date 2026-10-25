@@ -24,16 +24,19 @@ final class MarkerTiming {
         return pulseStart != Long.MIN_VALUE && now - pulseStart < MarkerRenderer.WORLD_PULSE_LIFE * 1000;
     }
 
-    /** Share of the way from the screen centre to the limiter ellipse over which the beam fades out at the edge. */
-    static final float EDGE_FADE = 0.15f;
+    /**
+     * Seconds the beam takes to fade in when the marker comes onto the screen from the limiter ellipse, and to fade out
+     * when it goes onto the ellipse (user request 25.10.2026; it faded by the way to the ellipse before).
+     */
+    static final float EDGE_FADE_SECONDS = 1f;
 
     /**
-     * Visibility 0..1 of the beam for a marker at {@code ellipse} = ((x / rx)^2 + (y / ry)^2) of the limiter (1 on the
-     * ellipse): full inside, fading out over the last {@code EDGE_FADE} of the way, gone on the ellipse where the
-     * marker starts to ride it.
+     * The beam's fade (0..1, before smoothing) {@code dt} seconds on: towards 1 while the marker is on the screen
+     * ({@code inView}), towards 0 while it rides the ellipse, at {@link #EDGE_FADE_SECONDS} for the whole way.
      */
-    static float edgeFade(float ellipse) {
-        return smooth((1 - Math.sqrt(Math.max(0, ellipse))) / EDGE_FADE);
+    static float edgeStep(float fade, boolean inView, float dt) {
+        float f = fade + (inView ? 1 : -1) * dt / EDGE_FADE_SECONDS;
+        return Math.max(0f, Math.min(1f, f));
     }
 
     static float smooth(double t) {

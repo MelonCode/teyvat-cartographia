@@ -112,7 +112,7 @@
   "teyvatcartographia.config.map_labels": "Названия биомов",
   "teyvatcartographia.config.map_labels.tooltip": "Названия биомов на карте мира.",
   "teyvatcartographia.config.map_grid": "Сетка чанков",
-  "teyvatcartographia.config.map_grid.tooltip": "Границы чанков и регионов на приближенной карте мира.",
+  "teyvatcartographia.config.map_grid.tooltip": "Границы чанков и регионов на карте мира: регионы с масштаба 1/8, чанки с 2.",
 
   "teyvatcartographia.config.subsection.minimap_display": "Отображение",
   "teyvatcartographia.config.minimap_enabled": "Мини-карта",

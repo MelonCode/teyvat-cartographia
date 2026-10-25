@@ -112,7 +112,7 @@
   "teyvatcartographia.config.map_labels": "Biome names",
   "teyvatcartographia.config.map_labels.tooltip": "Biome names on the world map.",
   "teyvatcartographia.config.map_grid": "Chunk grid",
-  "teyvatcartographia.config.map_grid.tooltip": "Chunk and region borders on the zoomed-in world map.",
+  "teyvatcartographia.config.map_grid.tooltip": "Chunk and region borders on the world map: regions from zoom 1/8, chunks from 2.",
 
   "teyvatcartographia.config.subsection.minimap_display": "Display",
   "teyvatcartographia.config.minimap_enabled": "Minimap",
