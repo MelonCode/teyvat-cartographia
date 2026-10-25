@@ -26,7 +26,7 @@ final class MarkerTiming {
 
     /**
      * Seconds the beam takes to fade in when the marker comes onto the screen from the limiter ellipse, and to fade out
-     * when it goes onto the ellipse (user request 25.10.2026; it faded by the way to the ellipse before).
+     * when it goes onto the ellipse (user request 25.10.2026), after dimming on the way there ({@link #approach}).
      */
     static final float EDGE_FADE_SECONDS = 1f;
 
@@ -37,6 +37,23 @@ final class MarkerTiming {
     static float edgeStep(float fade, boolean inView, float dt) {
         float f = fade + (inView ? 1 : -1) * dt / EDGE_FADE_SECONDS;
         return Math.max(0f, Math.min(1f, f));
+    }
+
+    /**
+     * Where on the way to the limiter ellipse the beam starts to dim (as a share of the ellipse's radius), and how bright
+     * it is on the ellipse, before the timed fade there ({@link #edgeStep}) takes it the rest of the way (user choice
+     * 25.10.2026: both together).
+     */
+    static final float APPROACH_FROM = 0.8f, APPROACH_LOW = 0.5f;
+
+    /**
+     * The beam's brightness 1..{@link #APPROACH_LOW} for the marker at {@code ellipse} (the sum of the squared offsets
+     * over the half-axes: 1 on the ellipse, more beyond it; {@code NaN}: behind the camera, as on the ellipse).
+     */
+    static float approach(float ellipse) {
+        if (!(ellipse < 1f)) return APPROACH_LOW;
+        float r = (float) Math.sqrt(ellipse);
+        return 1f - (1f - APPROACH_LOW) * smooth((r - APPROACH_FROM) / (1f - APPROACH_FROM));
     }
 
     static float smooth(double t) {

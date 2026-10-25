@@ -17,6 +17,9 @@ the build metadata after the version: `0.2.0+mc1.21.1-neoforge` is version 0.2.0
 - The cave mode came on inside houses of several floors: any 4 solid blocks above the head counted, floors, roof,
   shelves and barrels too, and the map showed a cave layer instead of the surface. Now only natural ground counts
   (stone, dirt, sand, gravel, ores and the like), 4 blocks in a row.
+- The beam of light over the tracked pin vanished at once when you turned away and the marker went to the edge of the
+  screen. Now it dims as the marker nears the edge and fades out over a second after that, and fades back in over a
+  second when you turn back.
 
 ## [0.3.0] - 2026-10-25
 

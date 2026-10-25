@@ -72,8 +72,9 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
      * faint at the marker and full {@code BEAM_RISE} blocks above it, fading out towards its top. It always faces the
      * camera and keeps about the same width on screen at any distance; terrain hides it. Beyond {@code BEAM_NEAR} of the
      * camera's far plane it is drawn that far along the same line of sight, all its sizes scaled alike, so it looks the
-     * same and is not cut off. It fades in over a second when the marker comes onto the screen, out over a second on
-     * the limiter ellipse ({@link MarkerTiming#edgeStep}), and out with the marker close to the target.
+     * same and is not cut off. It dims to half as the marker nears the limiter ellipse ({@link MarkerTiming#approach}),
+     * fades out the rest over a second once the marker rides the ellipse and in over a second when it comes back onto
+     * the screen ({@link MarkerTiming#edgeStep}), and out with the marker close to the target.
      */
     private static final float BEAM_NEAR = 0.8f;
     /** Beam length above the marker, and where it is fully bright (at least, or this share of the distance). */
@@ -100,12 +101,11 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
 
     private static long pulseStart = Long.MIN_VALUE;
     /**
-     * Whether the glyph stood at the target's own place on the last HUD frame (not held on the limiter). The beam is
-     * drawn in the world before the HUD, so it follows the previous frame: without this a beam would rise beside a
-     * glyph held on the limiter and look detached from it.
+     * Fade of the beam at the screen's edge on the last HUD frame, 0..1: dimmed near the limiter ellipse, then gone a
+     * second after the glyph went onto it (the beam stays at the target's place meanwhile; until 25.10.2026 it was not
+     * drawn at all once the glyph left the view, so no fade was ever seen). The beam is drawn in the world before the
+     * HUD, so it follows the previous frame.
      */
-    private static boolean glyphInView;
-    /** Fade of the beam as the glyph nears the limiter ellipse on the last HUD frame, 0..1 (gone on the ellipse). */
     private static float edgeFade;
     /** The beam's timed fade at the screen's edge before smoothing ({@link MarkerTiming#edgeStep}), and when it was last moved. */
     private static float edgeT;
@@ -187,7 +187,6 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
     public void render(GuiGraphics g, DeltaTracker delta) {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
-        glyphInView = false; // set below once the glyph is placed in view
         edgeFade = 0f;
         shown = 0f;
         starsShown = 0f;
@@ -235,15 +234,14 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
         float ellipse = sq((sx - cx) / erx) + sq((sy - cy) / ery);
         boolean inside = front && ellipse <= 1f;
         boolean inView = inside && !inHud(sx, sy);
-        glyphInView = inView;
-        // The beam fades in over a second once the marker is on the screen, and out over a second on the ellipse (not
-        // shown for a while, e.g. a new target: it starts faded out).
+        // The beam dims to half on the way to the ellipse, fades the rest over a second on it, and in over a second once
+        // the marker is back on the screen (not shown for a while, e.g. a new target: it starts faded out).
         long nowMs = Util.getMillis();
         float dtS = nowMs - edgeMs > 250 ? 0f : (nowMs - edgeMs) / 1000f;
         if (nowMs - edgeMs > 250) edgeT = 0f;
         edgeMs = nowMs;
         edgeT = MarkerTiming.edgeStep(edgeT, inView, dtS);
-        edgeFade = MarkerTiming.smooth(edgeT);
+        edgeFade = MarkerTiming.smooth(edgeT) * MarkerTiming.approach(front ? ellipse : Float.NaN);
 
         float dirX = 0, dirY = 0;
         if (!inView) {
@@ -403,7 +401,7 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || mc.options.hideGui || !beamOn) return;
         Navigation.Target t = Navigation.target();
-        if (!Navigation.inPlayerDimension(t, player) || !glyphInView) return;
+        if (!Navigation.inPlayerDimension(t, player)) return;
         float pt = event.getPartialTick().getGameTimeDeltaPartialTick(false);
         double px = Mth.lerp(pt, player.xo, player.getX()), py = Mth.lerp(pt, player.yo, player.getY()), pz = Mth.lerp(pt, player.zo, player.getZ());
         double ty = targetY(mc, t, py);

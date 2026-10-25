@@ -46,6 +46,25 @@ class MarkerTimingTest {
         assertEquals(0.5f, f, 1e-4, "30 frames at 60 per second: half the way");
     }
 
+    /** On the way to the ellipse the beam dims to half, without a jump where the marker goes onto it. */
+    @Test
+    void theBeamDimsToHalfNearTheEllipse() {
+        assertEquals(1f, MarkerTiming.approach(0f), 1e-6, "screen centre");
+        assertEquals(1f, MarkerTiming.approach(0.8f * 0.8f), 1e-6, "not yet near");
+        float mid = MarkerTiming.approach(0.9f * 0.9f);
+        assertTrue(mid > 0.6f && mid < 0.9f, "half way: " + mid);
+        assertEquals(MarkerTiming.APPROACH_LOW, MarkerTiming.approach(0.99999f), 1e-3, "at the ellipse");
+        assertEquals(MarkerTiming.APPROACH_LOW, MarkerTiming.approach(1f), 1e-6, "on it");
+        assertEquals(MarkerTiming.APPROACH_LOW, MarkerTiming.approach(4f), 1e-6, "beyond it");
+        assertEquals(MarkerTiming.APPROACH_LOW, MarkerTiming.approach(Float.NaN), 1e-6, "behind the camera");
+        float last = 1f;
+        for (float r = 0; r < 1f; r += 0.01f) {
+            float a = MarkerTiming.approach(r * r);
+            assertTrue(a <= last + 1e-6f, "never brighter nearer the ellipse, r " + r);
+            last = a;
+        }
+    }
+
     @Test
     void aPulseRunsOneSecondAndPressesMeanwhileAreIgnored() {
         assertFalse(MarkerTiming.pulseRunning(Long.MIN_VALUE, 5_000), "no pulse yet");
