@@ -55,6 +55,15 @@ public final class CaveScanner {
         return out;
     }
 
+    /**
+     * The heights of a band as its tooltip names them, away from the surface (user request 25.10.2026): a band over the
+     * surface in the layer field from its bottom up ("64 to 79"), one under it from its top down ("63 to 48").
+     */
+    public static int[] heights(int band, int seaLevel) {
+        int bottom = band * BAND, top = bottom + BAND - 1;
+        return bottom > seaLevel ? new int[]{bottom, top} : new int[]{top, bottom};
+    }
+
     public static ChunkShader.Result scan(ClientLevel level, LevelChunk chunk, int band, double px, double pz, double radius) {
         int cx = chunk.getPos().x, cz = chunk.getPos().z;
         int yMin = band * BAND, yMax = yMin + BAND - 1, bottom = level.getMinBuildHeight();

@@ -92,6 +92,7 @@ public final class MapDataManager {
     private static final double CAVE_RADIUS = 32;
     private static final int CAVE_TICKS = 10, ROOF_SCAN = 128;
     private static final BlockPos.MutableBlockPos ROOF_POS = new BlockPos.MutableBlockPos();
+    private final Underground.Roof roof = new Underground.Roof();
     private final Map<Integer, TileStore> caveStores = new HashMap<>();
     private final TreeSet<Integer> caveBands = new TreeSet<>();
     private final NavigableSet<Integer> caveBandsView = java.util.Collections.unmodifiableNavigableSet(caveBands.descendingSet());
@@ -388,7 +389,7 @@ public final class MapDataManager {
     }
 
     /**
-     * Underground ({@link Underground}): the solid blocks (leaves left out) above the player's head are counted up to
+     * Underground ({@link Underground}): the longest run of natural blocks above the player's head, looked for up to
      * ROOF_SCAN blocks up. The sky light and the heightmaps are not used: on the client they are not reliable in closed
      * caves.
      */
@@ -396,12 +397,12 @@ public final class MapDataManager {
         Integer now = null;
         if (cavesSupported()) {
             BlockPos eye = BlockPos.containing(player.getEyePosition());
-            int solid = 0, top = Math.min(level.getMaxBuildHeight(), eye.getY() + ROOF_SCAN);
-            for (int y = eye.getY() + 1; y < top && solid < Underground.ROOF; y++) {
-                var s = level.getBlockState(ROOF_POS.set(eye.getX(), y, eye.getZ()));
-                if (s.blocksMotion() && !s.is(net.minecraft.tags.BlockTags.LEAVES)) solid++;
+            int top = Math.min(level.getMaxBuildHeight(), eye.getY() + ROOF_SCAN);
+            roof.reset();
+            for (int y = eye.getY() + 1; y < top && roof.best() < Underground.ROOF; y++) {
+                roof.add(Underground.natural(level.getBlockState(ROOF_POS.set(eye.getX(), y, eye.getZ()))));
             }
-            now = Underground.band(solid, player.getBlockY());
+            now = Underground.band(roof.best(), player.getBlockY());
         }
         underground.update(now);
     }

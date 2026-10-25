@@ -1325,9 +1325,12 @@ public final class WorldMapScreen extends Screen {
     // Labels of the bands, built once each.
     private final java.util.Map<Integer, Component> cavesTexts = new java.util.HashMap<>();
 
-    /** "Height 32 to 47": the tooltip of a cave layer's button. */
+    /** "Height 64 to 79" over the surface, "Height 63 to 48" under it: the tooltip of a cave layer's button. */
     private Component cavesText(int band) {
-        return cavesTexts.computeIfAbsent(band, b -> Component.translatable("teyvatcartographia.map.caves", b * CaveScanner.BAND, b * CaveScanner.BAND + CaveScanner.BAND - 1));
+        return cavesTexts.computeIfAbsent(band, b -> {
+            int[] h = CaveScanner.heights(b, Minecraft.getInstance().level == null ? 63 : Minecraft.getInstance().level.getSeaLevel());
+            return Component.translatable("teyvatcartographia.map.caves", h[0], h[1]);
+        });
     }
 
     private void drawTooltip(GuiGraphics g, Marker m, int mx, int my) {

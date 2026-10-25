@@ -5,13 +5,30 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-/** Underground and the cave bands: 4+ solid blocks over the head, bands of 16 blocks, no flicker at a cave mouth. */
+/** Underground and the cave bands: 4+ natural blocks in a row over the head, bands of 16 blocks, no flicker at a cave mouth. */
 class UndergroundTest {
     @Test
     void fourSolidBlocksOverTheHead() {
         assertNull(Underground.band(0, 70), "open sky");
         assertNull(Underground.band(3, 70), "a roof of a house, a tree");
         assertEquals(4, Underground.band(4, 70), "70 is in band 4 (64 to 79)");
+    }
+
+    /** Columns over the head, from the head up: N natural, '.' air, W a floor or roof (planks, glass, a shelf). */
+    private static int run(String column) {
+        Underground.Roof roof = new Underground.Roof();
+        for (char c : column.toCharArray()) roof.add(c == 'N');
+        return roof.best();
+    }
+
+    @Test
+    void onlyNaturalBlocksInARowMakeACaveRoof() {
+        assertEquals(0, run("...W...W...W....W"), "a house of four floors with its roof (user report 25.10.2026)");
+        assertNull(Underground.band(run("..WWWW..W"), 70), "a thick roof of planks and barrels");
+        assertNull(Underground.band(run("NNN.W.NNN"), 70), "dirt on a roof: 3, then 3");
+        assertEquals(4, Underground.band(run("NNNN"), 70), "four blocks of stone");
+        assertEquals(4, Underground.band(run("NN....NNNNNNNNN"), 70), "a thin ceiling, a cave above, then the ground");
+        assertEquals(4, Underground.band(run("W..NNNNN"), 70), "a mine with planks under the rock");
     }
 
     @Test

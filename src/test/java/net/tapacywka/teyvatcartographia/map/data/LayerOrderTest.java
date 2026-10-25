@@ -28,6 +28,20 @@ class LayerOrderTest {
         assertEquals(Arrays.asList(7, 6, null), CaveScanner.layerOrder(List.of(7, 6), 63));
     }
 
+    /** The tooltip names the heights away from the surface: upwards over it, downwards under it (25.10.2026). */
+    @Test
+    void heightsGoAwayFromTheSurface() {
+        assertEquals(List.of(64, 79), toList(CaveScanner.heights(4, 63)), "over the surface: bottom to top");
+        assertEquals(List.of(80, 95), toList(CaveScanner.heights(5, 63)));
+        assertEquals(List.of(63, 48), toList(CaveScanner.heights(3, 63)), "under it: top to bottom");
+        assertEquals(List.of(47, 32), toList(CaveScanner.heights(2, 63)));
+        assertEquals(List.of(-49, -64), toList(CaveScanner.heights(-4, 63)), "the bottom of the world");
+    }
+
+    private static List<Integer> toList(int[] a) {
+        return Arrays.stream(a).boxed().toList();
+    }
+
     @Test
     void noBandsLeaveTheSurfaceAlone() {
         assertEquals(Arrays.asList((Integer) null), CaveScanner.layerOrder(List.of(), 63));

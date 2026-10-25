@@ -197,7 +197,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 
 <h3 id="cave-layers">Cave layers</h3>
 
-* In the Overworld, once you are underground (at least 4 solid blocks above your head), the caves within 32 blocks of
+* In the Overworld, once you are underground (at least 4 blocks of natural ground in a row above your head: stone, dirt, sand, gravel, ores; the floors and roof of a house do not count), the caves within 32 blocks of
   you are mapped in layers 16 blocks high: floor in block colours, water, lava and ores marked, shafts darker.
 * The minimap and the world map switch to the layer you are in.
 * The layer field at the right edge of the world map works like the Genshin Impact map: the large button is the

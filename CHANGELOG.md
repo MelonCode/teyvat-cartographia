@@ -8,6 +8,16 @@ the build metadata after the version: `0.2.0+mc1.21.1-neoforge` is version 0.2.0
 
 ## [Unreleased]
 
+### Changed
+- The tooltip of a cave layer under the surface names its heights from the top down ("Height 63 to 48"), the way
+  the layers go from the surface; the layers above it still count upwards ("Height 64 to 79").
+- The cave layer buttons have their stacked layers icon back (since 0.2.0 they showed two squares).
+
+### Fixed
+- The cave mode came on inside houses of several floors: any 4 solid blocks above the head counted, floors, roof,
+  shelves and barrels too, and the map showed a cave layer instead of the surface. Now only natural ground counts
+  (stone, dirt, sand, gravel, ores and the like), 4 blocks in a row.
+
 ## [0.3.0] - 2026-10-25
 
 ### Added

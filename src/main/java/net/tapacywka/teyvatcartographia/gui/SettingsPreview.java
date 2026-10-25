@@ -264,6 +264,11 @@ final class SettingsPreview {
      * surface), a click on one shows it, a click on the large button goes back to the surface and then closes the
      * field. Under the map the layer shown.
      */
+    /** "Height 64 to 79" from the heights of {@code CaveScanner.heights}. */
+    private static Component heightsText(int[] h) {
+        return Component.translatable("teyvatcartographia.map.caves", h[0], h[1]);
+    }
+
     static void caves(GuiGraphics g, float x, float y, float w, float h, LayerArea map, int mx, int my) {
         java.util.NavigableSet<Integer> bands = MapDataManager.get().caveBands();
         if (caveBand != null && !bands.contains(caveBand)) caveBand = null;
@@ -301,8 +306,7 @@ final class SettingsPreview {
         }
         Component caption = bands.isEmpty() ? Component.translatable("teyvatcartographia.config.preview.caves_none")
                 : caveBand == null ? Component.translatable("teyvatcartographia.map.layer.surface")
-                : Component.translatable("teyvatcartographia.map.caves", caveBand * net.tapacywka.teyvatcartographia.map.data.CaveScanner.BAND,
-                caveBand * net.tapacywka.teyvatcartographia.map.data.CaveScanner.BAND + net.tapacywka.teyvatcartographia.map.data.CaveScanner.BAND - 1);
+                : heightsText(net.tapacywka.teyvatcartographia.map.data.CaveScanner.heights(caveBand, level == null ? 63 : level.getSeaLevel()));
         DrawText.room(caption, mw);
         DrawText.textCentered(g, Component.literal(DrawText.fit(caption.getString(), (int) mw)), Draw.snap(x + mw / 2f), y + mh + Grid.GAP, Theme.CREAM, false);
     }
