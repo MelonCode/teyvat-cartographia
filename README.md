@@ -5,8 +5,8 @@
 <p align="center">
   <a href="https://modrinth.com/mod/teyvat-cartographia"><img src="https://img.shields.io/modrinth/dt/teyvat-cartographia?style=flat&logo=modrinth&label=modrinth&color=00AF5C" alt="Modrinth downloads"></a>
   <a href="https://www.curseforge.com/minecraft/mc-mods/teyvat-cartographia"><img src="https://img.shields.io/curseforge/dt/1764160?style=flat&logo=curseforge&label=curseforge&color=F16436" alt="CurseForge downloads"></a>
-  <a href="https://github.com/Tapacywka/teyvat-cartographia/releases/latest"><img src="https://img.shields.io/github/v/release/Tapacywka/teyvat-cartographia?style=flat&label=release&color=E6B85C" alt="Latest release"></a>
   <a href="https://github.com/Tapacywka/teyvat-cartographia/releases"><img src="https://img.shields.io/github/downloads/Tapacywka/teyvat-cartographia/total?style=flat&logo=github&label=downloads&color=4C9F70" alt="GitHub downloads"></a>
+  <a href="https://github.com/Tapacywka/teyvat-cartographia/releases/latest"><img src="https://img.shields.io/github/v/release/Tapacywka/teyvat-cartographia?style=flat&label=release&color=E6B85C" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/Minecraft-1.21.1-62B47A?style=flat" alt="Minecraft 1.21.1">
   <img src="https://img.shields.io/badge/NeoForge-21.1-D7742F?style=flat" alt="NeoForge 21.1">
   <img src="https://img.shields.io/badge/side-client-5B8DEF?style=flat" alt="Client side">
