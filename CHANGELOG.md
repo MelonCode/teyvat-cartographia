@@ -8,6 +8,8 @@ the build metadata after the version: `0.2.0+mc1.21.1-neoforge` is version 0.2.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-26
+
 ### Added
 - A Route setting (Pins > Path to the target): On land, the path walks round deep water; Across water, it goes by
   boat across lakes and seas of any width. Sitting in a boat, the path goes by water either way.
@@ -246,7 +248,8 @@ The first public release, for Minecraft 1.21.1 on NeoForge 21.1. Client only.
 - Cached HUD layers, chunk work on worker threads and path searches in short slices: the mod is meant to cost at most
   2 to 3% FPS.
 
-[Unreleased]: https://github.com/Tapacywka/teyvat-cartographia/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Tapacywka/teyvat-cartographia/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Tapacywka/teyvat-cartographia/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Tapacywka/teyvat-cartographia/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Tapacywka/teyvat-cartographia/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/Tapacywka/teyvat-cartographia/compare/v0.1.1...v0.1.2

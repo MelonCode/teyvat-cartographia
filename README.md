@@ -129,7 +129,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 <h2 id="installation">📥 Installation</h2>
 
 1. Install [NeoForge](https://neoforged.net) 21.1 for Minecraft 1.21.1.
-2. Download `teyvatcartographia-v0.3.0+mc1.21.1-neoforge.jar` from
+2. Download `teyvatcartographia-v0.4.0+mc1.21.1-neoforge.jar` from
    [Modrinth](https://modrinth.com/mod/teyvat-cartographia), [CurseForge](https://www.curseforge.com/minecraft/mc-mods/teyvat-cartographia) or the
    [latest GitHub release](https://github.com/Tapacywka/teyvat-cartographia/releases/latest) and put it into your
    `mods/` folder.
@@ -292,6 +292,7 @@ world map, so most mods work without anything special. A few get more: with one 
 | [Mielon's The Sift](https://modrinth.com/mod/mielons-the-sift) | A **pearly haze** in the colours of its ichor as the Fog of War; its **rainbow ichor** and **ichor snow** shimmer on the map in their own colours (each can be switched off); its cyan willows keep their colour. |
 | [Biomes O' Plenty](https://github.com/Glitchfiend/BiomesOPlenty), [Regions Unexplored](https://github.com/Apollounknowndev/RegionsUnexplored) | Their biomes, leaves, grass and plants in their own colours (compared side by side with Xaero's Minimap in 16 places); their plants in the Plants list. |
 | [Vanilla Backport](https://github.com/ItsBlackGear/VanillaBackport), [Tiny Takeover Backport](https://github.com/evanbones/Tiny-Takeover-Backport) | The pale garden, leaf litter, bushes and the other new blocks in the colours the game gives them. |
+| [VulkanMod Reforged](https://github.com/TrulyRin/VulkanMod-Reforged) | Works with its Vulkan renderer: the map, the minimap, the path with its sparkles and the beam look as with OpenGL, the lists dissolve at their edges and the blur under the menus works. |
 
 The Nether and The End have fogs of their own too (each can be switched off in Compatibility > Minecraft); a resource pack theme can add a fog for any other dimension (see
 [Themes](#themes)). Players with other minimaps keep them: this mod changes nothing in the world and needs nothing
