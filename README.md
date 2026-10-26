@@ -253,11 +253,12 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * Searched once when you start tracking (and by the pulse key when you are more than 8 blocks off the line), never
   while you walk.
 * A precise path over the loaded terrain (128 blocks around you) follows a coarse path over the explored map (up to
-  1024 blocks). It goes round deep water, lava, tree trunks, walls and mountains, takes steps of up to 2 blocks
-  straight on, and leads out of the water when you are swimming.
-* The world map and the minimap draw it as a dash-dot line in the pin's colour (pale white through unexplored land),
-  without the part you have already walked. In the world, small twinkling stars follow the path like particles, only
-  within 32 blocks of the camera.
+  1024 blocks). It goes round lava, tree trunks, walls and mountains, takes steps of up to 2 blocks and shallow water
+  straight on, swims across narrow water (up to 16 blocks) and leads out of the water when you are swimming. The Route
+  setting chooses how it treats wider water: On land it walks round, Across water it goes by boat straight over.
+* The world map and the minimap draw it as a golden dash-dot line, grey through unexplored land and in the colour of
+  the sea over water, with a sea icon where each longer crossing begins, without the part you have already walked. In
+  the world, golden sparkles follow the path, within 64 blocks of the camera.
 
 <h3 id="settings">Settings</h3>
 

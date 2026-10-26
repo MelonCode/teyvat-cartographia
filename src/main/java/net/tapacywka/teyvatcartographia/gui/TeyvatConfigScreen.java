@@ -707,6 +707,9 @@ public final class TeyvatConfigScreen extends Screen {
                     () -> StepChoice.level(MapConfig.get(o.path), MapConfig.get(o.pathMap), MapConfig.get(o.pathMinimap), MapConfig.get(o.pathWorld)),
                     s -> setSteps(s, o.path, o.pathMap, o.pathMinimap, o.pathWorld)));
         }
+        // How the path goes: on land round deep water, or by boat across it (user decision 26.10.2026); a new search.
+        pins.add(new EnumRow<>("teyvatcartographia.config.path_route", MapConfig.PATH_ROUTE, MapConfig.Route.values(),
+                net.tapacywka.teyvatcartographia.nav.Navigation::requestPath));
         // System: how much work the mapping and the minimap may take.
         system.add(new Section("teyvatcartographia.config.section.performance"));
         system.add(SliderRow.ofInt("teyvatcartographia.config.scan_radius", MapConfig.SCAN_RADIUS, 2, 32));
@@ -1062,6 +1065,8 @@ public final class TeyvatConfigScreen extends Screen {
                 screenPicture(g, cx + (cw - pw) / 2f, cy + (ch - ph) / 2f, pw, ph);
             }
             else previewMinimap(g, cx, cy, cw, ch);
+        } else if (rk.equals("teyvatcartographia.config.path_route")) {
+            SettingsPreview.route(g, cx, cy, cw, ch);
         } else if (key.equals("teyvatcartographia.config.tab.pins")) {
             SettingsPreview.pins(g, cx, cy, cw, ch, (g2, mx, my, mw, mh, zoom) -> previewMap(g2, mx, my, mw, mh, zoom, pt), rk);
         } else if (key.equals("teyvatcartographia.config.tab.system")) {

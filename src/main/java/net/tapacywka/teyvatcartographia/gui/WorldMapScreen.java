@@ -17,7 +17,6 @@ import net.tapacywka.teyvatcartographia.marker.AutoMarkers;
 import net.tapacywka.teyvatcartographia.marker.Marker;
 import net.tapacywka.teyvatcartographia.marker.MarkerStore;
 import net.tapacywka.teyvatcartographia.marker.MarkerVisibility;
-import net.tapacywka.teyvatcartographia.nav.BoatRoute;
 import net.tapacywka.teyvatcartographia.nav.Navigation;
 import net.tapacywka.teyvatcartographia.nav.Route;
 import net.tapacywka.teyvatcartographia.render.Backdrop;
@@ -432,7 +431,6 @@ public final class WorldMapScreen extends Screen {
             MapLayerRenderer.drawBiomeLabels(g, store, view, 0, 0, width, height, panel == null ? uiRects(store, mx, my) : List.of());
         }
         // 5. Path to the navigation target
-        drawBoatRoute(g);
         drawRoute(g);
         // 6. Markers
         hovered = null;
@@ -470,8 +468,8 @@ public final class WorldMapScreen extends Screen {
         else if (menu != null) menu.render(g, mx, my, time);
         else if (panel == null && !dragging && !drawLayerTooltip(g, mx, my)) {
             if (hovered != null) drawTooltip(g, hovered, mx, my);
-            // The boat icon of the boat path (user request 25.10.2026).
-            else if (overBoatIcon(mx, my)) Ui.tooltip(g, Component.translatable("teyvatcartographia.nav.boat").getString(), null, mx, my, width, height);
+            // The sea icon where a crossing of the path begins (user requests 25 and 26.10.2026).
+            else if (overSeaIcon(mx, my)) Ui.tooltip(g, Component.translatable("teyvatcartographia.nav.sea").getString(), null, mx, my, width, height);
         }
         pointer(mx, my);
     }
@@ -535,9 +533,9 @@ public final class WorldMapScreen extends Screen {
         return n + 1;
     }
 
-    // Screen points of the path to the target and which of them lie in the fog, reused every frame.
+    // Screen points of the path to the target and which of them lie in the fog and on deep water, reused every frame.
     private float[] routeXY = new float[1024];
-    private boolean[] routeFog = new boolean[512];
+    private boolean[] routeFog = new boolean[512], routeWater = new boolean[512];
 
     /** Whether the settings of the tracked pin's kind show its path on the world map. */
     private static boolean pathShown() {
@@ -546,10 +544,12 @@ public final class WorldMapScreen extends Screen {
     }
 
     /**
-     * The walking path to the tracked target ({@link Route}), if its kind shows it on the map, as a dash-dot line;
-     * its pieces through the fog are drawn in their own colour.
+     * The path to the tracked target ({@link Route}), if its kind shows it on the map, as a dash-dot line: golden, grey
+     * through the fog, in the colour of the sea over deep water (user decision 26.10.2026), with the sea icon where each
+     * crossing begins.
      */
     private void drawRoute(GuiGraphics g) {
+        seaIcons = 0;
         Navigation.Target t = Navigation.target();
         if (!pathShown() || t == null || t.dimension() != viewedDim || !viewingPlayerDim()) return;
         int n = Route.collect();
@@ -559,6 +559,23 @@ public final class WorldMapScreen extends Screen {
         net.minecraft.world.phys.Vec3 me = p.getPosition(Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(true));
         int first = Route.cut(me.x, me.z);
         int color = Theme.worldMarkerPulse();
+        // The line shown before the search, wiped from its start meanwhile.
+        int on = Route.oldCount();
+        if (on >= 2) {
+            float from = Route.oldFrom();
+            lineN = 0;
+            for (int i = 1; i < on; i++) {
+                float a0 = Route.oldAlong(i - 1), a1 = Route.oldAlong(i);
+                if (a1 <= from) continue;
+                if (lineN == 0) {
+                    float f = a1 > a0 ? Math.max(0, (from - a0) / (a1 - a0)) : 0;
+                    linePoint(Route.oldX(i - 1) + (Route.oldX(i) - Route.oldX(i - 1)) * f, Route.oldZ(i - 1) + (Route.oldZ(i) - Route.oldZ(i - 1)) * f,
+                            Route.oldFog(i - 1), Route.oldWater(i - 1));
+                }
+                linePoint(Route.oldX(i), Route.oldZ(i), Route.oldFog(i), Route.oldWater(i));
+            }
+            drawLine(g, color, (float) (from * scale));
+        }
         // After a new search the line is drawn in from the player up to shownTo (user request 26.10.2026).
         float to = Route.shownTo(), pa = 0, px = 0, pz = 0;
         lineN = 0;
@@ -566,131 +583,62 @@ public final class WorldMapScreen extends Screen {
             float wx = i == first ? Route.cutX() : Route.x(i), wz = i == first ? Route.cutZ() : Route.z(i);
             float a = i == first ? Route.cutAlong() : Route.along(i);
             if (a > to) {
-                if (lineN > 0 && a > pa) linePoint(px + (wx - px) * (to - pa) / (a - pa), pz + (wz - pz) * (to - pa) / (a - pa), Route.fog(i));
+                if (lineN > 0 && a > pa) {
+                    linePoint(px + (wx - px) * (to - pa) / (a - pa), pz + (wz - pz) * (to - pa) / (a - pa), Route.fog(i), Route.water(i));
+                }
                 break;
             }
-            linePoint(wx, wz, Route.fog(i));
+            linePoint(wx, wz, Route.fog(i), Route.water(i));
             pa = a;
             px = wx;
             pz = wz;
         }
-        float phase = (float) (Route.cutAlong() * scale);
-        Draw.route(g, routeXY, routeFog, lineN, 2.4f, Theme.ROUTE_SHADOW, Theme.ROUTE_SHADOW, phase);
-        Draw.route(g, routeXY, routeFog, lineN, 1.4f, color, Theme.ROUTE_FOG, phase);
-        // The line shown before the search, wiped from its start meanwhile.
-        int on = Route.oldCount();
-        if (on < 2) return;
-        float from = Route.oldFrom();
-        lineN = 0;
-        for (int i = 1; i < on; i++) {
-            float a0 = Route.oldAlong(i - 1), a1 = Route.oldAlong(i);
-            if (a1 <= from) continue;
-            if (lineN == 0) {
-                float f = a1 > a0 ? Math.max(0, (from - a0) / (a1 - a0)) : 0;
-                linePoint(Route.oldX(i - 1) + (Route.oldX(i) - Route.oldX(i - 1)) * f, Route.oldZ(i - 1) + (Route.oldZ(i) - Route.oldZ(i - 1)) * f, Route.oldFog(i - 1));
+        drawLine(g, color, (float) (Route.cutAlong() * scale));
+        // The sea icon where each crossing begins, once the line has come so far.
+        for (int i = first; i < n; i++) {
+            if (!Route.crossingAt(i) || Route.along(i) > to) continue;
+            float sx = view.screenX(Route.x(i), Route.z(i)), sy = view.screenY(Route.x(i), Route.z(i));
+            Draw.circle(g, sx, sy, SEA_BADGE, Theme.ROUTE_SEA_BADGE);
+            Draw.icon(g, Icon.SEA, sx, sy, SEA_BADGE * 1.6f, Theme.ROUTE_SEA);
+            if (seaIcons < SEA_ICONS.length / 2) {
+                SEA_ICONS[2 * seaIcons] = sx;
+                SEA_ICONS[2 * seaIcons++ + 1] = sy;
             }
-            linePoint(Route.oldX(i), Route.oldZ(i), Route.oldFog(i));
         }
-        Draw.route(g, routeXY, routeFog, lineN, 2.4f, Theme.ROUTE_SHADOW, Theme.ROUTE_SHADOW, (float) (from * scale));
-        Draw.route(g, routeXY, routeFog, lineN, 1.4f, color, Theme.ROUTE_FOG, (float) (from * scale));
     }
 
-    /** Points of the line being drawn: {@code lineN} screen points in routeXY with their flags (fog, deep water) in routeFog. */
+    /** The line collected by {@link #linePoint}, with its shadow, the pattern starting {@code phase} GUI units in. */
+    private void drawLine(GuiGraphics g, int color, float phase) {
+        Draw.route(g, routeXY, routeFog, routeWater, lineN, 2.4f, Theme.ROUTE_SHADOW, Theme.ROUTE_SHADOW, Theme.ROUTE_SHADOW, phase);
+        Draw.route(g, routeXY, routeFog, routeWater, lineN, 1.4f, color, Theme.ROUTE_FOG, Theme.ROUTE_SEA, phase);
+    }
+
+    /** Points of the line being drawn: {@code lineN} screen points in routeXY, which lie in the fog and on deep water. */
     private int lineN;
 
-    /** Adds the world point (x, z) to the line being drawn, flagged {@code flag}. */
-    private void linePoint(float x, float z, boolean flag) {
+    /** Adds the world point (x, z) to the line being drawn. */
+    private void linePoint(float x, float z, boolean fog, boolean water) {
         if (lineN == routeFog.length) {
             routeXY = java.util.Arrays.copyOf(routeXY, 4 * lineN + 4);
             routeFog = java.util.Arrays.copyOf(routeFog, 2 * lineN + 2);
+            routeWater = java.util.Arrays.copyOf(routeWater, 2 * lineN + 2);
         }
         routeXY[2 * lineN] = view.screenX(x, z);
         routeXY[2 * lineN + 1] = view.screenY(x, z);
-        routeFog[lineN++] = flag;
+        routeFog[lineN] = fog;
+        routeWater[lineN++] = water;
     }
 
-    private float[] boatXY = new float[512];
-    private boolean[] boatWater = new boolean[256];
+    /** Radius of the badge under the sea icon on the world map (GUI units). */
+    private static final float SEA_BADGE = 7;
+    /** The sea icons drawn this frame (x, y), for their tooltip. */
+    private static final float[] SEA_ICONS = new float[32];
+    private int seaIcons;
 
-    /**
-     * The path by boat ({@link BoatRoute}) under the main one, when it is clearly shorter: grey, dotted over deep water,
-     * without the part walked along it ({@link BoatRoute#start}), with a boat icon where each crossing begins.
-     */
-    private void drawBoatRoute(GuiGraphics g) {
-        boatIcons = 0;
-        Navigation.Target t = Navigation.target();
-        if (!pathShown() || t == null || t.dimension() != viewedDim || !viewingPlayerDim()) return;
-        int n = BoatRoute.collect();
-        LocalPlayer p = Minecraft.getInstance().player;
-        if (n < 2 && BoatRoute.oldCount() < 2 || p == null) return;
-        int first = BoatRoute.start(p.getX(), p.getZ());
-        // Drawn in from its start like the main line, the boat line shown before it wiped meanwhile.
-        float to = BoatRoute.shownTo();
-        int on = BoatRoute.oldCount();
-        if (on >= 2) {
-            float from = BoatRoute.oldFrom();
-            lineN = 0;
-            for (int i = 1; i < on; i++) {
-                float a0 = BoatRoute.oldAlong(i - 1), a1 = BoatRoute.oldAlong(i);
-                if (a1 <= from) continue;
-                if (lineN == 0) {
-                    float f = a1 > a0 ? Math.max(0, (from - a0) / (a1 - a0)) : 0;
-                    linePoint(BoatRoute.oldX(i - 1) + (BoatRoute.oldX(i) - BoatRoute.oldX(i - 1)) * f,
-                            BoatRoute.oldZ(i - 1) + (BoatRoute.oldZ(i) - BoatRoute.oldZ(i - 1)) * f, BoatRoute.oldWater(i - 1));
-                }
-                linePoint(BoatRoute.oldX(i), BoatRoute.oldZ(i), BoatRoute.oldWater(i));
-            }
-            Draw.boatRoute(g, routeXY, routeFog, lineN, 2.4f, Theme.ROUTE_SHADOW, (float) (from * scale));
-            Draw.boatRoute(g, routeXY, routeFog, lineN, 1.4f, Theme.ROUTE_BOAT, (float) (from * scale));
-        }
-        int k = 0;
-        if (boatWater.length < n) {
-            boatXY = new float[2 * n];
-            boatWater = new boolean[n];
-        }
-        float pa = 0;
-        for (int i = first; i < n; i++, k++) {
-            float a = BoatRoute.along(i);
-            if (a > to) {
-                if (k > 0 && a > pa) {
-                    float f = (to - pa) / (a - pa);
-                    float wx = BoatRoute.x(i - 1) + (BoatRoute.x(i) - BoatRoute.x(i - 1)) * f, wz = BoatRoute.z(i - 1) + (BoatRoute.z(i) - BoatRoute.z(i - 1)) * f;
-                    boatXY[2 * k] = view.screenX(wx, wz);
-                    boatXY[2 * k + 1] = view.screenY(wx, wz);
-                    boatWater[k++] = BoatRoute.water(i);
-                }
-                break;
-            }
-            boatXY[2 * k] = view.screenX(BoatRoute.x(i), BoatRoute.z(i));
-            boatXY[2 * k + 1] = view.screenY(BoatRoute.x(i), BoatRoute.z(i));
-            boatWater[k] = BoatRoute.water(i);
-            pa = a;
-        }
-        float phase = (float) (BoatRoute.along(first) * scale);
-        Draw.boatRoute(g, boatXY, boatWater, k, 2.4f, Theme.ROUTE_SHADOW, phase);
-        Draw.boatRoute(g, boatXY, boatWater, k, 1.4f, Theme.ROUTE_BOAT, phase);
-        for (int i = first; i < n; i++) {
-            if (!BoatRoute.crossingAt(i) || BoatRoute.along(i) > to) continue;
-            float sx = boatXY[2 * (i - first)], sy = boatXY[2 * (i - first) + 1];
-            Draw.circle(g, sx, sy, BOAT_BADGE, Theme.ROUTE_BOAT_BADGE);
-            Draw.icon(g, Icon.BOAT, sx, sy, BOAT_BADGE * 1.6f, Theme.ROUTE_BOAT);
-            if (boatIcons < BOAT_ICONS.length / 2) {
-                BOAT_ICONS[2 * boatIcons] = sx;
-                BOAT_ICONS[2 * boatIcons++ + 1] = sy;
-            }
-        }
-    }
-
-    /** Radius of the badge under the boat icon on the world map (GUI units). */
-    private static final float BOAT_BADGE = 7;
-    /** The boat icons drawn this frame (x, y), for their tooltip. */
-    private static final float[] BOAT_ICONS = new float[32];
-    private int boatIcons;
-
-    /** Whether (mx, my) is on a boat icon of the boat path drawn this frame. */
-    private boolean overBoatIcon(int mx, int my) {
-        for (int i = 0; i < boatIcons; i++) {
-            if (Math.hypot(mx - BOAT_ICONS[2 * i], my - BOAT_ICONS[2 * i + 1]) <= BOAT_BADGE) return true;
+    /** Whether (mx, my) is on a sea icon of the path drawn this frame. */
+    private boolean overSeaIcon(int mx, int my) {
+        for (int i = 0; i < seaIcons; i++) {
+            if (Math.hypot(mx - SEA_ICONS[2 * i], my - SEA_ICONS[2 * i + 1]) <= SEA_BADGE) return true;
         }
         return false;
     }

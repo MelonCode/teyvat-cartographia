@@ -17,26 +17,24 @@ import java.util.Arrays;
  * else straight towards it. The result is smoothed into soft arcs ({@link PathSmoother}) and resampled every
  * {@code SPACING} blocks, each point on the ground.
  * <p>
- * Two searches (user decision 25.10.2026): {@link #MAIN}, the path shown in gold with the stars, and
- * {@link #BOAT}, the same over deep water of any width ({@link BoatRoute}, grey on the maps). The main one goes by
- * boat too while the player sits in one ({@link Navigation#inBoat}); the boat one then has nothing to do.
+ * By boat (setting {@link net.tapacywka.teyvatcartographia.config.MapConfig#PATH_ROUTE} WATER, or the player sitting in a
+ * boat, {@link Navigation#byBoat}) deep water of any width is crossed, a little cheaper than walking. Shallow water costs
+ * as much as land,
+ * deep water swum on foot up to {@code NARROW} blocks half again as much ({@link #SWIM}; user decision 26.10.2026; until then
+ * a separate grey boat path was drawn beside this one).
  * <p>
  * Runs on the main thread from the client tick, and only while the path is shown ({@link Navigation#pathWanted}). The
  * path is searched once per {@link Navigation#pathRequest} (a new target, the pulse key, getting into or out of a boat,
  * or the player reaching the end of a path that stops short of the target), after the far path, and not again while
- * the player walks; the boat path after the main one. A search runs in slices of at most
+ * the player walks. A search runs in slices of at most
  * {@code SLICE_NANOS} per tick, so it never stalls a frame; the previous path stays until it is done. The grid arrays
- * are allocated once per search kind (the boat one on its first search).
+ * are allocated on the first search.
  */
 public final class PathFinder {
-    private final boolean boatOnly;
+    private PathFinder() {}
 
-    private PathFinder(boolean boatOnly) {
-        this.boatOnly = boatOnly;
-    }
-
-    /** The path shown with the stars, and the one over deep water of any width. */
-    static final PathFinder MAIN = new PathFinder(false), BOAT = new PathFinder(true);
+    /** The path to the tracked target (one search; an instance so the unit tests and the game share the code). */
+    static final PathFinder MAIN = new PathFinder();
 
     private static final int STEP = 2, RADIUS = 128, SIDE = 2 * RADIUS / STEP + 1, CELLS = SIDE * SIDE;
     /** Highest step up or down between neighbouring cells (two blocks apart) that is still walkable. */
@@ -45,12 +43,18 @@ public final class PathFinder {
     private static final int FREE_CLIMB = 2;
     /** Climbing is fine up to this many blocks above the player; above it the cells get more expensive. */
     private static final int HILL = 10;
-    /** Deep water up to this many blocks across is swum on foot; wider water needs a boat ({@link #BOAT}). */
+    /** Deep water up to this many blocks across is swum on foot; wider water needs a boat ({@link Navigation#byBoat}). */
     static final float NARROW = 16;
     /** By boat, a block of deep water costs this share of a block walked, and getting into the water this many blocks. */
     static final float BOAT_COST = 0.8f, BOARD_COST = 8;
     /** On foot, a block of wide water swum because there is no other way costs this many blocks walked on top. */
     static final float FORCED_SWIM = 8;
+    /**
+     * On foot, a block of narrow deep water costs this share of a block walked on top: half again as much as land, so the
+     * path swims straight across a river but does not cut the corners of a lake (user choice 26.10.2026; shallow water
+     * costs as much as land).
+     */
+    static final float SWIM = 0.5f;
     /** Distance between the points of the path (blocks). */
     public static final float SPACING = 1.5f;
     /** A line ({@link Route}) that stops short of the target is searched again once the player is this close to its end (blocks). */
@@ -65,7 +69,6 @@ public final class PathFinder {
 
     // Per-cell ground height (or UNKNOWN / BLOCKED), water flag, and the A* state; allocated on the first search.
     private int[] height;
-    private boolean[] shallow;
     /** Deep water: swum across where narrow ({@link #NARROW}), out of the water the player is in, or anywhere by boat. */
     private boolean[] deep;
     /** Blocks of deep water swum in a row on the way to the cell ({@link #FROM_START}: out of the player's own water). */
@@ -123,11 +126,6 @@ public final class PathFinder {
         return MAIN.version;
     }
 
-    /** Whether the main path is done with the current request (searched, or nothing to search): the boat paths may follow. */
-    static boolean mainSettled() {
-        return MAIN.handled == Navigation.pathRequest() && !MAIN.searching && !MAIN.building;
-    }
-
     // How long the path searches took (for the performance tests): count, total, longest slice and longest smoothing, in
     // nanoseconds.
     private static long computeCount, computeTotalNanos, computeMaxNanos, buildMaxNanos;
@@ -139,10 +137,9 @@ public final class PathFinder {
     private float bestH, startPX, startPY, startPZ;
     private long searchNanos;
 
-    /** Client tick: the main path, then the boat path once the main one is done. */
+    /** Client tick: searches the path when due. */
     public static void tick() {
         MAIN.run();
-        BOAT.run();
     }
 
     /** Searches this path once per request while there is a target in the player's dimension and it is shown. */
@@ -150,11 +147,7 @@ public final class PathFinder {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer p = mc.player;
         Navigation.Target t = Navigation.target();
-        // The boat path: only beside a main path on foot (searched after the main paths, while a map shows it, not
-        // underground). Like the main path it is kept once found: not cleared when no map shows it for a while, so it is
-        // not searched again from wherever the player then stands (it was, and moved along with the player).
-        boolean idle = boatOnly && (p == null || Navigation.inBoat(p));
-        if (p == null || mc.level == null || !Navigation.inPlayerDimension(t, p) || idle) {
+        if (p == null || mc.level == null || !Navigation.inPlayerDimension(t, p)) {
             if (pointCount > 0) version++;
             pointCount = 0;
             searching = false;
@@ -176,15 +169,12 @@ public final class PathFinder {
             return;
         }
         if (!searching) {
-            if (!boatOnly) continueAtEnd(p, t);
-            FarPath far = boatOnly ? FarPath.BOAT : FarPath.MAIN;
+            continueAtEnd(p, t);
+            FarPath far = FarPath.MAIN;
             // Once per request, and again when the far path it heads along was searched anew; after the far path,
-            // so both go the same way (the boat path after the main ones too).
+            // so both go the same way.
             boolean due = Navigation.pathRequest() != handled || far.generation != farGeneration;
-            boolean wanted = boatOnly
-                    ? Navigation.boatPathWanted() && net.tapacywka.teyvatcartographia.map.data.MapDataManager.get().undergroundBand() == null
-                    : Navigation.pathWanted();
-            if (!due || !wanted || !far.settled() || boatOnly && !(mainSettled() && FarPath.mainSettled())) return;
+            if (!due || !Navigation.pathWanted() || !far.settled()) return;
             if (!t.equals(lastTarget)) {
                 pointCount = 0; // the old path led somewhere else
                 version++;
@@ -240,7 +230,7 @@ public final class PathFinder {
         }
         boolean underground = net.tapacywka.teyvatcartographia.map.data.MapDataManager.get().undergroundBand() != null;
         start(level.set(mc.level, (int) Math.floor(p.getY()), underground), p.getX(), p.getY(), p.getZ(), p.isInWater(),
-                boatOnly || Navigation.inBoat(p), gx, gz);
+                Navigation.byBoat(p), gx, gz);
     }
 
     /**
@@ -250,7 +240,6 @@ public final class PathFinder {
     private void start(Terrain ground, double px, double py, double pz, boolean inWater, boolean boat, double gx, double gz) {
         if (height == null) {
             height = new int[CELLS];
-            shallow = new boolean[CELLS];
             deep = new boolean[CELLS];
             swum = new float[CELLS];
             cost = new float[CELLS];
@@ -358,10 +347,9 @@ public final class PathFinder {
                     } else {
                         swumN = swimAcross(swum[c], deep[c], c == start && swimming, length);
                         if (swumN > NARROW && !forced) continue;
-                        water = swumN > NARROW ? 4f + length * FORCED_SWIM : 4f;
+                        // Narrow water a little dearer than land (SWIM, so lake corners are not cut); wider only in the forced search.
+                        water = swumN > NARROW ? length * FORCED_SWIM : length * SWIM;
                     }
-                } else if (shallow[n]) {
-                    water = 2f;
                 }
                 int climb = ch == BLOCKED || ch == UNKNOWN ? 0 : Math.abs(nh - ch);
                 if (climb > MAX_CLIMB) continue;
@@ -422,7 +410,6 @@ public final class PathFinder {
         int x = originX + (c % SIDE) * STEP + STEP / 2, z = originZ + (c / SIDE) * STEP + STEP / 2;
         h = terrain.ground(x, z);
         int water = h == BLOCKED ? Terrain.DRY : terrain.water();
-        shallow[c] = water == Terrain.SHALLOW;
         deep[c] = water == Terrain.DEEP;
         return height[c] = h;
     }

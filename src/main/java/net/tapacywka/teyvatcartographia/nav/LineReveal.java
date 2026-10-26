@@ -4,7 +4,7 @@ package net.tapacywka.teyvatcartographia.nav;
  * The drawing-in of a path line (user request 26.10.2026): after a new tracking or a new search (the pulse key, getting
  * into a boat), the new line grows from its start (the player) to its end over {@link #DURATION_MS}, while the line
  * shown before it is wiped off the same way, from its start to its end, at the same time. Kept per line
- * ({@link Route}, {@link BoatRoute}): {@link #update} is fed the line as collected; the drawing asks how far along it
+ * ({@link Route}): {@link #update} is fed the line as collected; the drawing asks how far along it
  * is shown ({@link #shownTo}) and draws the old line ({@link #oldCount}) from {@link #oldFrom} on. Nothing is
  * allocated per frame: the old line is copied once per request into arrays that only grow.
  */
@@ -17,15 +17,15 @@ final class LineReveal {
     private boolean armed;
     private long start = Long.MIN_VALUE;
     private float[] oldXZ = new float[0], oldAlong = new float[0];
-    private boolean[] oldFlag = new boolean[0];
+    private boolean[] oldFog = new boolean[0], oldWater = new boolean[0];
     private int oldN;
 
     /**
-     * Fed the line as it is now ({@code n} points; {@code xz}, {@code along}, {@code flag} as in the line), its
+     * Fed the line as it is now ({@code n} points; {@code xz}, {@code along}, {@code fog}, {@code water} as in the line), its
      * {@code version} and the path {@code request} it answers, at {@code now} (milliseconds). A new request keeps the
      * line shown so far as the old one; the first change of the line after it starts the drawing-in.
      */
-    void update(int request, int version, int n, float[] xz, float[] along, boolean[] flag, long now) {
+    void update(int request, int version, int n, float[] xz, float[] along, boolean[] fog, boolean[] water, long now) {
         if (request != this.request) {
             this.request = request;
             armed = true;
@@ -34,11 +34,13 @@ final class LineReveal {
             if (oldXZ.length < 2 * n) {
                 oldXZ = new float[2 * n];
                 oldAlong = new float[n];
-                oldFlag = new boolean[n];
+                oldFog = new boolean[n];
+                oldWater = new boolean[n];
             }
             System.arraycopy(xz, 0, oldXZ, 0, 2 * n);
             System.arraycopy(along, 0, oldAlong, 0, n);
-            System.arraycopy(flag, 0, oldFlag, 0, n);
+            System.arraycopy(fog, 0, oldFog, 0, n);
+            System.arraycopy(water, 0, oldWater, 0, n);
             oldN = n;
         }
         if (armed && version != this.version && n >= 2) {
@@ -99,7 +101,11 @@ final class LineReveal {
         return oldAlong[i];
     }
 
-    boolean oldFlag(int i) {
-        return oldFlag[i];
+    boolean oldFog(int i) {
+        return oldFog[i];
+    }
+
+    boolean oldWater(int i) {
+        return oldWater[i];
     }
 }

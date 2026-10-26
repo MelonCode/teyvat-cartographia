@@ -15,8 +15,8 @@ public enum Icon {
     PARTY, STRUCTURE, SIGN,
     // Automatic points
     SPAWN, DEATH,
-    // The boat path (where a crossing begins)
-    BOAT;
+    // The path over deep water (where a crossing begins)
+    SEA;
 
     public static final int COLUMNS = 8, CELL = 64, ATLAS_W = 512, ATLAS_H = 512;
 

@@ -177,11 +177,11 @@ public final class Theme {
     public static int GRID_LINE_MINOR = 0x18FFFFFF;
     // (The path over explored land is drawn in the golden colour of the marker, worldMarkerPulse.)
     public static int ROUTE_SHADOW = 0x60000000;
-    /** The path where it crosses unexplored land (the fog). */
-    public static int ROUTE_FOG = 0xCCF4F1EA;
-    /** The path by boat beside the main one (BoatRoute), and the badge under its boat icon. */
-    public static int ROUTE_BOAT = 0xE6C8CED6;
-    public static int ROUTE_BOAT_BADGE = 0xE02C323C;
+    /** The path where it crosses unexplored land (the fog): grey (user decision 26.10.2026; it was near white). */
+    public static int ROUTE_FOG = 0xE6C8CED6;
+    /** The path over deep water: the colour of the sea, and the badge under the sea icon where a crossing begins. */
+    public static int ROUTE_SEA = 0xFF3FD0EA;
+    public static int ROUTE_SEA_BADGE = 0xE02C323C;
     public static int PING_GLOW = 0x30FFFFFF;
     public static int PING_RING = 0xFFFFFFFF;
     public static int PING_CORE = 0xFFFFFFFF;

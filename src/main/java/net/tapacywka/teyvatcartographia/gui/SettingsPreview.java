@@ -67,6 +67,58 @@ final class SettingsPreview {
      * darkened. Without one, the map around the player (the fog without a world) with a pin of every type in a ring
      * and a path to one of each kind, faint where the world map does not show them.
      */
+    /**
+     * The route setting (user decision 26.10.2026): two pictures of a lake between the player and a tracked pin, the
+     * path walking round it ("On land") and going straight across it in the colour of the sea with the sea icon where
+     * the crossing begins ("Across water"); the choice not taken darkened, each with its name under it.
+     */
+    static void route(GuiGraphics g, float x, float y, float w, float h) {
+        float label = Grid.GAP + DrawText.LINE, fw = (w - Grid.GAP) / 2f, fh = Math.min(h - label, fw * 0.8f);
+        float top = Draw.snap(y + (h - fh - label) / 2f);
+        MapConfig.Route chosen = MapConfig.PATH_ROUTE.get();
+        for (MapConfig.Route r : MapConfig.Route.values()) {
+            float fx = Draw.snap(x + r.ordinal() * (fw + Grid.GAP));
+            Draw.rect(g, fx, top, fx + fw, top + fh, LAND);
+            // The lake across the middle, the player left of it, the pin right of it.
+            float lx0 = fx + fw * 0.32f, lx1 = fx + fw * 0.68f, ly0 = top + fh * 0.12f, ly1 = top + fh * 0.72f;
+            Draw.rect(g, lx0, ly0, lx1, ly1, LAKE);
+            float px = fx + fw * 0.14f, pz = top + fh * 0.42f, tx = fx + fw * 0.86f;
+            boolean water = r == MapConfig.Route.WATER;
+            int n;
+            if (water) {
+                n = 4;
+                ROUTE_PTS[0] = px; ROUTE_PTS[1] = pz; ROUTE_PTS[2] = lx0; ROUTE_PTS[3] = pz;
+                ROUTE_PTS[4] = lx1; ROUTE_PTS[5] = pz; ROUTE_PTS[6] = tx; ROUTE_PTS[7] = pz;
+                ROUTE_WATER[0] = false; ROUTE_WATER[1] = true; ROUTE_WATER[2] = true; ROUTE_WATER[3] = false;
+            } else {
+                // Round the south shore.
+                float sy = ly1 + (top + fh - ly1) / 2f;
+                n = 6;
+                ROUTE_PTS[0] = px; ROUTE_PTS[1] = pz; ROUTE_PTS[2] = lx0 - fw * 0.05f; ROUTE_PTS[3] = sy;
+                ROUTE_PTS[4] = (lx0 + lx1) / 2f; ROUTE_PTS[5] = sy; ROUTE_PTS[6] = lx1 + fw * 0.05f; ROUTE_PTS[7] = sy;
+                ROUTE_PTS[8] = tx; ROUTE_PTS[9] = pz; ROUTE_PTS[10] = tx; ROUTE_PTS[11] = pz;
+                java.util.Arrays.fill(ROUTE_WATER, false);
+            }
+            Draw.route(g, ROUTE_PTS, NO_FOG6, ROUTE_WATER, n, 2.4f, Theme.ROUTE_SHADOW, Theme.ROUTE_SHADOW, Theme.ROUTE_SHADOW, 0);
+            Draw.route(g, ROUTE_PTS, NO_FOG6, ROUTE_WATER, n, 1.4f, Theme.worldMarkerPulse(), Theme.ROUTE_FOG, Theme.ROUTE_SEA, 0);
+            if (water) {
+                Draw.circle(g, lx0, pz, 5, Theme.ROUTE_SEA_BADGE);
+                Draw.icon(g, net.tapacywka.teyvatcartographia.render.Icon.SEA, lx0, pz, 8, Theme.ROUTE_SEA);
+            }
+            MarkerRenderer.player(g, px, pz, 7, (float) (Math.PI / 2), 1f);
+            Draw.icon(g, MarkerType.STAR.icon, tx, pz, 9, Theme.WHITE);
+            if (r != chosen) Draw.rect(g, fx, top, fx + fw, top + fh, OFF_DIM);
+            Component name = Component.translatable("teyvatcartographia.config.value." + r.name().toLowerCase(java.util.Locale.ROOT));
+            DrawText.room(name.getString(), fw);
+            DrawText.textCentered(g, Component.literal(DrawText.fit(name.getString(), (int) fw)), Draw.snap(fx + fw / 2f), top + fh + Grid.GAP,
+                    r == chosen ? Theme.CREAM : Theme.withAlpha(Theme.CREAM, 0.5f), false);
+        }
+    }
+
+    private static final int LAND = 0xFF5E8C3A, LAKE = 0xFF2F5FB0;
+    private static final float[] ROUTE_PTS = new float[12];
+    private static final boolean[] ROUTE_WATER = new boolean[6], NO_FOG6 = new boolean[6];
+
     static void pins(GuiGraphics g, float x, float y, float w, float h, MapArea map, String focusKey) {
         MapConfig.PinKind focus = null;
         boolean path = false;

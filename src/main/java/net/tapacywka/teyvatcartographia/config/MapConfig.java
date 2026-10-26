@@ -169,6 +169,11 @@ public final class MapConfig {
 
     public enum Detail { LOW, MEDIUM, HIGH }
 
+    /** How the path to a tracked pin goes (user decision 26.10.2026): on foot round deep water, or by boat across it. */
+    public enum Route { LAND, WATER }
+
+    public static final ModConfigSpec.EnumValue<Route> PATH_ROUTE;
+
     /** Clock under the minimap: the time of day in the game world, or the real time of the player's computer. */
     public enum TimeSource { GAME_TIME, REAL_TIME, BOTH }
 
@@ -212,6 +217,7 @@ public final class MapConfig {
         // Below scale 1 the maps show only the tracked target; the tracked target is always shown on them.
         b.push("pins");
         for (PinKind kind : PinKind.values()) PINS[kind.ordinal()] = new PinOptions(b, kind);
+        PATH_ROUTE = b.comment("LAND: the path walks round deep water (swimming across up to 16 blocks of it). WATER: it goes by boat across deep water").translation("teyvatcartographia.config.path_route").defineEnum("route", Route.LAND);
         b.pop();
 
         b.push("worldmap");
@@ -275,6 +281,7 @@ public final class MapConfig {
         resetValue(MINIMAP_ZOOM); resetValue(MINIMAP_ORIENTATION); resetValue(MINIMAP_UPDATE_RATE); resetValue(MINIMAP_SHOW_COORDS);
         resetValue(MINIMAP_SHOW_BIOME); resetValue(MINIMAP_SHOW_TIME); resetValue(MINIMAP_TIME_SOURCE); resetValue(MINIMAP_TIME_FORMAT); resetValue(MINIMAP_SHOW_DAY);
         for (PinOptions o : PINS) o.reset();
+        resetValue(PATH_ROUTE);
         resetValue(MAP_SHOW_LABELS); resetValue(MAP_SHOW_GRID); resetValue(MAP_DEFAULT_ZOOM);
         resetValue(CHUNKS_PER_TICK); resetValue(SCAN_RADIUS); resetValue(MAX_CACHED_TILES); resetValue(DETAIL); resetValue(CAVES_ENABLED);
         resetValue(MAP_PLANTS); resetValue(PLAYER_CONE); resetValue(PLANTS_HIDDEN);

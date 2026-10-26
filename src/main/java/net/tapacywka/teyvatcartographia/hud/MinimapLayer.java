@@ -14,7 +14,6 @@ import net.tapacywka.teyvatcartographia.marker.Marker;
 import net.tapacywka.teyvatcartographia.marker.MarkerStore;
 import net.tapacywka.teyvatcartographia.marker.MarkerVisibility;
 import net.tapacywka.teyvatcartographia.marker.MarkerType;
-import net.tapacywka.teyvatcartographia.nav.BoatRoute;
 import net.tapacywka.teyvatcartographia.nav.Navigation;
 import net.tapacywka.teyvatcartographia.nav.Route;
 import net.tapacywka.teyvatcartographia.render.DayLight;
@@ -230,9 +229,9 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         MapConfig.PinOptions targetOptions = MarkerVisibility.targetOptions();
         boolean path = targetOptions != null && targetOptions.pathOnMinimap() && Navigation.inPlayerDimension(target, player);
         Navigation.setPathWanted(Navigation.PATH_MINIMAP, path);
-        int route = path ? 31 * Route.version() + BoatRoute.version() : Integer.MIN_VALUE;
+        int route = path ? Route.version() : Integer.MIN_VALUE;
         // While a line is drawn in (3 s after a new search) the layer is redrawn every frame.
-        if (path && (Route.revealing() || BoatRoute.revealing())) route += 7919 * (int) (net.minecraft.Util.getMillis() / 8);
+        if (path && Route.revealing()) route += 7919 * (int) (net.minecraft.Util.getMillis() / 8);
         // The layer spans the map and the pills (shifted inward at the screen edge).
         Component[] cl = coordsLine == null ? null : coordsLines, bl = biomeLine == null ? null : biomeLines, tl = timeLine == null ? null : timeLines;
         Component[] t2 = timeWrap && time2Line != null ? time2Lines : null;
@@ -406,10 +405,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         // With a faded edge (settings: fade width), in the middle of the fading band when that lies farther in (user
         // request 26.10.2026), so they end where the map is still half seen.
         float edge = fadeEdge >= 1f ? mapR - TARGET_EDGE : Math.min(mapR - TARGET_EDGE, mapR * (1 + fadeStart) / 2);
-        if (path) {
-            drawBoatRoute(g, cx, cy, edge, inner, alpha);
-            drawRoute(g, cx, cy, edge, alpha);
-        }
+        if (path) drawRoute(g, cx, cy, edge, inner, alpha);
         // Pins by MarkerVisibility (none but the target below scale 1); the target itself is drawn just after. The map
         // under them moves smoothly between pixels, so they are not snapped to the pixel grid (snapped, they shook).
         Draw.snapIcons(false);
@@ -466,16 +462,17 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     private final Component[][] pillOrder = new Component[4][];
 
     /**
-     * The path as a dash-dot line, gold over explored land and white through the fog, cut exactly where it leaves the
-     * map at {@code edge} (user report 25.10.2026: dropping the points beyond the circle of the "N" ended it up to a
-     * point spacing short of that circle, far inside the frame).
+     * The path as a dash-dot line, golden, grey through the fog and in the colour of the sea over deep water (user
+     * decision 26.10.2026), cut exactly where it leaves the map at {@code edge} (user report 25.10.2026: dropping the
+     * points beyond the circle of the "N" ended it up to a point spacing short of that circle, far inside the frame),
+     * with the sea icon where each crossing begins (inside the circle bounding the pins, {@code inner}).
      */
-    private void drawRoute(GuiGraphics g, float cx, float cy, float edge, float alpha) {
+    private void drawRoute(GuiGraphics g, float cx, float cy, float edge, float inner, float alpha) {
         int n = Route.collect();
         if (n < 2 && Route.oldCount() < 2) return;
-        pieceBoat = false;
         pieceLine = Theme.withAlpha(Theme.worldMarkerPulse(), alpha);
         pieceFog = Theme.withAlpha(Theme.ROUTE_FOG, alpha);
+        pieceSea = Theme.withAlpha(Theme.ROUTE_SEA, alpha);
         pieceShadow = Theme.withAlpha(Theme.ROUTE_SHADOW, alpha);
         pieceN = 0;
         // The line shown before the last search, wiped from its start while the new one is drawn in.
@@ -484,7 +481,8 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         for (int i = 0; i + 1 < on; i++) {
             segment(g, view.screenX(Route.oldX(i), Route.oldZ(i)), view.screenY(Route.oldX(i), Route.oldZ(i)),
                     view.screenX(Route.oldX(i + 1), Route.oldZ(i + 1)), view.screenY(Route.oldX(i + 1), Route.oldZ(i + 1)),
-                    Route.oldAlong(i), Route.oldAlong(i + 1), Route.oldFog(i), Route.oldFog(i + 1), cx, cy, edge, from, Float.POSITIVE_INFINITY);
+                    Route.oldAlong(i), Route.oldAlong(i + 1), Route.oldFog(i), Route.oldFog(i + 1), Route.oldWater(i), Route.oldWater(i + 1),
+                    cx, cy, edge, from, Float.POSITIVE_INFINITY);
         }
         endPiece(g);
         // The walked part is gone: from the line's point nearest the player (the map's centre) on, up to where it is drawn in.
@@ -493,55 +491,25 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         for (int i = first; i + 1 < n; i++) {
             float ax = i == first ? Route.cutX() : Route.x(i), az = i == first ? Route.cutZ() : Route.z(i);
             segment(g, view.screenX(ax, az), view.screenY(ax, az), view.screenX(Route.x(i + 1), Route.z(i + 1)), view.screenY(Route.x(i + 1), Route.z(i + 1)),
-                    i == first ? Route.cutAlong() : Route.along(i), Route.along(i + 1), Route.fog(i), Route.fog(i + 1), cx, cy, edge, Float.NEGATIVE_INFINITY, to);
+                    i == first ? Route.cutAlong() : Route.along(i), Route.along(i + 1), Route.fog(i), Route.fog(i + 1), Route.water(i), Route.water(i + 1),
+                    cx, cy, edge, Float.NEGATIVE_INFINITY, to);
         }
         endPiece(g);
-    }
-
-    /**
-     * The path by boat ({@link BoatRoute}) under the main one when it is clearly shorter: grey, dotted over deep water,
-     * without the part walked along it ({@link BoatRoute#start}), cut where it leaves the map at {@code edge}, with a
-     * boat icon where each crossing begins (inside the circle of the "N", {@code inner}).
-     */
-    private void drawBoatRoute(GuiGraphics g, float cx, float cy, float edge, float inner, float alpha) {
-        int n = BoatRoute.collect();
-        if (n < 2 && BoatRoute.oldCount() < 2) return;
-        int line = Theme.withAlpha(Theme.ROUTE_BOAT, alpha);
-        pieceBoat = true;
-        pieceLine = line;
-        pieceShadow = Theme.withAlpha(Theme.ROUTE_SHADOW, alpha);
-        pieceN = 0;
-        int on = BoatRoute.oldCount();
-        float from = BoatRoute.oldFrom();
-        for (int i = 0; i + 1 < on; i++) {
-            segment(g, view.screenX(BoatRoute.oldX(i), BoatRoute.oldZ(i)), view.screenY(BoatRoute.oldX(i), BoatRoute.oldZ(i)),
-                    view.screenX(BoatRoute.oldX(i + 1), BoatRoute.oldZ(i + 1)), view.screenY(BoatRoute.oldX(i + 1), BoatRoute.oldZ(i + 1)),
-                    BoatRoute.oldAlong(i), BoatRoute.oldAlong(i + 1), BoatRoute.oldWater(i), BoatRoute.oldWater(i + 1), cx, cy, edge, from, Float.POSITIVE_INFINITY);
-        }
-        endPiece(g);
-        int first = BoatRoute.start(view.centerX, view.centerZ);
-        float to = BoatRoute.shownTo();
-        for (int i = first; i + 1 < n; i++) {
-            segment(g, view.screenX(BoatRoute.x(i), BoatRoute.z(i)), view.screenY(BoatRoute.x(i), BoatRoute.z(i)),
-                    view.screenX(BoatRoute.x(i + 1), BoatRoute.z(i + 1)), view.screenY(BoatRoute.x(i + 1), BoatRoute.z(i + 1)),
-                    BoatRoute.along(i), BoatRoute.along(i + 1), BoatRoute.water(i), BoatRoute.water(i + 1), cx, cy, edge, Float.NEGATIVE_INFINITY, to);
-        }
-        endPiece(g);
-        // The boat icons over the line, inside the map only.
-        int badge = Theme.withAlpha(Theme.ROUTE_BOAT_BADGE, alpha);
+        // The sea icons over the line, inside the map only.
+        int badge = Theme.withAlpha(Theme.ROUTE_SEA_BADGE, alpha);
         for (int i = first; i < n; i++) {
-            if (!BoatRoute.crossingAt(i) || BoatRoute.along(i) > to) continue;
-            float sx = view.screenX(BoatRoute.x(i), BoatRoute.z(i)), sy = view.screenY(BoatRoute.x(i), BoatRoute.z(i));
-            boolean in = Theme.Style.squareMap ? Math.abs(sx - cx) <= inner - BOAT_BADGE && Math.abs(sy - cy) <= inner - BOAT_BADGE
-                    : Draw.inCircle(sx, sy, cx, cy, inner - BOAT_BADGE);
+            if (!Route.crossingAt(i) || Route.along(i) > to) continue;
+            float sx = view.screenX(Route.x(i), Route.z(i)), sy = view.screenY(Route.x(i), Route.z(i));
+            boolean in = Theme.Style.squareMap ? Math.abs(sx - cx) <= inner - SEA_BADGE && Math.abs(sy - cy) <= inner - SEA_BADGE
+                    : Draw.inCircle(sx, sy, cx, cy, inner - SEA_BADGE);
             if (!in) continue;
-            Draw.circle(g, sx, sy, BOAT_BADGE, badge);
-            Draw.icon(g, Icon.BOAT, sx, sy, BOAT_BADGE * 1.6f, line);
+            Draw.circle(g, sx, sy, SEA_BADGE, badge);
+            Draw.icon(g, Icon.SEA, sx, sy, SEA_BADGE * 1.6f, pieceSea);
         }
     }
 
-    /** Radius of the badge under the boat icon on the minimap (GUI units). */
-    private static final float BOAT_BADGE = 5;
+    /** Radius of the badge under the sea icon on the minimap (GUI units). */
+    private static final float SEA_BADGE = 5;
 
     /**
      * The path lines end, and the tracked target off the map is held, this far inside the map's edge (GUI units; user
@@ -550,22 +518,22 @@ public final class MinimapLayer implements LayeredDraw.Layer {
      */
     private static final float TARGET_EDGE = 4;
 
-    // The piece of a path line being collected: pieceN screen points in routeXY with the flags of their ends in
-    // routeFlag (fog on the main line, deep water on the boat line), its pattern starting pieceAlong GUI units in (its
-    // place along the whole line, so the dashes stay put on the map as the player walks), and how it is drawn.
+    // The piece of a path line being collected: pieceN screen points in routeXY, which lie in the fog (routeFog) and on
+    // deep water (routeWater), its pattern starting pieceAlong GUI units in (its place along the whole line, so the
+    // dashes stay put on the map as the player walks), and its colours.
     private float[] routeXY = new float[512];
-    private boolean[] routeFlag = new boolean[256];
-    private int pieceN, pieceLine, pieceFog, pieceShadow;
+    private boolean[] routeFog = new boolean[256], routeWater = new boolean[256];
+    private int pieceN, pieceLine, pieceFog, pieceSea, pieceShadow;
     private float pieceAlong;
-    private boolean pieceBoat;
 
     /**
      * Adds the segment from (ax, ay) to (bx, by) (screen points; {@code aAlong} to {@code bAlong} blocks along the
-     * line, its ends flagged {@code fa}, {@code fb}) to the piece being collected, cut to the map: a segment entering
-     * the map starts a new piece at the edge, one leaving it ends the piece there.
+     * line, its ends in the fog {@code fa}, {@code fb} and on deep water {@code wa}, {@code wb}) to the piece being
+     * collected, cut to the map: a segment entering the map starts a new piece at the edge, one leaving it ends the
+     * piece there.
      */
     private void segment(GuiGraphics g, float ax, float ay, float bx, float by, float aAlong, float bAlong, boolean fa, boolean fb,
-                         float cx, float cy, float edge, float lo, float hi) {
+                         boolean wa, boolean wb, float cx, float cy, float edge, float lo, float hi) {
         if (!EdgeClip.clip(ax, ay, bx, by, cx, cy, edge, Theme.Style.squareMap)) {
             endPiece(g);
             return;
@@ -584,31 +552,28 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         if (pieceN == 0 || t0 > 0) {
             endPiece(g);
             pieceAlong = (float) ((aAlong + (bAlong - aAlong) * t0) * view.scale);
-            point(ax + (bx - ax) * t0, ay + (by - ay) * t0, fa);
+            point(ax + (bx - ax) * t0, ay + (by - ay) * t0, fa, wa);
         }
-        point(ax + (bx - ax) * t1, ay + (by - ay) * t1, fb);
+        point(ax + (bx - ax) * t1, ay + (by - ay) * t1, fb, wb);
         if (t1 < 1) endPiece(g);
     }
 
-    private void point(float x, float y, boolean flag) {
-        if (pieceN == routeFlag.length) {
+    private void point(float x, float y, boolean fog, boolean water) {
+        if (pieceN == routeFog.length) {
             routeXY = java.util.Arrays.copyOf(routeXY, 4 * pieceN);
-            routeFlag = java.util.Arrays.copyOf(routeFlag, 2 * pieceN);
+            routeFog = java.util.Arrays.copyOf(routeFog, 2 * pieceN);
+            routeWater = java.util.Arrays.copyOf(routeWater, 2 * pieceN);
         }
         routeXY[2 * pieceN] = x;
         routeXY[2 * pieceN + 1] = y;
-        routeFlag[pieceN++] = flag;
+        routeFog[pieceN] = fog;
+        routeWater[pieceN++] = water;
     }
 
     private void endPiece(GuiGraphics g) {
         if (pieceN >= 2) {
-            if (pieceBoat) {
-                Draw.boatRoute(g, routeXY, routeFlag, pieceN, 2f, pieceShadow, pieceAlong);
-                Draw.boatRoute(g, routeXY, routeFlag, pieceN, 1f, pieceLine, pieceAlong);
-            } else {
-                Draw.route(g, routeXY, routeFlag, pieceN, 2f, pieceShadow, pieceShadow, pieceAlong);
-                Draw.route(g, routeXY, routeFlag, pieceN, 1f, pieceLine, pieceFog, pieceAlong);
-            }
+            Draw.route(g, routeXY, routeFog, routeWater, pieceN, 2f, pieceShadow, pieceShadow, pieceShadow, pieceAlong);
+            Draw.route(g, routeXY, routeFog, routeWater, pieceN, 1f, pieceLine, pieceFog, pieceSea, pieceAlong);
         }
         pieceN = 0;
     }

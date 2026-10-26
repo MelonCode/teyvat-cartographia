@@ -590,6 +590,15 @@ public final class Draw {
      * keeps its dashes in place on the map instead of crawling as that point moves.
      */
     public static void route(GuiGraphics g, float[] xy, boolean[] fog, int n, float width, int argb, int fogArgb, float phase) {
+        route(g, xy, fog, null, n, width, argb, fogArgb, argb, phase);
+    }
+
+    /**
+     * As above, and in {@code seaArgb} between two points marked in {@code water} (deep water: the colour of the sea,
+     * user decision 26.10.2026); the fog colour goes first ({@code water} null: none).
+     */
+    public static void route(GuiGraphics g, float[] xy, boolean[] fog, boolean[] water, int n, float width, int argb, int fogArgb,
+                             int seaArgb, float phase) {
         if (n < 2) return;
         Matrix4f m = mat(g);
         BufferBuilder b = beginColor();
@@ -599,40 +608,12 @@ public final class Draw {
             float dx = x2 - x1, dy = y2 - y1, len = (float) Math.sqrt(dx * dx + dy * dy);
             if (len < 1e-4f) continue;
             float ux = dx / len, uy = dy / len;
-            int color = fog[i] || fog[i + 1] ? fogArgb : argb;
+            int color = fog[i] || fog[i + 1] ? fogArgb : water != null && water[i] && water[i + 1] ? seaArgb : argb;
             // The dash and the dot of every period that overlaps this piece, cut to it.
             for (float s = -(along % ROUTE_PERIOD); s < len; s += ROUTE_PERIOD) {
                 dash(b, m, x1, y1, ux, uy, s, s + ROUTE_DASH, len, width, color);
                 float dot = s + ROUTE_DASH + ROUTE_GAP;
                 dash(b, m, x1, y1, ux, uy, dot, dot + ROUTE_DOT, len, width, color);
-            }
-            along += len;
-        }
-        endColor(b);
-    }
-
-    /**
-     * The boat path ({@code BoatRoute}): the dash-dot of {@link #route} over land, only its dots over the pieces between
-     * two points marked in {@code water}, all in {@code argb}, the pattern starting {@code phase} GUI units in.
-     */
-    public static void boatRoute(GuiGraphics g, float[] xy, boolean[] water, int n, float width, int argb, float phase) {
-        if (n < 2) return;
-        Matrix4f m = mat(g);
-        BufferBuilder b = beginColor();
-        float along = phase, dotPeriod = ROUTE_DOT + ROUTE_GAP;
-        for (int i = 0; i + 1 < n; i++) {
-            float x1 = xy[2 * i], y1 = xy[2 * i + 1], x2 = xy[2 * i + 2], y2 = xy[2 * i + 3];
-            float dx = x2 - x1, dy = y2 - y1, len = (float) Math.sqrt(dx * dx + dy * dy);
-            if (len < 1e-4f) continue;
-            float ux = dx / len, uy = dy / len;
-            if (water[i] && water[i + 1]) {
-                for (float s = -(along % dotPeriod); s < len; s += dotPeriod) dash(b, m, x1, y1, ux, uy, s, s + ROUTE_DOT, len, width, argb);
-            } else {
-                for (float s = -(along % ROUTE_PERIOD); s < len; s += ROUTE_PERIOD) {
-                    dash(b, m, x1, y1, ux, uy, s, s + ROUTE_DASH, len, width, argb);
-                    float dot = s + ROUTE_DASH + ROUTE_GAP;
-                    dash(b, m, x1, y1, ux, uy, dot, dot + ROUTE_DOT, len, width, argb);
-                }
             }
             along += len;
         }

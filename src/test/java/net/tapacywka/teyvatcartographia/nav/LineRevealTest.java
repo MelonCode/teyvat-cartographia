@@ -32,14 +32,14 @@ class LineRevealTest {
     @Test
     void aNewSearchDrawsTheNewLineInAndWipesTheOld() {
         LineReveal r = new LineReveal();
-        r.update(1, 10, 3, OLD_XZ, OLD_ALONG, FLAGS, 0); // the first line of a request
-        r.update(1, 10, 3, OLD_XZ, OLD_ALONG, FLAGS, 5000); // long since drawn in
+        r.update(1, 10, 3, OLD_XZ, OLD_ALONG, FLAGS, FLAGS, 0); // the first line of a request
+        r.update(1, 10, 3, OLD_XZ, OLD_ALONG, FLAGS, FLAGS, 5000); // long since drawn in
         assertEquals(Float.POSITIVE_INFINITY, r.shownTo(5000, 100), "all of it");
         assertEquals(0, r.oldCount(5000));
 
-        r.update(2, 10, 3, OLD_XZ, OLD_ALONG, FLAGS, 6000); // the pulse key: a new request, the old line still shown
+        r.update(2, 10, 3, OLD_XZ, OLD_ALONG, FLAGS, FLAGS, 6000); // the pulse key: a new request, the old line still shown
         assertEquals(0, r.oldCount(6000), "the old line is still the line itself: not drawn twice");
-        r.update(2, 11, 4, NEW_XZ, NEW_ALONG, FLAGS, 6200); // the new line found
+        r.update(2, 11, 4, NEW_XZ, NEW_ALONG, FLAGS, FLAGS, 6200); // the new line found
         assertEquals(0f, r.shownTo(6200, 90), 1e-6, "the new line starts at the player");
         assertEquals(3, r.oldCount(6200), "the old line shown whole at first");
         assertEquals(0f, r.oldFrom(6200), 1e-6);
@@ -53,19 +53,19 @@ class LineRevealTest {
     @Test
     void aLineChangedLaterGoesOnWithoutStartingAgain() {
         LineReveal r = new LineReveal();
-        r.update(1, 10, 3, OLD_XZ, OLD_ALONG, FLAGS, 0);
-        r.update(1, 11, 4, NEW_XZ, NEW_ALONG, FLAGS, 1000); // searched once more (regions loaded), same request
+        r.update(1, 10, 3, OLD_XZ, OLD_ALONG, FLAGS, FLAGS, 0);
+        r.update(1, 11, 4, NEW_XZ, NEW_ALONG, FLAGS, FLAGS, 1000); // searched once more (regions loaded), same request
         assertEquals(0.5f * 90, r.shownTo(1500, 90), 1e-4, "still timed from the first line");
     }
 
     @Test
     void aNewTargetShowsTheOldLineUntilTheNewOneComes() {
         LineReveal r = new LineReveal();
-        r.update(1, 10, 3, OLD_XZ, OLD_ALONG, FLAGS, 0);
-        r.update(2, 10, 3, OLD_XZ, OLD_ALONG, FLAGS, 5000); // tracking another pin
-        r.update(2, 11, 0, NEW_XZ, NEW_ALONG, FLAGS, 5050); // the old path cleared at once, the new one not found yet
+        r.update(1, 10, 3, OLD_XZ, OLD_ALONG, FLAGS, FLAGS, 0);
+        r.update(2, 10, 3, OLD_XZ, OLD_ALONG, FLAGS, FLAGS, 5000); // tracking another pin
+        r.update(2, 11, 0, NEW_XZ, NEW_ALONG, FLAGS, FLAGS, 5050); // the old path cleared at once, the new one not found yet
         assertEquals(3, r.oldCount(5050), "the old line stays whole meanwhile");
-        r.update(2, 12, 4, NEW_XZ, NEW_ALONG, FLAGS, 5300);
+        r.update(2, 12, 4, NEW_XZ, NEW_ALONG, FLAGS, FLAGS, 5300);
         assertEquals(0f, r.shownTo(5300, 90), 1e-6, "then the new one is drawn in");
     }
 }

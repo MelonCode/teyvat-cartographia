@@ -221,6 +221,26 @@ class PathSearchTest {
     }
 
     @Test
+    void shallowWaterCostsAsMuchAsLand() {
+        // A strip of shallow water 20 blocks wide with dry land 6 blocks aside: wading straight through is no dearer than
+        // walking (user decision 26.10.2026), so the path does not bend to the dry land.
+        Ground g = new Ground().shallowWater(20, -300, 40, 300).rect(20, 5, 40, 7, 64, Terrain.DRY);
+        search(g, 0.5, 0.5, false, 60.5, 0.5);
+        assertTrue(PathFinder.reachedGoal());
+        assertTrue(maxAbsZ() < 3, "straight through, max |z| " + maxAbsZ());
+    }
+
+    @Test
+    void narrowDeepWaterNextToABridgeIsWalkedOverTheBridge() {
+        // A river 10 blocks wide with a bridge 6 blocks aside: swimming costs half again as much as walking, so the short
+        // way round over the bridge wins.
+        Ground g = new Ground().deepWater(28, -300, 37, 300).rect(28, 5, 37, 7, 64, Terrain.DRY);
+        search(g, 0.5, 0.5, false, 60.5, 0.5);
+        assertTrue(PathFinder.reachedGoal());
+        assertTrue(deepPoints(g, 0) == 0, "over the bridge");
+    }
+
+    @Test
     void aWideRiverIsSwumOnlyWithNoOtherWay() {
         // Twenty-six blocks of deep water across the whole grid: too wide to swim by choice, but there is no way round.
         Ground g = new Ground().deepWater(20, -300, 45, 300);

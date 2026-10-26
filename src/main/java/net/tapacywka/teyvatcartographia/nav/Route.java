@@ -19,12 +19,14 @@ public final class Route {
     private static float[] ys = new float[512];
     private static float[] along = new float[512];
     private static boolean[] fog = new boolean[512];
+    /** Which points lie on deep water (drawn in the colour of the sea, user decision 26.10.2026). */
+    private static boolean[] water = new boolean[512];
     private static int count, kNear = -1, kFar = -1;
 
     /** Number of points of the line, collected again when a path changed. */
     public static int collect() {
         if (PathFinder.version() == kNear && FarPath.version() == kFar) {
-            REVEAL.update(Navigation.pathRequest(), version(), count, xz, along, fog, net.minecraft.Util.getMillis());
+            REVEAL.update(Navigation.pathRequest(), version(), count, xz, along, fog, water, net.minecraft.Util.getMillis());
             return count;
         }
         kNear = PathFinder.version();
@@ -45,24 +47,27 @@ public final class Route {
             ys = new float[n];
             along = new float[n];
             fog = new boolean[n];
+            water = new boolean[n];
         }
         for (int i = 0; i < near; i++) {
             xz[2 * i] = PathFinder.x(i);
             xz[2 * i + 1] = PathFinder.z(i);
             ys[i] = PathFinder.y(i);
             fog[i] = false;
+            water[i] = PathFinder.MAIN.water[i];
         }
         for (int i = join, k = near; i < far; i++, k++) {
             xz[2 * k] = FarPath.x(i);
             xz[2 * k + 1] = FarPath.z(i);
             ys[k] = Float.NaN;
             fog[k] = FarPath.fog(i);
+            water[k] = FarPath.MAIN.water[i];
         }
         for (int i = 0; i < n; i++) {
             along[i] = i == 0 ? 0 : along[i - 1] + (float) Math.hypot(xz[2 * i] - xz[2 * i - 2], xz[2 * i + 1] - xz[2 * i - 1]);
         }
         count = n;
-        REVEAL.update(Navigation.pathRequest(), version(), count, xz, along, fog, net.minecraft.Util.getMillis());
+        REVEAL.update(Navigation.pathRequest(), version(), count, xz, along, fog, water, net.minecraft.Util.getMillis());
         return count;
     }
 
@@ -105,6 +110,7 @@ public final class Route {
         ys = new float[Math.max(n, 1)];
         along = new float[Math.max(n, 1)];
         fog = new boolean[Math.max(n, 1)];
+        water = new boolean[Math.max(n, 1)];
         java.util.Arrays.fill(ys, Float.NaN);
         for (int i = 1; i < n; i++) along[i] = along[i - 1] + (float) Math.hypot(xz[2 * i] - xz[2 * i - 2], xz[2 * i + 1] - xz[2 * i - 1]);
         count = n;
@@ -136,6 +142,23 @@ public final class Route {
 
     public static boolean fog(int i) {
         return fog[i];
+    }
+
+    /** Whether point {@code i} lies on deep water. */
+    public static boolean water(int i) {
+        return water[i];
+    }
+
+    /**
+     * Whether a crossing begins at point {@code i}: on deep water after land (or at the start), the water going on for more
+     * than {@link PathFinder#NARROW} blocks (the sea icon goes there, in both route modes, user decision 26.10.2026).
+     */
+    public static boolean crossingAt(int i) {
+        if (!water[i] || i > 0 && water[i - 1]) return false;
+        for (int k = i + 1; k < count && water[k]; k++) {
+            if (along[k] - along[i] > PathFinder.NARROW) return true;
+        }
+        return false;
     }
 
     /** The drawing-in of a new line and the wiping of the one shown before it (user request 26.10.2026). */
@@ -174,7 +197,11 @@ public final class Route {
     }
 
     public static boolean oldFog(int i) {
-        return REVEAL.oldFlag(i);
+        return REVEAL.oldFog(i);
+    }
+
+    public static boolean oldWater(int i) {
+        return REVEAL.oldWater(i);
     }
 
     // The point where the walked part ends, from the last cut().

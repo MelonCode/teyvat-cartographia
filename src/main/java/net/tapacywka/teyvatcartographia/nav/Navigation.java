@@ -106,14 +106,18 @@ public final class Navigation {
         return pathWanted[PATH_MAP] || pathWanted[PATH_WORLD] || pathWanted[PATH_MINIMAP];
     }
 
-    /** Whether a map shows the path (the boat path is drawn only there, never as stars). */
-    public static boolean boatPathWanted() {
-        return pathWanted[PATH_MAP] || pathWanted[PATH_MINIMAP];
-    }
-
-    /** Whether the player sits in a boat: the path then goes by water, and there is no separate boat path. */
+    /** Whether the player sits in a boat (the path then goes by water). */
     public static boolean inBoat(LocalPlayer player) {
         return player.getVehicle() instanceof net.minecraft.world.entity.vehicle.Boat;
+    }
+
+    /**
+     * Whether the path goes by boat across deep water of any width: the setting says so (user decision 26.10.2026), or
+     * the player sits in a boat.
+     */
+    public static boolean byBoat(LocalPlayer player) {
+        return net.tapacywka.teyvatcartographia.config.MapConfig.PATH_ROUTE.get() == net.tapacywka.teyvatcartographia.config.MapConfig.Route.WATER
+                || inBoat(player);
     }
 
     /** Whether the player sat in a boat on the last tick (getting in or out asks for the path again). */

@@ -77,7 +77,7 @@
 
   "teyvatcartographia.nav.arrived": "You have arrived",
   "teyvatcartographia.nav.cleared": "Tracking stopped",
-  "teyvatcartographia.nav.boat": "From here on, only by boat",
+  "teyvatcartographia.nav.sea": "From here on, the way goes over water",
   "teyvatcartographia.distance.blocks.one": "%s block",
   "teyvatcartographia.distance.blocks.few": "%s blocks",
   "teyvatcartographia.distance.blocks.many": "%s blocks",
@@ -201,6 +201,8 @@
   "teyvatcartographia.config.path.interactive.tooltip": "The path to a tracked interactive pin. Map: on the world map; both maps: also on the minimap; everywhere: also the stars in the world.",
   "teyvatcartographia.config.path.system": "Path to system pins",
   "teyvatcartographia.config.path.system.tooltip": "The path to a tracked system pin. Map: on the world map; both maps: also on the minimap; everywhere: also the stars in the world.",
+  "teyvatcartographia.config.path_route": "Route",
+  "teyvatcartographia.config.path_route.tooltip": "On land: the path walks round deep water and swims across it only where it is narrow (up to 16 blocks) or there is no other way. Across water: it goes by boat across deep water of any width. Either way the stretches over water are drawn in the colour of the sea.",
   "teyvatcartographia.config.path.map": "On the world map",
   "teyvatcartographia.config.path.map.tooltip": "The path as a line on the world map.",
   "teyvatcartographia.config.path.minimap": "On the minimap",
@@ -303,5 +305,7 @@
   "teyvatcartographia.config.value.unlimited": "Unlimited",
   "teyvatcartographia.config.value.low": "Low",
   "teyvatcartographia.config.value.medium": "Medium",
-  "teyvatcartographia.config.value.high": "High"
+  "teyvatcartographia.config.value.high": "High",
+  "teyvatcartographia.config.value.land": "On land",
+  "teyvatcartographia.config.value.water": "Across water"
 }

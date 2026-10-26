@@ -19,25 +19,21 @@ import java.util.Arrays;
  * shallow water can, climbs and anything much higher than the
  * player cost more, like the near path. Unexplored cells (the fog) can be crossed at a small extra cost ({@link #fog}
  * marks the points there), and the path is smoothed into soft arcs ({@link PathSmoother}). The forest canopy stands in for the ground there, so the path is
- * coarse; near the player {@link PathFinder} is the precise one. Like the near path there are two: {@link #MAIN}, and
- * {@link #BOAT} over deep water of any width (the main one too while the player sits in a boat).
+ * coarse; near the player {@link PathFinder} is the precise one. By boat ({@link Navigation#byBoat}) it crosses deep water
+ * of any width, like the near path; shallow water costs as much as land, narrow deep water a little more.
  * <p>
  * Runs on the main thread from the client tick, only while the path is shown ({@link Navigation#pathWanted}) and the
  * target is farther than the near path reaches. The path is searched once per {@link Navigation#pathRequest} (a new
  * target, the pulse key, getting into or out of a boat, the end of the near path), not again while the player walks;
- * the boat path after the main paths. Only when
+ * Only when
  * some regions in range were still on disk, it is searched once more {@code RETRY_TICKS} later, with them loaded. A
  * search runs in slices of at most {@code SLICE_NANOS} per tick. The grid arrays are allocated on the first search.
  */
 public final class FarPath {
-    private final boolean boatOnly;
+    private FarPath() {}
 
-    private FarPath(boolean boatOnly) {
-        this.boatOnly = boatOnly;
-    }
-
-    /** The far path the main path heads along, and the one the boat path heads along ({@link PathFinder#BOAT}). */
-    static final FarPath MAIN = new FarPath(false), BOAT = new FarPath(true);
+    /** The far path the near path heads along. */
+    static final FarPath MAIN = new FarPath();
 
     private static final int STEP = 8, RADIUS = 1024, SIDE = 2 * RADIUS / STEP + 1, CELLS = SIDE * SIDE;
     /** Highest step up or down between neighbouring cells (eight blocks apart) that is still walkable. */
@@ -59,9 +55,8 @@ public final class FarPath {
     private static final long SLICE_NANOS = 800_000L;
     private static final int UNKNOWN = Integer.MIN_VALUE, BLOCKED = Integer.MIN_VALUE + 1, FOG = Integer.MIN_VALUE + 2;
 
-    // Per-cell ground height (or UNKNOWN / BLOCKED / FOG), shallow water flag, and the A* state; allocated once.
+    // Per-cell ground height (or UNKNOWN / BLOCKED / FOG), deep water, and the A* state; allocated once.
     private int[] height;
-    private boolean[] shallow;
     /** Deep water: swum across where narrow, out of the water the player is in, or anywhere by boat. */
     private boolean[] deep;
     /** Blocks of deep water swum in a row on the way to the cell ({@link PathFinder#swimAcross}). */
@@ -130,11 +125,6 @@ public final class FarPath {
         return handled == Navigation.pathRequest() && !searching && !building;
     }
 
-    /** {@link #settled()} of the main far path. */
-    public static boolean mainSettled() {
-        return MAIN.settled();
-    }
-
     // How long the searches took (for the tests): count, total and longest slice, in nanoseconds.
     private static long computeCount, computeTotalNanos, computeMaxNanos;
 
@@ -158,10 +148,9 @@ public final class FarPath {
     private long searchNanos;
     private TileStore store;
 
-    /** Client tick: the main far path, then the boat one once the main paths are done. */
+    /** Client tick: searches the far path when due. */
     public static void tick() {
         MAIN.run();
-        BOAT.run();
     }
 
     /** Searches this path once per request while it is shown and the target is far. */
@@ -170,9 +159,7 @@ public final class FarPath {
         LocalPlayer p = mc.player;
         Navigation.Target t = Navigation.target();
         TileStore active = MapDataManager.get().active();
-        // The boat path: only beside a main path on foot, searched while a map shows it, kept once found (as on the near path).
-        boolean idle = boatOnly && (p == null || Navigation.inBoat(p));
-        if (p == null || active == null || !Navigation.inPlayerDimension(t, p) || idle) {
+        if (p == null || active == null || !Navigation.inPlayerDimension(t, p)) {
             clear();
             handled = -1;
             return;
@@ -192,9 +179,7 @@ public final class FarPath {
         if (!searching) {
             boolean request = Navigation.pathRequest() != handled;
             if (retry && !request && --retryIn > 0) return;
-            if (!request && !retry || !(boatOnly ? Navigation.boatPathWanted() : Navigation.pathWanted())) return;
-            // The boat path waits for both main paths (they share the frame's time, and the main ones come first).
-            if (boatOnly && !(MAIN.settled() && PathFinder.mainSettled())) return;
+            if (!request && !retry || !Navigation.pathWanted()) return;
             retry = false;
             handled = Navigation.pathRequest();
             // Underground it would follow the surface map; a close target is left to the near path.
@@ -208,7 +193,7 @@ public final class FarPath {
             }
             lastTarget = t;
             lastStore = active;
-            begin(p, t, active, boatOnly || Navigation.inBoat(p));
+            begin(p, t, active, Navigation.byBoat(p));
             if (request && retry) retryIn = RETRY_TICKS;
             else retry = false; // a repeated search is not repeated again
         }
@@ -233,7 +218,6 @@ public final class FarPath {
     private void begin(LocalPlayer p, Navigation.Target t, TileStore s, boolean boat) {
         if (height == null) {
             height = new int[CELLS];
-            shallow = new boolean[CELLS];
             deep = new boolean[CELLS];
             swum = new float[CELLS];
             cost = new float[CELLS];
@@ -324,10 +308,9 @@ public final class FarPath {
                     } else {
                         swumN = PathFinder.swimAcross(swum[c], deep[c], c == start && swimming, length);
                         if (swumN > PathFinder.NARROW && !forced) continue;
-                        water = swumN > PathFinder.NARROW ? 16f + length * PathFinder.FORCED_SWIM : 16f;
+                        // Narrow water a little dearer than land, as on the near path; wider only in the forced search.
+                        water = swumN > PathFinder.NARROW ? length * PathFinder.FORCED_SWIM : length * PathFinder.SWIM;
                     }
-                } else if (shallow[n]) {
-                    water = 8f;
                 }
                 float step;
                 if (nh == FOG) {
@@ -383,12 +366,11 @@ public final class FarPath {
         int h = height[c];
         if (h != UNKNOWN) return h;
         int x0 = originX + (c % SIDE) * STEP, z0 = originZ + (c / SIDE) * STEP;
-        shallow[c] = false;
         deep[c] = false;
         MapTile tile = store.peek(MapView.blockToTile(x0), MapView.blockToTile(z0));
         if (tile == null) return height[c] = FOG;
         int lx0 = x0 & (MapTile.SIZE - 1), lz0 = z0 & (MapTile.SIZE - 1);
-        int known = 0, blocked = 0, walkable = 0, sum = 0, water = 0, lava = 0, deepSum = 0;
+        int known = 0, blocked = 0, walkable = 0, sum = 0, lava = 0, deepSum = 0;
         for (int s = 0; s < 4; s++) {
             int lx = lx0 + (s & 1) * 4 + 2, lz = lz0 + (s >> 1) * 4 + 2;
             byte f = tile.flags(lx, lz);
@@ -401,7 +383,6 @@ public final class FarPath {
                 else deepSum += tile.height(lx, lz);
                 continue;
             }
-            if ((f & MapTile.FLAG_WATER) != 0) water++;
             walkable++;
             sum += tile.height(lx, lz);
         }
@@ -412,7 +393,6 @@ public final class FarPath {
             deep[c] = true;
             return height[c] = Math.round(deepSum / (float) blocked) + 1;
         }
-        shallow[c] = water > 0;
         return height[c] = Math.round(sum / (float) walkable) + 1;
     }
 
