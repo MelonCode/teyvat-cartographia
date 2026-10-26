@@ -33,6 +33,15 @@ public final class ModCompat {
         return loaded("the_sift");
     }
 
+    /**
+     * VulkanMod draws the game with Vulkan: OpenGL calls that bypass the game's render state (copying the frame for
+     * the dissolving list edges and the menu blur) come out black there, so those are left out (Project Amber's Vulkan
+     * build, 26.10.2026).
+     */
+    public static boolean vulkan() {
+        return loaded("vulkanmod");
+    }
+
     /** Xaero's Minimap or Xaero's World Map in the game, or the waypoints Xaero's Minimap left in it. */
     public static boolean xaero() {
         return loaded("xaerominimap") || loaded("xaeroworldmap") || !XaeroWaypoints.roots().isEmpty();

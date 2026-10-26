@@ -7,6 +7,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.tapacywka.teyvatcartographia.compat.ModCompat;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -30,6 +31,7 @@ public final class EdgeFade {
 
     /** Copies the screen as it is now (the panel without its rows). */
     public static void capture(GuiGraphics g) {
+        if (ModCompat.vulkan()) return; // no frame copy there: the rows are cut at the edges
         g.flush();
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
         if (under == null) {

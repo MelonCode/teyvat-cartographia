@@ -7,6 +7,7 @@ import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.tapacywka.teyvatcartographia.compat.ModCompat;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
@@ -29,8 +30,9 @@ public final class Backdrop {
     /** Screen that made the current copy. */
     private static Object blurredOwner;
 
+    /** Blur on in the options; never with VulkanMod (no frame copy there: the menus are only translucent). */
     public static boolean enabled() {
-        return Minecraft.getInstance().options.getMenuBackgroundBlurriness() >= 1;
+        return Minecraft.getInstance().options.getMenuBackgroundBlurriness() >= 1 && !ModCompat.vulkan();
     }
 
     /**

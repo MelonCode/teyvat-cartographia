@@ -25,6 +25,19 @@ public final class MapLayerRenderer {
     /** More visible regions than this (a very large screen far out) are drawn from LOD tiles too: they would not fit the region cache. */
     private static final int MAX_REGIONS = 96;
 
+    /**
+     * Half a texel of a region or LOD texture (both 256 wide). With smoothing the texture coordinates stay that far
+     * inside the edges: sampling at the very edge also took the opposite side where the clamp to the edge is not
+     * honoured, as under VulkanMod (thin lines along every region border, tester report 26.10.2026). The picture
+     * shrinks by one texel in 256, at most half a screen pixel where smoothing is on.
+     */
+    private static final float EDGE = 0.5f / MapTile.SIZE;
+
+    /** Texture coordinate {@code t} (0..1 across the texture) moved {@code edge} inside both edges. */
+    private static float in(float t, float edge) {
+        return edge + t * (1 - 2 * edge);
+    }
+
     private static boolean blurFor(MapView view) {
         double guiScale = Minecraft.getInstance().getWindow().getGuiScale();
         return view.scale * guiScale < 0.999;
@@ -53,13 +66,14 @@ public final class MapLayerRenderer {
         int lightColor = Theme.withAlpha(Theme.WHITE, lightAlpha);
         int uploads = UPLOADS_PER_CALL;
         boolean blur = blurFor(view);
+        float edge = blur ? EDGE : 0f;
         if (!store.cave && FogTexture.shadow(store.dimension)) {
             // Floating land: its shadow on the fog below, the regions drawn dark and shifted down-right first.
             for (int tz = tz0; tz <= tz1; tz++) {
                 for (int tx = tx0; tx <= tx1; tx++) {
                     MapTile t = store.exists(tx, tz) ? store.peek(tx, tz) : null;
                     int id = t == null ? -1 : t.textureId(false);
-                    if (id >= 0) shadow(g, id, view, t.blockX0(), t.blockZ0(), MapTile.SIZE, x0, y0, x1, y1, 0f, 0f, 1f, 1f);
+                    if (id >= 0) shadow(g, id, view, t.blockX0(), t.blockZ0(), MapTile.SIZE, x0, y0, x1, y1, edge, edge, 1 - edge, 1 - edge);
                 }
             }
         }
@@ -89,7 +103,7 @@ public final class MapLayerRenderer {
                 if (cx1 <= cx0 || cy1 <= cy0) continue;
                 float w = sx1 - sx0, h = sy1 - sy0;
                 Draw.texturedQuad(g, id, cx0, cy0, cx1, cy1,
-                        (cx0 - sx0) / w, (cy0 - sy0) / h, (cx1 - sx0) / w, (cy1 - sy0) / h, tint);
+                        in((cx0 - sx0) / w, edge), in((cy0 - sy0) / h, edge), in((cx1 - sx0) / w, edge), in((cy1 - sy0) / h, edge), tint);
                 if (lightAlpha > 0.01f && t.hasLight()) {
                     // Only a real upload uses the budget: counting every lit region used it up for good in lit places
                     // (the Nether, towns at night), and regions later in the loop then never got their textures.
@@ -99,7 +113,7 @@ public final class MapLayerRenderer {
                     if (lid >= 0) {
                         t.setLightFilter(blur);
                         Draw.texturedQuad(g, lid, cx0, cy0, cx1, cy1,
-                                (cx0 - sx0) / w, (cy0 - sy0) / h, (cx1 - sx0) / w, (cy1 - sy0) / h, lightColor);
+                                in((cx0 - sx0) / w, edge), in((cy0 - sy0) / h, edge), in((cx1 - sx0) / w, edge), in((cy1 - sy0) / h, edge), lightColor);
                     } else {
                         complete = false;
                     }
@@ -147,8 +161,8 @@ public final class MapLayerRenderer {
         if (cx1 <= cx0 || cy1 <= cy0) return uploads;
         float w = sx1 - sx0, h = sy1 - sy0, n = LodStore.REGIONS;
         float col = Math.floorMod(tx, LodStore.REGIONS), row = Math.floorMod(tz, LodStore.REGIONS);
-        Draw.texturedQuad(g, id, cx0, cy0, cx1, cy1, (col + (cx0 - sx0) / w) / n, (row + (cy0 - sy0) / h) / n,
-                (col + (cx1 - sx0) / w) / n, (row + (cy1 - sy0) / h) / n, tint);
+        Draw.texturedQuad(g, id, cx0, cy0, cx1, cy1, in((col + (cx0 - sx0) / w) / n, EDGE), in((row + (cy0 - sy0) / h) / n, EDGE),
+                in((col + (cx1 - sx0) / w) / n, EDGE), in((row + (cy1 - sy0) / h) / n, EDGE), tint);
         return uploads;
     }
 
@@ -177,7 +191,7 @@ public final class MapLayerRenderer {
                     if (!lod.any(lx, lz)) continue;
                     LodStore.LodTile t = lod.get(lx, lz);
                     int id = t.textureId(false);
-                    if (id >= 0) shadow(g, id, view, t.blockX0(), t.blockZ0(), LodStore.BLOCKS, x0, y0, x1, y1, 0f, 0f, 1f, 1f);
+                    if (id >= 0) shadow(g, id, view, t.blockX0(), t.blockZ0(), LodStore.BLOCKS, x0, y0, x1, y1, EDGE, EDGE, 1 - EDGE, 1 - EDGE);
                 }
             }
         }
@@ -198,7 +212,7 @@ public final class MapLayerRenderer {
                 if (cx1 <= cx0 || cy1 <= cy0) continue;
                 float w = sx1 - sx0, h = sy1 - sy0;
                 Draw.texturedQuad(g, id, cx0, cy0, cx1, cy1,
-                        (cx0 - sx0) / w, (cy0 - sy0) / h, (cx1 - sx0) / w, (cy1 - sy0) / h, tint);
+                        in((cx0 - sx0) / w, EDGE), in((cy0 - sy0) / h, EDGE), in((cx1 - sx0) / w, EDGE), in((cy1 - sy0) / h, EDGE), tint);
             }
         }
         return complete;
