@@ -46,6 +46,10 @@ the build metadata after the version: `0.2.0+mc1.21.1-neoforge` is version 0.2.0
   second when you turn back.
 - With the Fabulous graphics the path stars over water sank under it and took the colour of the water, and the beam
   of light stopped short above the ground behind water and land. Both now look as with the other graphics settings.
+- With VulkanMod the lists in the settings and on the world map had black bands at their top and bottom edges. The
+  rows now dissolve there as with the other renderers, and the background blur under the menus works too.
+- With VulkanMod the zoomed-out world map and minimap showed thin lines along every region border (every 256
+  blocks), at 1/8 with a large GUI scale or at 1/4. They are gone.
 
 ## [0.3.0] - 2026-10-25
 
