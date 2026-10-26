@@ -204,8 +204,8 @@ final class SettingsPreview {
 
     /**
      * The world as the player sees it: sky and ground, and the marker of a tracked pin of the kind (its glyph and the
-     * distance), with its beam of light ({@link #WORLD_BEAM}: a soft glow in the kind's colour around a light core), or
-     * with the stars of the path leading up to it from the near ground ({@link #WORLD_STARS}).
+     * distance), with its beam of light ({@link #WORLD_BEAM}: an amber tint, a golden glow and a warm core), or
+     * with the sparkles of the path leading up to it from the near ground ({@link #WORLD_STARS}), golden for every kind.
      */
     private static void world(GuiGraphics g, float x, float y, float w, float h, MapConfig.PinKind kind, int mode) {
         float horizon = Draw.snap(y + h * 0.55f);
@@ -215,31 +215,71 @@ final class SettingsPreview {
         boolean stars = mode == WORLD_STARS;
         float cx = Draw.snap(x + w * (stars ? 0.6f : 0.5f)), foot = Draw.snap(y + h * 0.62f);
         if (stars) {
-            // Stars from the near ground to the pin, smaller and closer together with the distance.
+            // The path's sparkles from the near ground to the pin, as in the world (since 26.10.2026): large four-pointed
+            // sparkles among small motes, golden with a light core, smaller and closer together with the distance.
             float sx = x + w * 0.3f, sy = y + h * 0.96f;
-            int c = Theme.worldMarkerPulse();
-            for (int i = 0; i < 9; i++) {
-                float t = i / 8f, px = sx + (cx - sx) * t, py = sy + (foot + 6 - sy) * t * (2 - t);
-                star(g, px, py, Math.max(1.5f, 4.5f - 3f * t), c);
+            int gold = Theme.worldMarkerPulse(), light = Theme.WORLD_MARKER_BEAM_CORE | 0xFF000000;
+            for (int i = 0; i < 26; i++) {
+                // A fixed scatter to the side and along (no randomness: the picture stays still); the size of a block
+                // on the picture shrinks with the distance, as in the world.
+                float jitter = ((i * 37) % 9 - 4) / 4f, along = ((i * 53) % 5 - 2) * 0.012f;
+                float t = Math.max(0, Math.min(1, i / 25f + along)), block = 34f * (1 - t) + 5f * t;
+                float px = sx + (cx - sx) * t + jitter * 0.45f * block, py = sy + (foot + 6 - sy) * t * (2 - t) + jitter * 0.15f * block;
+                if ((i * 7) % 3 == 0) sparkle(g, px, py, block * (0.85f + 0.3f * ((i * 11) % 4) / 3f), gold, light);
+                else mote(g, px, py, block, gold, light);
             }
         } else if (mode == WORLD_BEAM) {
-            int beam = Theme.WORLD_MARKER_BEAM, core = Theme.WORLD_MARKER_BEAM_CORE;
-            for (int r = 12; r >= 2; r -= 2) Draw.rect(g, cx - r, y, cx + r, foot, Theme.withAlpha(beam, 0.18f));
-            Draw.rect(g, cx - 1, y, cx + 1, foot, core);
+            // As in the world: an amber tint, the golden glow over it and a warm light core.
+            for (int r = 12; r >= 2; r -= 2) Draw.rect(g, cx - r, y, cx + r, foot, Theme.withAlpha(Theme.WORLD_MARKER_BEAM_TINT, 0.22f));
+            for (int r = 6; r >= 2; r -= 2) Draw.rect(g, cx - r, y, cx + r, foot, Theme.withAlpha(Theme.WORLD_MARKER_BEAM, 0.2f));
+            Draw.rect(g, cx - 1, y, cx + 1, foot, Theme.WORLD_MARKER_BEAM_CORE);
         }
         Draw.icon(g, type.icon, cx, foot + 4, 10, Theme.WHITE);
         // The distance under the glyph; over it where the stars come up from below.
         DrawText.textCentered(g, net.tapacywka.teyvatcartographia.render.DistanceText.blocks(61), cx, stars ? foot - 12 : foot + 11, Theme.WHITE, true);
     }
 
-    /** A four-pointed star of light {@code s} units from its middle to a point. */
-    private static void star(GuiGraphics g, float cx, float cy, float s, int argb) {
-        float t = s * 0.3f;
-        Draw.triangle(g, cx, cy - s, cx + t, cy, cx - t, cy, argb);
-        Draw.triangle(g, cx, cy + s, cx - t, cy, cx + t, cy, argb);
-        Draw.triangle(g, cx - s, cy, cx, cy - t, cx, cy + t, argb);
-        Draw.triangle(g, cx + s, cy, cx, cy + t, cx, cy - t, argb);
+    /**
+     * A large sparkle of the path as {@code hud/PathStars} draws it in the world, a block being {@code b} units here:
+     * light added to the picture, each part bright in the middle and clear at its tips: a round glow, the vertical and
+     * horizontal arms, two short diagonal rays and a light core (the same sizes in blocks).
+     */
+    private static void sparkle(GuiGraphics g, float cx, float cy, float b, int gold, int light) {
+        halo(g, cx, cy, 0.16f * b, Theme.withAlpha(gold, 0.45f));
+        diamond(g, cx, cy, 1, 0, 0.035f * b, 0.34f * b, gold);
+        diamond(g, cx, cy, 1, 0, 0.26f * b, 0.035f * b, gold);
+        diamond(g, cx, cy, 0.7071f, 0.7071f, 0.02f * b, 0.1f * b, gold);
+        diamond(g, cx, cy, 0.7071f, 0.7071f, 0.1f * b, 0.02f * b, gold);
+        diamond(g, cx, cy, 1, 0, 0.05f * b, 0.05f * b, light);
     }
+
+    /** A small mote of the path as in the world: a round glow round a light dot, a block being {@code b} units. */
+    private static void mote(GuiGraphics g, float cx, float cy, float b, int gold, int light) {
+        halo(g, cx, cy, 0.07f * b, Theme.withAlpha(gold, 0.45f));
+        diamond(g, cx, cy, 1, 0, 0.03f * b, 0.03f * b, light);
+    }
+
+    /** A diamond added to the picture with half-width {@code w} along (ax, ay) and half-height {@code h} across it. */
+    private static void diamond(GuiGraphics g, float cx, float cy, float ax, float ay, float w, float h, int argb) {
+        // The axis (ax, ay) and the one across it, (ay, -ax) turned to point up the screen for the unturned diamond.
+        float ux = ay, uy = -ax;
+        RIM_X[0] = cx + ux * h; RIM_Y[0] = cy + uy * h;
+        RIM_X[1] = cx + ax * w; RIM_Y[1] = cy + ay * w;
+        RIM_X[2] = cx - ux * h; RIM_Y[2] = cy - uy * h;
+        RIM_X[3] = cx - ax * w; RIM_Y[3] = cy - ay * w;
+        Draw.glowFan(g, cx, cy, RIM_X, RIM_Y, 4, argb);
+    }
+
+    /** A round glow of radius {@code r} added to the picture (an octagon, as in the world). */
+    private static void halo(GuiGraphics g, float cx, float cy, float r, int argb) {
+        for (int q = 0; q < 8; q++) {
+            RIM_X[q] = cx + r * (float) Math.cos(q * Math.PI / 4);
+            RIM_Y[q] = cy + r * (float) Math.sin(q * Math.PI / 4);
+        }
+        Draw.glowFan(g, cx, cy, RIM_X, RIM_Y, 8, argb);
+    }
+
+    private static final float[] RIM_X = new float[8], RIM_Y = new float[8];
 
     // ------------------------------------------------------------------ Cave map
 

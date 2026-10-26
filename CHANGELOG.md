@@ -22,7 +22,8 @@ the build metadata after the version: `0.2.0+mc1.21.1-neoforge` is version 0.2.0
   kind of pin, like the path stars of Genshin Impact (they were orange, mint or violet by the kind of pin). The beam
   stays golden on a bright sky too (it turned almost white on blue).
 - The sparkles of the path show up to 64 blocks away (32 before) and look like Genshin Impact's path stars: about a
-  third are large four-pointed sparkles with a light core, the rest small glowing motes.
+  third are large four-pointed sparkles with a light core, the rest small glowing motes. The preview in the settings
+  shows the new sparkles and the golden beam too.
 - The path to a pin swims across narrow water (up to 16 blocks) instead of walking all the way round it.
 - A pin that cannot be walked to (on an island, across a wide river) no longer has its path end on a shore: the
   path walks to the shore nearest the pin and swims the rest of the way.

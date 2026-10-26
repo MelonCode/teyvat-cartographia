@@ -541,6 +541,30 @@ public final class Draw {
         band(g, CX, CY, BX, BY, 4, argb);
     }
 
+    /**
+     * Light added to the picture, as the path's sparkles are added to the world (the settings preview draws them the
+     * same way): triangles from (cx, cy) in {@code argb} to each pair of neighbouring rim points ({@code n} of them in
+     * {@code xs}, {@code ys}, the last joined to the first), fading to clear at the rim.
+     */
+    public static void glowFan(GuiGraphics g, float cx, float cy, float[] xs, float[] ys, int n, int argb) {
+        Matrix4f m = mat(g);
+        BufferBuilder b = beginColor();
+        int clear = argb & 0x00FFFFFF;
+        for (int i = 0; i < n; i++) {
+            int j = (i + 1) % n;
+            vtx(b, m, cx, cy, argb);
+            vtx(b, m, xs[i], ys[i], clear);
+            vtx(b, m, xs[j], ys[j], clear);
+        }
+        MeshData mesh = b.build();
+        if (mesh == null) return;
+        setup();
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        BufferUploader.drawWithShader(mesh);
+        restore();
+    }
+
     public static void triangle(GuiGraphics g, float x1, float y1, float x2, float y2, float x3, float y3, int argb) {
         PX[0] = x1; PY[0] = y1;
         PX[1] = x2; PY[1] = y2;
