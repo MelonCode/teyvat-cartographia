@@ -44,6 +44,8 @@ the build metadata after the version: `0.2.0+mc1.21.1-neoforge` is version 0.2.0
 - The beam of light over the tracked pin vanished at once when you turned away and the marker went to the edge of the
   screen. Now it dims as the marker nears the edge and fades out over a second after that, and fades back in over a
   second when you turn back.
+- With the Fabulous graphics the path stars over water sank under it and took the colour of the water, and the beam
+  of light stopped short above the ground behind water and land. Both now look as with the other graphics settings.
 
 ## [0.3.0] - 2026-10-25
 

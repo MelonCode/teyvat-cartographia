@@ -16,9 +16,12 @@ import net.tapacywka.teyvatcartographia.render.Icon;
 import net.tapacywka.teyvatcartographia.render.MarkerRenderer;
 import net.tapacywka.teyvatcartographia.render.Theme;
 import net.tapacywka.teyvatcartographia.render.WorldGlow;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexSorting;
 import net.minecraft.Util;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -32,6 +35,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import org.joml.Vector4f;
 
 /**
@@ -114,20 +118,12 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
     private static long edgeMs;
 
     /**
-     * {@link RenderLevelStageEvent} listener: draws the stars after the particles and the beam after the clouds and
-     * the weather (so clouds behind the beam do not paint over it), and keeps this frame's view and projection for
-     * the HUD once the level is rendered.
+     * {@link RenderLevelStageEvent} listener: once the level is rendered draws the stars and the beam and keeps this
+     * frame's view and projection for the HUD.
      */
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
-        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
-            renderPath(event);
-            return;
-        }
-        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_WEATHER) {
-            renderBeam(event);
-            return;
-        }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_LEVEL) return;
+        renderInWorld(event);
         VIEW.set(event.getModelViewMatrix());
         event.getProjectionMatrix().mul(VIEW, VIEW_PROJ);
         Vec3 c = event.getCamera().getPosition();
@@ -385,16 +381,43 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
     }
 
     /** The path to the target as stars in the world, shown and faded on the marker's timer. */
-    private static void renderPath(RenderLevelStageEvent event) {
+    /**
+     * The path stars, then the beam, after the whole level. In Fabulous graphics the water, the particles, the clouds
+     * and the weather are laid together by depth at the end: stars drawn after the particles and the beam drawn after
+     * the weather (neither writing depth) went under the water there, taking its colour, and the beam stopped above the
+     * ground and was cut by the clouds (tester reports 26.10.2026). Here the level's view is no longer on the
+     * model-view stack and Fabulous leaves the flat projection of its last pass, so both are put back for the draw.
+     */
+    private static void renderInWorld(RenderLevelStageEvent event) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.options.hideGui || starsShown <= 0f) return;
-        if (!Navigation.inPlayerDimension(Navigation.target(), mc.player)) return;
-        PathStars.render(event.getCamera(), starsShown);
+        if (mc.player == null || mc.options.hideGui) return;
+        boolean stars = starsShown > 0f && Navigation.inPlayerDimension(Navigation.target(), mc.player);
+        if (!stars && !beamOn) return;
+        RenderSystem.backupProjectionMatrix();
+        RenderSystem.setProjectionMatrix(event.getProjectionMatrix(), VertexSorting.DISTANCE_TO_ORIGIN);
+        Matrix4fStack view = RenderSystem.getModelViewStack();
+        view.pushMatrix();
+        view.mul(event.getModelViewMatrix());
+        RenderSystem.applyModelViewMatrix();
+        RenderTarget particles = mc.levelRenderer.getParticlesTarget();
+        if (Minecraft.useShaderTransparency() && particles != null) {
+            // The depth Fabulous leaves in the main target hid every star; the particles' target holds the scene's
+            // depth (its own copy, plus the particles). The hand clears the depth after this anyway.
+            RenderTarget main = mc.getMainRenderTarget();
+            main.copyDepthFrom(particles);
+            main.bindWrite(false);
+        }
+        if (stars) PathStars.render(event.getCamera(), starsShown);
+        renderBeam(event);
+        view.popMatrix();
+        RenderSystem.applyModelViewMatrix();
+        RenderSystem.restoreProjectionMatrix();
     }
 
     /**
-     * The beam of light over the target, after the clouds and the weather (so neither translucent water nor a cloud
-     * behind it hides it; a cloud in front of it does, by depth): additive, depth tested but not depth writing, two
+     * The beam of light over the target, after the whole level (so neither translucent water nor a cloud behind it
+     * hides it; a cloud in front of it does by depth, except in Fabulous, where the clouds keep their depth apart):
+     * additive, depth tested but not depth writing, two
      * camera-facing layers (glow and core), each a strip from the centre to both edges whose alpha falls to zero at the
      * edges, at the bottom and at the top.
      */

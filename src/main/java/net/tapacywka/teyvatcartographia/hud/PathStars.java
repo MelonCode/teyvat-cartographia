@@ -64,7 +64,7 @@ final class PathStars {
     private static final float LONG = 0.34f, SHORT = 0.26f, ARM = 0.035f, DIAG = 0.1f, DIAG_W = 0.02f, CORE = 0.05f, GLOW = 0.16f,
             MOTE = 0.03f, MOTE_GLOW = 0.07f;
 
-    /** Draws the sparkles with {@code alpha} (the marker's visibility), after the particles. */
+    /** Draws the sparkles with {@code alpha} (the marker's visibility), after the whole level (over the water in Fabulous too). */
     static void render(Camera camera, float alpha) {
         int n = Route.collect();
         ClientLevel level = Minecraft.getInstance().level;
