@@ -8,7 +8,24 @@ the build metadata after the version: `0.2.0+mc1.21.1-neoforge` is version 0.2.0
 
 ## [Unreleased]
 
+### Added
+- A path by boat: when crossing a lake or a wide river by boat is clearly shorter than walking round it (by 30% and
+  at least 32 blocks), the world map and the minimap show it beside the walking path, in grey, dotted over the water,
+  with a boat icon where each crossing begins. Sitting in a boat, the path itself goes by water.
+
+- The path line is drawn in from you to the pin over 3 seconds when you start tracking or the path is searched
+  again (the pulse key away from the line); the line shown before is wiped the same way at the same time. On the
+  world map, the minimap and the sparkles in the world.
+
 ### Changed
+- The beam of light, the pulse, the sparkles, the path lines and the pointers of the tracked pin are golden for every
+  kind of pin, like the path stars of Genshin Impact (they were orange, mint or violet by the kind of pin). The beam
+  stays golden on a bright sky too (it turned almost white on blue).
+- The sparkles of the path show up to 64 blocks away (32 before) and look like Genshin Impact's path stars: about a
+  third are large four-pointed sparkles with a light core, the rest small glowing motes.
+- The path to a pin swims across narrow water (up to 16 blocks) instead of walking all the way round it.
+- A pin that cannot be walked to (on an island, across a wide river) no longer has its path end on a shore: the
+  path walks to the shore nearest the pin and swims the rest of the way.
 - The tooltip of a cave layer under the surface names its heights from the top down ("Height 63 to 48"), the way
   the layers go from the surface; the layers above it still count upwards ("Height 64 to 79").
 - The cave layer buttons have their stacked layers icon back (since 0.2.0 they showed two squares).
@@ -17,6 +34,9 @@ the build metadata after the version: `0.2.0+mc1.21.1-neoforge` is version 0.2.0
 - The cave mode came on inside houses of several floors: any 4 solid blocks above the head counted, floors, roof,
   shelves and barrels too, and the map showed a cave layer instead of the surface. Now only natural ground counts
   (stone, dirt, sand, gravel, ores and the like), 4 blocks in a row.
+- On the minimap the path line stopped short of the edge by a different distance each time. It now ends exactly
+  where the tracked pin waits when it is off the map, nearer the frame than before, on the square and the round
+  minimap; the letters N, E, S and W sit at the same distance from the edge. With a wide faded edge (Fade width) both stay where the map is still half seen.
 - The beam of light over the tracked pin vanished at once when you turned away and the marker went to the edge of the
   screen. Now it dims as the marker nears the edge and fades out over a second after that, and fades back in over a
   second when you turn back.

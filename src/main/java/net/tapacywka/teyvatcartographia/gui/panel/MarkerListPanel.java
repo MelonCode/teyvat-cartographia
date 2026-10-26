@@ -16,7 +16,6 @@ import net.tapacywka.teyvatcartographia.map.data.BiomeIndex;
 import net.tapacywka.teyvatcartographia.marker.AutoMarkers;
 import net.tapacywka.teyvatcartographia.marker.Marker;
 import net.tapacywka.teyvatcartographia.marker.MarkerStore;
-import net.tapacywka.teyvatcartographia.marker.MarkerVisibility;
 import net.tapacywka.teyvatcartographia.nav.Navigation;
 import net.tapacywka.teyvatcartographia.render.DistanceText;
 import net.tapacywka.teyvatcartographia.render.Draw;
@@ -396,7 +395,7 @@ public final class MarkerListPanel extends SidePanel {
         float cx = bx + ROW_H / 2f, cy = ry + ROW_H / 2f;
         if (r.kind() == Kind.PIN) {
             Marker m = r.marker();
-            if (Navigation.isTracking(m)) Draw.rect(g, bx, ry, bx + 3, ry + ROW_H, Theme.worldMarkerPulse(MarkerVisibility.kind(m)));
+            if (Navigation.isTracking(m)) Draw.rect(g, bx, ry, bx + 3, ry + ROW_H, Theme.worldMarkerPulse());
             // Symbol centred in the row's leading 28 x 28 square; text starts right after it.
             MarkerRenderer.drawCentered(g, m.type, cx, cy, SYMBOL, 1f);
         } else {

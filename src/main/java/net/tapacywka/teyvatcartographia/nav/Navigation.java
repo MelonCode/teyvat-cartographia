@@ -106,6 +106,19 @@ public final class Navigation {
         return pathWanted[PATH_MAP] || pathWanted[PATH_WORLD] || pathWanted[PATH_MINIMAP];
     }
 
+    /** Whether a map shows the path (the boat path is drawn only there, never as stars). */
+    public static boolean boatPathWanted() {
+        return pathWanted[PATH_MAP] || pathWanted[PATH_MINIMAP];
+    }
+
+    /** Whether the player sits in a boat: the path then goes by water, and there is no separate boat path. */
+    public static boolean inBoat(LocalPlayer player) {
+        return player.getVehicle() instanceof net.minecraft.world.entity.vehicle.Boat;
+    }
+
+    /** Whether the player sat in a boat on the last tick (getting in or out asks for the path again). */
+    private static boolean wasInBoat;
+
     public static void clear() {
         target = null;
         MarkerStore.save();
@@ -180,10 +193,15 @@ public final class Navigation {
 
     /**
      * Ends tracking of an automatic point once reached, or when the tracked death point moved (the player died
-     * somewhere else). Called every client tick.
+     * somewhere else); asks for the path again when the player gets into or out of a boat. Called every client tick.
      */
     public static void tick() {
         Minecraft mc = Minecraft.getInstance();
+        boolean boat = mc.player != null && inBoat(mc.player);
+        if (boat != wasInBoat) {
+            wasInBoat = boat;
+            if (target != null) requestPath();
+        }
         if (target == null || target.auto() == null || mc.player == null) return;
         if (target.auto() == MarkerType.DEATH) {
             var death = mc.player.getLastDeathLocation();

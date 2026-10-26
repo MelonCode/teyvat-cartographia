@@ -174,7 +174,7 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * **Search** in the pin list (or **Ctrl+F**): pins of every dimension by name, and the explored biomes by name. A
   click flies the map to the result, switching the dimension if needed. A biome goes to its nearest explored place,
   and each further click to the next one ("Place 2 of 5"); the spot is marked with a few rings.
-* Off-screen indicators for the player (green) and the tracked pin (in its kind's colour).
+* Off-screen indicators for the player (green) and the tracked pin (gold).
 * Separate maps per world or server and per dimension. The compass opens the list of mapped dimensions: Overworld,
   The Nether, The End, then modded dimensions in alphabetical order. The Nether is mapped below its roof.
 * Its own mouse pointer in the theme's colours on the map and in the settings: a hand over what you can click, a
@@ -229,8 +229,8 @@ Place pins, search for them and for biomes, track them, follow the path and find
 * A right click on the world map opens a small menu: **New pin** on empty ground, **Edit** and **Track** on a pin.
   Operators (permission level 2, or cheats in singleplayer) also get **Teleport** on the ground, in any dimension
   the map shows, unexplored ground too.
-* Track a pin or an automatic point. The tracked pin's colour depends on its kind: custom orange, interactive mint,
-  system violet. Tracking an automatic point ends on arrival.
+* Track a pin or an automatic point. Its beam, path and pointers are golden, like the path stars of Genshin Impact.
+  Tracking an automatic point ends on arrival.
 * Distances are in blocks everywhere and in 3D: from your feet to the floor of the point.
 * **Export and import** from the pin list: save every pin of the world to a `.json` file, add the pins of such a file
   (or of another world's `markers.json`); repeats are skipped.

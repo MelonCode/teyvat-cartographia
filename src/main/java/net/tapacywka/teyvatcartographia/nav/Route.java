@@ -23,7 +23,10 @@ public final class Route {
 
     /** Number of points of the line, collected again when a path changed. */
     public static int collect() {
-        if (PathFinder.version() == kNear && FarPath.version() == kFar) return count;
+        if (PathFinder.version() == kNear && FarPath.version() == kFar) {
+            REVEAL.update(Navigation.pathRequest(), version(), count, xz, along, fog, net.minecraft.Util.getMillis());
+            return count;
+        }
         kNear = PathFinder.version();
         kFar = FarPath.version();
         int near = PathFinder.pointCount(), far = FarPath.pointCount();
@@ -58,7 +61,9 @@ public final class Route {
         for (int i = 0; i < n; i++) {
             along[i] = i == 0 ? 0 : along[i - 1] + (float) Math.hypot(xz[2 * i] - xz[2 * i - 2], xz[2 * i + 1] - xz[2 * i - 1]);
         }
-        return count = n;
+        count = n;
+        REVEAL.update(Navigation.pathRequest(), version(), count, xz, along, fog, net.minecraft.Util.getMillis());
+        return count;
     }
 
     /**
@@ -131,6 +136,45 @@ public final class Route {
 
     public static boolean fog(int i) {
         return fog[i];
+    }
+
+    /** The drawing-in of a new line and the wiping of the one shown before it (user request 26.10.2026). */
+    private static final LineReveal REVEAL = new LineReveal();
+
+    /** How far along the line (blocks) it is shown: it is drawn in from the player after a new search; else all of it. */
+    public static float shownTo() {
+        return REVEAL.shownTo(net.minecraft.Util.getMillis(), count > 0 ? along[count - 1] : 0);
+    }
+
+    /** Whether a line is being drawn in or wiped (the minimap's cached layer redraws every frame meanwhile). */
+    public static boolean revealing() {
+        return REVEAL.running(net.minecraft.Util.getMillis());
+    }
+
+    /** Points of the line shown before the last search, still being wiped from its start ({@link #oldFrom}); else 0. */
+    public static int oldCount() {
+        return REVEAL.oldCount(net.minecraft.Util.getMillis());
+    }
+
+    /** Where along the old line (blocks) its remaining part starts. */
+    public static float oldFrom() {
+        return REVEAL.oldFrom(net.minecraft.Util.getMillis());
+    }
+
+    public static float oldX(int i) {
+        return REVEAL.oldX(i);
+    }
+
+    public static float oldZ(int i) {
+        return REVEAL.oldZ(i);
+    }
+
+    public static float oldAlong(int i) {
+        return REVEAL.oldAlong(i);
+    }
+
+    public static boolean oldFog(int i) {
+        return REVEAL.oldFlag(i);
     }
 
     // The point where the walked part ends, from the last cut().

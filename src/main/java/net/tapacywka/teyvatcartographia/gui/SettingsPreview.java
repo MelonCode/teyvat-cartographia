@@ -182,7 +182,7 @@ final class SettingsPreview {
             ROUTE[4] = ex;
             ROUTE[5] = ey;
             float alpha = only != null || MapConfig.pins(k).pathOnMap() ? 1f : 0.25f;
-            int shadow = Theme.withAlpha(Theme.ROUTE_SHADOW, alpha), c = Theme.withAlpha(Theme.worldMarkerPulse(k), alpha);
+            int shadow = Theme.withAlpha(Theme.ROUTE_SHADOW, alpha), c = Theme.withAlpha(Theme.worldMarkerPulse(), alpha);
             Draw.route(g, ROUTE, NO_FOG, 3, 2.4f, shadow, shadow);
             Draw.route(g, ROUTE, NO_FOG, 3, 1.4f, c, c);
         }
@@ -217,13 +217,13 @@ final class SettingsPreview {
         if (stars) {
             // Stars from the near ground to the pin, smaller and closer together with the distance.
             float sx = x + w * 0.3f, sy = y + h * 0.96f;
-            int c = Theme.worldMarkerPulse(kind);
+            int c = Theme.worldMarkerPulse();
             for (int i = 0; i < 9; i++) {
                 float t = i / 8f, px = sx + (cx - sx) * t, py = sy + (foot + 6 - sy) * t * (2 - t);
                 star(g, px, py, Math.max(1.5f, 4.5f - 3f * t), c);
             }
         } else if (mode == WORLD_BEAM) {
-            int beam = Theme.worldMarkerBeam(kind), core = Theme.worldMarkerBeamCore(kind);
+            int beam = Theme.WORLD_MARKER_BEAM, core = Theme.WORLD_MARKER_BEAM_CORE;
             for (int r = 12; r >= 2; r -= 2) Draw.rect(g, cx - r, y, cx + r, foot, Theme.withAlpha(beam, 0.18f));
             Draw.rect(g, cx - 1, y, cx + 1, foot, core);
         }

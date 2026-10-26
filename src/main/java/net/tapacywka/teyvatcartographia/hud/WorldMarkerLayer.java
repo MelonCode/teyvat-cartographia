@@ -77,6 +77,8 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
      * the screen ({@link MarkerTiming#edgeStep}), and out with the marker close to the target.
      */
     private static final float BEAM_NEAR = 0.8f;
+    /** Strength of the glow added over the amber tint (the light core is added at full strength). */
+    private static final float BEAM_ADDED = 0.5f;
     /** Beam length above the marker, and where it is fully bright (at least, or this share of the distance). */
     private static final float BEAM_HEIGHT = 320, BEAM_RISE = 3, BEAM_RISE_SHARE = 0.1f;
     /**
@@ -267,8 +269,8 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
         // see renderBeam)
         float pulseSeconds = (Util.getMillis() - pulseStart) / 1000f;
         boolean pulsing = pulseStart != Long.MIN_VALUE && pulseSeconds >= 0 && pulseSeconds < MarkerRenderer.WORLD_PULSE_LIFE;
-        // In the beam colour of the pin's kind (custom orange, interactive mint, system violet).
-        int pulseColor = Theme.worldMarkerPulse(MarkerVisibility.kind(t));
+        // Golden, like the beam (one colour for every kind since 26.10.2026).
+        int pulseColor = Theme.worldMarkerPulse();
         if (pulsing) MarkerRenderer.worldPulse(g, sx, sy, SIZE, pulseSeconds, SIZE * MarkerRenderer.WORLD_PULSE_START, pulseColor, alpha);
 
         // 2. Halo, glyph, the above / below arrow and the distance: in view only (on the limiter the edge pointer is the
@@ -424,11 +426,15 @@ public final class WorldMarkerLayer implements LayeredDraw.Layer {
             float k = near / len;
             bx *= k; bz *= k; y0 *= k; y1 *= k; y2 *= k; y3 *= k; glow *= k; core *= k;
         }
-        MapConfig.PinKind kind = MarkerVisibility.kind(t); // the beam's colour
 
+        // An amber tint laid over the scene first, so the beam stays golden on a bright sky (added light alone turned
+        // white on blue), then the glow and the light core added to it, the glow at half strength.
+        BufferBuilder tint = WorldGlow.begin(VertexFormat.Mode.QUADS);
+        beamLayer(tint, bx, bz, rx, rz, glow, y0, y1, y2, y3, Theme.withAlpha(Theme.WORLD_MARKER_BEAM_TINT, a));
+        WorldGlow.draw(tint, false);
         BufferBuilder b = WorldGlow.begin(VertexFormat.Mode.QUADS);
-        beamLayer(b, bx, bz, rx, rz, glow, y0, y1, y2, y3, Theme.withAlpha(Theme.worldMarkerBeam(kind), a));
-        beamLayer(b, bx, bz, rx, rz, core, y0, y1, y2, y3, Theme.withAlpha(Theme.worldMarkerBeamCore(kind), a));
+        beamLayer(b, bx, bz, rx, rz, glow, y0, y1, y2, y3, Theme.withAlpha(Theme.WORLD_MARKER_BEAM, a * BEAM_ADDED));
+        beamLayer(b, bx, bz, rx, rz, core, y0, y1, y2, y3, Theme.withAlpha(Theme.WORLD_MARKER_BEAM_CORE, a));
         WorldGlow.draw(b);
     }
 

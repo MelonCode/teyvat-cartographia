@@ -3,8 +3,6 @@ package net.tapacywka.teyvatcartographia.hud;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.tapacywka.teyvatcartographia.map.data.MapDataManager;
-import net.tapacywka.teyvatcartographia.marker.MarkerVisibility;
-import net.tapacywka.teyvatcartographia.nav.Navigation;
 import net.tapacywka.teyvatcartographia.nav.Route;
 import net.tapacywka.teyvatcartographia.render.Theme;
 import net.tapacywka.teyvatcartographia.render.WorldGlow;
@@ -21,26 +19,30 @@ import org.joml.Vector3f;
 
 /**
  * The path to the tracked target drawn in the world as small golden sparkles, along the whole line of the world map
- * ({@link Route}: the near path, then the far one) but, like vanilla particles, only within {@code RADIUS} blocks of the
+ * ({@link Route}: the near path, then the far one) but only within {@code RADIUS} blocks of the
  * camera: from afar nothing shows, and while the player walks on they appear ahead and fade behind by themselves. They
  * live on the {@code WINDOW} blocks of the line ahead of the player (measured along it from where the walked part ends,
  * {@link Route#cut}): each appears somewhere there, scattered up to {@code SPREAD} blocks to the side, twinkles while it drifts a
  * little towards the target and upwards, and fades out; then it appears again elsewhere. Every one of the {@code SLOTS}
  * sparkles has its own life length; where a life starts (and its height) is kept for that life, so a sparkle stays in its
  * place while the player walks. Its height is the ground there under any leaves (so none floats over a tree crown), or
- * underground the cave floor of the path. Each sparkle is a four-pointed star facing the camera, added to the scene in
- * the beam's colour; terrain hides it. They thin out just ahead of the player, at the target and towards the edge of the
+ * underground the cave floor of the path. Each faces the camera: a large four-pointed sparkle (about a third) or a small
+ * mote, like Genshin Impact's path stars, added to the scene in
+ * the beam's golden colour; terrain hides it. They thin out just ahead of the player, at the target and towards the edge of the
  * radius.
  */
 final class PathStars {
     private PathStars() {}
 
-    /** Sparkles show within this distance of the camera (as vanilla particles) and fade over the last EDGE_FADE blocks. */
-    private static final float RADIUS = 32, EDGE_FADE = 6;
+    /**
+     * Sparkles show within this distance of the camera and fade over the last EDGE_FADE blocks (32, as vanilla particles,
+     * until 26.10.2026: Genshin Impact shows its path stars much farther; twice the sparkles keep the same density).
+     */
+    private static final float RADIUS = 64, EDGE_FADE = 10;
     /** The part of the line ahead of the player they live on (blocks along it), and the fades after the player and before the target. */
     private static final float WINDOW = RADIUS + 8, START = 1.5f, FADE_IN = 3f, TARGET_FADE = 3f;
     /** Sparkles at a time (about 1.6 per block of the window), and their life length range (seconds). */
-    private static final int SLOTS = 64;
+    private static final int SLOTS = 128;
     /** Per sparkle: the life it is in, where on the line (blocks along it) that life started and its height there; the line they belong to. */
     private static final int[] lifeOf = new int[SLOTS];
     private static final float[] bornAt = new float[SLOTS], bornY = new float[SLOTS];
@@ -50,8 +52,17 @@ final class PathStars {
     private static final float LIFE_IN = 0.25f, LIFE_OUT = 0.4f;
     /** Scatter to the side and above the ground, and the drift over a life (blocks, blocks a second). */
     private static final float SPREAD = 0.35f, LIFT = 0.25f, LIFT_RANGE = 0.3f, DRIFT_FORWARD = 0.4f, DRIFT_UP = 0.1f, DRIFT_SIDE = 0.05f;
-    /** Sparkle: long arm, short arm, their width, and the soft glow behind them (blocks). */
-    private static final float LONG = 0.15f, SHORT = 0.1f, ARM = 0.03f, GLOW = 0.09f;
+    /**
+     * Like Genshin Impact's path stars (references {@code ingame_path_stars_01} to {@code 04}, variant B of the mockup,
+     * user choice 26.10.2026): this share of them are large four-pointed sparkles, the rest small motes.
+     */
+    private static final float SPARKLE_SHARE = 0.35f;
+    /**
+     * Sparkle: the vertical arm, the horizontal arm, their width, the short diagonal rays and their width, the light core
+     * and the round glow behind them; mote: its core and glow (blocks).
+     */
+    private static final float LONG = 0.34f, SHORT = 0.26f, ARM = 0.035f, DIAG = 0.1f, DIAG_W = 0.02f, CORE = 0.05f, GLOW = 0.16f,
+            MOTE = 0.03f, MOTE_GLOW = 0.07f;
 
     /** Draws the sparkles with {@code alpha} (the marker's visibility), after the particles. */
     static void render(Camera camera, float alpha) {
@@ -68,14 +79,15 @@ final class PathStars {
         Vec3 me = camera.getEntity().getPosition(pt);
         // From where the walked part ends (moving forward only, shared with the map lines).
         Route.cut(me.x, me.z);
-        float from = Route.cutAlong() + START, end = Math.min(from - START + WINDOW, total);
+        // Only on the part of a new line drawn in so far (3 s after a new search, Route.shownTo).
+        float from = Route.cutAlong() + START, end = Math.min(Math.min(from - START + WINDOW, total), Route.shownTo());
         if (end <= from) return;
         boolean cave = MapDataManager.get().undergroundBand() != null;
         Vec3 cam = camera.getPosition();
         Vector3f left = camera.getLeftVector(), up = camera.getUpVector();
         float lx = left.x(), ly = left.y(), lz = left.z(), ux = up.x(), uy = up.y(), uz = up.z();
         float time = (Util.getMillis() % 1_000_000L) / 1000f;
-        int color = Theme.worldMarkerPulse(MarkerVisibility.kind(Navigation.target())); // the beam colour of the pin's kind
+        int color = Theme.worldMarkerPulse(), coreColor = Theme.WORLD_MARKER_BEAM_CORE | 0xFF000000; // golden, a light core
 
         BufferBuilder b = WorldGlow.begin(VertexFormat.Mode.TRIANGLES);
         for (int j = 0; j < SLOTS; j++) {
@@ -113,12 +125,25 @@ final class PathStars {
             if (d >= RADIUS) continue;
             a *= smooth((RADIUS - d) / EDGE_FADE);
             if (a <= 0.01f) continue;
-            float k = 0.8f + 0.2f * twinkle;
-            int core = Theme.withAlpha(color, a), glow = Theme.withAlpha(color, a * 0.45f);
-            // Soft glow, then the vertical (long) and horizontal (short) arms of the sparkle.
-            sparkle(b, x, y, z, lx, ly, lz, ux, uy, uz, GLOW * k, GLOW * k, glow);
-            sparkle(b, x, y, z, lx, ly, lz, ux, uy, uz, ARM * k, LONG * k, core);
-            sparkle(b, x, y, z, lx, ly, lz, ux, uy, uz, SHORT * k, ARM * k, core);
+            int gold = Theme.withAlpha(color, a), glow = Theme.withAlpha(color, a * 0.45f), light = Theme.withAlpha(coreColor, a);
+            if (unit(hash(h, 3)) < SPARKLE_SHARE) {
+                // A large sparkle: round glow, the vertical (long) and horizontal arms, two short diagonal rays, a light core.
+                float k = (0.8f + 0.2f * twinkle) * (0.8f + 0.4f * unit(hash(h, 4)));
+                halo(b, x, y, z, lx, ly, lz, ux, uy, uz, GLOW * k, glow);
+                sparkle(b, x, y, z, lx, ly, lz, ux, uy, uz, ARM * k, LONG * k, gold);
+                sparkle(b, x, y, z, lx, ly, lz, ux, uy, uz, SHORT * k, ARM * k, gold);
+                // The diagonals: the camera's left and up turned by 45 degrees.
+                float ax = (lx + ux) * 0.7071f, ay = (ly + uy) * 0.7071f, az = (lz + uz) * 0.7071f;
+                float bx = (ux - lx) * 0.7071f, by = (uy - ly) * 0.7071f, bz = (uz - lz) * 0.7071f;
+                sparkle(b, x, y, z, ax, ay, az, bx, by, bz, DIAG_W * k, DIAG * k, gold);
+                sparkle(b, x, y, z, ax, ay, az, bx, by, bz, DIAG * k, DIAG_W * k, gold);
+                sparkle(b, x, y, z, lx, ly, lz, ux, uy, uz, CORE * k, CORE * k, light);
+            } else {
+                // A small mote: a soft round glow round a light dot.
+                float k = 0.8f + 0.2f * twinkle;
+                halo(b, x, y, z, lx, ly, lz, ux, uy, uz, MOTE_GLOW * k, glow);
+                sparkle(b, x, y, z, lx, ly, lz, ux, uy, uz, MOTE * k, MOTE * k, light);
+            }
         }
         WorldGlow.draw(b);
     }
@@ -183,6 +208,27 @@ final class PathStars {
     }
 
     private static final float[] TIPS_X = {0, 1, 0, -1, 0}, TIPS_Y = {1, 0, -1, 0, 1};
+
+    /** A round glow of radius {@code r} facing the camera: bright in the middle, clear at the rim (an octagon). */
+    private static void halo(BufferBuilder b, float x, float y, float z, float lx, float ly, float lz, float ux, float uy, float uz,
+                             float r, int color) {
+        int clear = color & 0x00FFFFFF;
+        for (int q = 0; q < 8; q++) {
+            float ax = RIM_X[q] * r, ay = RIM_Y[q] * r, bx = RIM_X[q + 1] * r, by = RIM_Y[q + 1] * r;
+            b.addVertex(x, y, z).setColor(color);
+            b.addVertex(x + lx * ax + ux * ay, y + ly * ax + uy * ay, z + lz * ax + uz * ay).setColor(clear);
+            b.addVertex(x + lx * bx + ux * by, y + ly * bx + uy * by, z + lz * bx + uz * by).setColor(clear);
+        }
+    }
+
+    private static final float[] RIM_X = new float[9], RIM_Y = new float[9];
+
+    static {
+        for (int q = 0; q <= 8; q++) {
+            RIM_X[q] = (float) Math.cos(q * Math.PI / 4);
+            RIM_Y[q] = (float) Math.sin(q * Math.PI / 4);
+        }
+    }
 
     /** A well mixed hash of a slot and one of its lives (murmur3 finaliser). */
     private static int hash(int slot, int cycle) {

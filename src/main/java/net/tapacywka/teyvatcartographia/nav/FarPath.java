@@ -12,21 +12,32 @@ import java.util.Arrays;
 /**
  * The long walking path to the tracked target over the explored map: drawn on the world map, and the precise near
  * {@link PathFinder} (the stars in the world) heads along it. A* on a grid of {@code STEP} x {@code STEP} block cells within
- * {@code RADIUS} blocks of the player, read from the stored map regions: each cell samples four columns; deep water and
- * lava ({@link MapTile#FLAG_IMPASSABLE}) cannot be crossed (a player in it or over it swims out through the surrounding water),
+ * {@code RADIUS} blocks of the player, read from the stored map regions: each cell samples four columns; lava
+ * ({@link MapTile#FLAG_IMPASSABLE}) cannot be crossed, deep water only where it is at most {@link PathFinder#NARROW}
+ * blocks wide, wider only when there is no other way to the goal (a player in it or over it swims out through the
+ * surrounding water),
  * shallow water can, climbs and anything much higher than the
  * player cost more, like the near path. Unexplored cells (the fog) can be crossed at a small extra cost ({@link #fog}
  * marks the points there), and the path is smoothed into soft arcs ({@link PathSmoother}). The forest canopy stands in for the ground there, so the path is
- * coarse; near the player {@link PathFinder} is the precise one.
+ * coarse; near the player {@link PathFinder} is the precise one. Like the near path there are two: {@link #MAIN}, and
+ * {@link #BOAT} over deep water of any width (the main one too while the player sits in a boat).
  * <p>
  * Runs on the main thread from the client tick, only while the path is shown ({@link Navigation#pathWanted}) and the
  * target is farther than the near path reaches. The path is searched once per {@link Navigation#pathRequest} (a new
- * target, the pulse key, the end of the near path), not again while the player walks. Only when
+ * target, the pulse key, getting into or out of a boat, the end of the near path), not again while the player walks;
+ * the boat path after the main paths. Only when
  * some regions in range were still on disk, it is searched once more {@code RETRY_TICKS} later, with them loaded. A
  * search runs in slices of at most {@code SLICE_NANOS} per tick. The grid arrays are allocated on the first search.
  */
 public final class FarPath {
-    private FarPath() {}
+    private final boolean boatOnly;
+
+    private FarPath(boolean boatOnly) {
+        this.boatOnly = boatOnly;
+    }
+
+    /** The far path the main path heads along, and the one the boat path heads along ({@link PathFinder#BOAT}). */
+    static final FarPath MAIN = new FarPath(false), BOAT = new FarPath(true);
 
     private static final int STEP = 8, RADIUS = 1024, SIDE = 2 * RADIUS / STEP + 1, CELLS = SIDE * SIDE;
     /** Highest step up or down between neighbouring cells (eight blocks apart) that is still walkable. */
@@ -49,63 +60,79 @@ public final class FarPath {
     private static final int UNKNOWN = Integer.MIN_VALUE, BLOCKED = Integer.MIN_VALUE + 1, FOG = Integer.MIN_VALUE + 2;
 
     // Per-cell ground height (or UNKNOWN / BLOCKED / FOG), shallow water flag, and the A* state; allocated once.
-    private static int[] height;
-    private static boolean[] shallow;
-    /** Deep water: entered only from the start or other deep water, so a swimming player swims out and nobody swims in. */
-    private static boolean[] deep;
-    /** The player was in the water or over deep water when the search began: only then may the path swim (out of it to the shore). */
-    private static boolean swimming;
-    private static float[] cost;
-    private static int[] from;
-    private static boolean[] closed;
-    private static CellHeap open;
-    private static int originX, originZ;
+    private int[] height;
+    private boolean[] shallow;
+    /** Deep water: swum across where narrow, out of the water the player is in, or anywhere by boat. */
+    private boolean[] deep;
+    /** Blocks of deep water swum in a row on the way to the cell ({@link PathFinder#swimAcross}). */
+    private float[] swum;
+    /** The player was in the water or over deep water when the search began: the path may swim out of it, however wide. */
+    private boolean swimming;
+    /** This search goes by boat: deep water of any width, cheaper than walking ({@link PathFinder#BOAT_COST}). */
+    private boolean byBoat;
+    /** The second pass of a search on foot whose goal could not be walked to: wide water too ({@link PathFinder#FORCED_SWIM}). */
+    private boolean forced;
+    private float[] cost;
+    private int[] from;
+    private boolean[] closed;
+    private CellHeap open;
+    private int originX, originZ;
 
-    /** The found path: {@code pointCount} points (x, z) from the player towards the target, and which lie in the fog. */
-    private static float[] points = new float[2 * 512];
-    private static boolean[] fogPoint = new boolean[512];
-    private static int pointCount;
+    /** The found path: {@code pointCount} points (x, z) from the player towards the target, which lie in the fog and which on deep water. */
+    private float[] points = new float[2 * 512];
+    private boolean[] fogPoint = new boolean[512];
+    boolean[] water = new boolean[512];
+    int pointCount;
     /** Changes whenever the path changes (found, cleared), for the cached minimap. */
-    private static int version;
+    int version;
     /** Counts the searches done ({@link PathFinder} searches again after each). */
-    private static int generation;
+    int generation;
 
-    private static Navigation.Target lastTarget;
-    private static TileStore lastStore;
+    private Navigation.Target lastTarget;
+    private TileStore lastStore;
     /** The request the path was searched for; -1 to search again (the target came into the player's dimension). */
-    private static int handled = -1;
+    private int handled = -1;
     /** Regions in range were still on disk at the last search: it is repeated once after {@code retryIn} ticks. */
-    private static boolean retry;
-    private static int retryIn;
+    private boolean retry;
+    private int retryIn;
 
     public static int pointCount() {
-        return pointCount;
+        return MAIN.pointCount;
     }
 
     public static float x(int i) {
-        return points[2 * i];
+        return MAIN.points[2 * i];
     }
 
     public static float z(int i) {
+        return MAIN.points[2 * i + 1];
+    }
+
+    float px(int i) {
+        return points[2 * i];
+    }
+
+    float pz(int i) {
         return points[2 * i + 1];
     }
 
     /** Whether point {@code i} lies in unexplored land (the part of the path that is only a guess). */
     public static boolean fog(int i) {
-        return fogPoint[i];
+        return MAIN.fogPoint[i];
     }
 
     public static int version() {
-        return version;
+        return MAIN.version;
     }
 
-    public static int generation() {
-        return generation;
-    }
-
-    /** Whether the far path is done with the current request (searched, or nothing to search), so the near path can follow it. */
-    public static boolean settled() {
+    /** Whether this far path is done with the current request (searched, or nothing to search), so its near path can follow it. */
+    boolean settled() {
         return handled == Navigation.pathRequest() && !searching && !building;
+    }
+
+    /** {@link #settled()} of the main far path. */
+    public static boolean mainSettled() {
+        return MAIN.settled();
     }
 
     // How long the searches took (for the tests): count, total and longest slice, in nanoseconds.
@@ -116,28 +143,36 @@ public final class FarPath {
      * The last of the first points of the path that are all within {@code r} blocks of (x, z), or -1 when there is no
      * path or it does not start near (x, z) (it was found from somewhere else). The near path heads there.
      */
-    public static int lastWithin(double x, double z, double r) {
-        if (pointCount() == 0 || Math.hypot(x(0) - x, z(0) - z) > START_SLACK) return -1;
+    int lastWithin(double x, double z, double r) {
+        if (pointCount == 0 || Math.hypot(px(0) - x, pz(0) - z) > START_SLACK) return -1;
         int last = -1;
-        for (int i = 0; i < pointCount() && Math.hypot(x(i) - x, z(i) - z) <= r; i++) last = i;
+        for (int i = 0; i < pointCount && Math.hypot(px(i) - x, pz(i) - z) <= r; i++) last = i;
         return last;
     }
     private static final double START_SLACK = 24;
 
     // A search in progress.
-    private static boolean searching, building;
-    private static int start, goal, goalX, goalZ, best, startY;
-    private static float bestH, startPX, startPZ;
-    private static long searchNanos;
-    private static TileStore store;
+    private boolean searching, building;
+    private int start, goal, goalX, goalZ, best, startY;
+    private float bestH, startPX, startPZ;
+    private long searchNanos;
+    private TileStore store;
 
-    /** Client tick: searches the path once per request while it is shown and the target is far. */
+    /** Client tick: the main far path, then the boat one once the main paths are done. */
     public static void tick() {
+        MAIN.run();
+        BOAT.run();
+    }
+
+    /** Searches this path once per request while it is shown and the target is far. */
+    private void run() {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer p = mc.player;
         Navigation.Target t = Navigation.target();
         TileStore active = MapDataManager.get().active();
-        if (p == null || active == null || !Navigation.inPlayerDimension(t, p)) {
+        // The boat path: only beside a main path on foot, searched while a map shows it, kept once found (as on the near path).
+        boolean idle = boatOnly && (p == null || Navigation.inBoat(p));
+        if (p == null || active == null || !Navigation.inPlayerDimension(t, p) || idle) {
             clear();
             handled = -1;
             return;
@@ -157,7 +192,9 @@ public final class FarPath {
         if (!searching) {
             boolean request = Navigation.pathRequest() != handled;
             if (retry && !request && --retryIn > 0) return;
-            if (!request && !retry || !Navigation.pathWanted()) return;
+            if (!request && !retry || !(boatOnly ? Navigation.boatPathWanted() : Navigation.pathWanted())) return;
+            // The boat path waits for both main paths (they share the frame's time, and the main ones come first).
+            if (boatOnly && !(MAIN.settled() && PathFinder.mainSettled())) return;
             retry = false;
             handled = Navigation.pathRequest();
             // Underground it would follow the surface map; a close target is left to the near path.
@@ -171,7 +208,7 @@ public final class FarPath {
             }
             lastTarget = t;
             lastStore = active;
-            begin(p, t, active);
+            begin(p, t, active, boatOnly || Navigation.inBoat(p));
             if (request && retry) retryIn = RETRY_TICKS;
             else retry = false; // a repeated search is not repeated again
         }
@@ -186,24 +223,27 @@ public final class FarPath {
         }
     }
 
-    private static void clear() {
+    private void clear() {
         if (pointCount > 0) version++;
         pointCount = 0;
         searching = building = retry = false;
         lastTarget = null;
     }
 
-    private static void begin(LocalPlayer p, Navigation.Target t, TileStore s) {
+    private void begin(LocalPlayer p, Navigation.Target t, TileStore s, boolean boat) {
         if (height == null) {
             height = new int[CELLS];
             shallow = new boolean[CELLS];
             deep = new boolean[CELLS];
+            swum = new float[CELLS];
             cost = new float[CELLS];
             from = new int[CELLS];
             closed = new boolean[CELLS];
             open = new CellHeap(CELLS * 4);
         }
         store = s;
+        byBoat = boat;
+        forced = false;
         // Cells on the world grid of STEP blocks, so a cell never straddles two regions.
         originX = Math.floorDiv((int) Math.floor(p.getX()) - RADIUS, STEP) * STEP;
         originZ = Math.floorDiv((int) Math.floor(p.getZ()) - RADIUS, STEP) * STEP;
@@ -228,6 +268,7 @@ public final class FarPath {
         // In the water, or over deep water (flying, in a boat): the path may swim out to the shore (B21).
         ground(start);
         swimming = p.isInWater() || deep[start];
+        swum[start] = swimming ? Float.NEGATIVE_INFINITY : 0;
         double dx = t.x() - p.getX(), dz = t.z() - p.getZ(), d = Math.hypot(dx, dz);
         double reach = Math.min(d, RADIUS - STEP);
         goal = cellOf(p.getX() + dx / d * reach, p.getZ() + dz / d * reach);
@@ -243,9 +284,15 @@ public final class FarPath {
         searching = true;
     }
 
-    private static boolean step(long deadline) {
+    private boolean step(long deadline) {
         int expanded = 0;
-        while (!open.isEmpty()) {
+        while (true) {
+            if (open.isEmpty()) {
+                // The goal cannot be walked to: searched once more, swimming as far as it has to but as little as it
+                // can, as on the near path ({@link PathFinder#FORCED_SWIM}).
+                if (byBoat || forced) return true;
+                restart();
+            }
             // Checked often: a cell here reads up to 32 map columns for its neighbours.
             if ((++expanded & 7) == 0 && System.nanoTime() > deadline) return false;
             int c = open.pop();
@@ -253,10 +300,11 @@ public final class FarPath {
             closed[c] = true;
             if (c == goal) {
                 best = c;
-                break;
+                return true;
             }
             float h = heuristic(c);
-            if (h < bestH) {
+            // A path that cannot reach the goal ends on the shore nearest to it, never part way across water swum on foot.
+            if (h < bestH && (!deep[c] || byBoat || swum[c] == Float.NEGATIVE_INFINITY)) {
                 bestH = h;
                 best = c;
             }
@@ -268,8 +316,19 @@ public final class FarPath {
                 if (closed[n]) continue;
                 int nh = ground(n);
                 if (nh == BLOCKED) continue;
-                if (deep[n] && (!swimming || c != start && !deep[c])) continue; // swum only out of the water the player is in
                 float length = k < 4 ? STEP : STEP * 1.4142f;
+                float water = 0, swumN = 0;
+                if (deep[n]) {
+                    if (byBoat) {
+                        water = length * (PathFinder.BOAT_COST - 1) + (deep[c] ? 0 : PathFinder.BOARD_COST);
+                    } else {
+                        swumN = PathFinder.swimAcross(swum[c], deep[c], c == start && swimming, length);
+                        if (swumN > PathFinder.NARROW && !forced) continue;
+                        water = swumN > PathFinder.NARROW ? 16f + length * PathFinder.FORCED_SWIM : 16f;
+                    }
+                } else if (shallow[n]) {
+                    water = 8f;
+                }
                 float step;
                 if (nh == FOG) {
                     step = length * FOG_COST;
@@ -277,26 +336,40 @@ public final class FarPath {
                     int climb = ch == FOG || ch == BLOCKED ? 0 : Math.abs(nh - ch);
                     if (climb > MAX_CLIMB) continue;
                     // The near path's costs, scaled to cells four times as long.
-                    step = length + Math.max(0, climb - FREE_CLIMB) * Math.max(0, climb - FREE_CLIMB) * 0.375f + Math.max(0, nh - startY - HILL) * 2.4f + (shallow[n] ? 8f : deep[n] ? 16f : 0f);
+                    step = length + Math.max(0, climb - FREE_CLIMB) * Math.max(0, climb - FREE_CLIMB) * 0.375f + Math.max(0, nh - startY - HILL) * 2.4f + water;
                 }
                 float g = cost[c] + step;
                 if (g < cost[n]) {
                     cost[n] = g;
                     from[n] = c;
+                    swum[n] = swumN;
                     open.push(n, g + heuristic(n));
                 }
             }
         }
-        return true;
+    }
+
+    /** The second search of {@link #step}: from the start again, wide water allowed ({@link #forced}); the map read is kept. */
+    private void restart() {
+        forced = true;
+        Arrays.fill(cost, Float.MAX_VALUE);
+        Arrays.fill(closed, false);
+        open.clear();
+        cost[start] = 0;
+        from[start] = -1;
+        open.push(start, 0);
+        best = start;
+        bestH = heuristic(start);
     }
     private static final int[] NX = {1, -1, 0, 0, 1, 1, -1, -1}, NZ = {0, 0, 1, -1, 1, -1, 1, -1};
 
-    private static float heuristic(int c) {
+    private float heuristic(int c) {
         int ax = Math.abs(c % SIDE - goalX), az = Math.abs(c / SIDE - goalZ);
-        return STEP * (Math.max(ax, az) + 0.4142f * Math.min(ax, az));
+        // By boat a block of water costs less than one walked: the estimate must not be higher than the true cost.
+        return STEP * (Math.max(ax, az) + 0.4142f * Math.min(ax, az)) * (byBoat ? PathFinder.BOAT_COST : 1);
     }
 
-    private static int cellOf(double x, double z) {
+    private int cellOf(double x, double z) {
         int cx = Math.max(0, Math.min(SIDE - 1, (int) Math.floor((x - originX) / STEP)));
         int cz = Math.max(0, Math.min(SIDE - 1, (int) Math.floor((z - originZ) / STEP)));
         return cz * SIDE + cx;
@@ -304,9 +377,9 @@ public final class FarPath {
 
     /**
      * Height of a cell from four of its columns on the map, looked up once: their average over the walkable ones;
-     * BLOCKED when at least half of the known ones are deep water or lava; FOG when none is known.
+     * BLOCKED when at least half of the known ones are lava; deep water when they are deep water; FOG when none is known.
      */
-    private static int ground(int c) {
+    private int ground(int c) {
         int h = height[c];
         if (h != UNKNOWN) return h;
         int x0 = originX + (c % SIDE) * STEP, z0 = originZ + (c / SIDE) * STEP;
@@ -335,7 +408,7 @@ public final class FarPath {
         if (known == 0) return height[c] = FOG;
         if (2 * blocked >= known || walkable == 0) {
             if (lava > 0) return height[c] = BLOCKED;
-            // Deep water: swum only from the start or other deep water (see deep).
+            // Deep water: swum where narrow, out of the player's water, or by boat (see deep).
             deep[c] = true;
             return height[c] = Math.round(deepSum / (float) blocked) + 1;
         }
@@ -345,9 +418,9 @@ public final class FarPath {
 
     /**
      * The path from the start along the found cells, smoothed into soft arcs ({@link PathSmoother}), with points every
-     * SPACING blocks, each marked whether it lies in the fog.
+     * SPACING blocks, each marked whether it lies in the fog and whether on deep water.
      */
-    private static void build(int end) {
+    private void build(int end) {
         int n = 0;
         for (int c = end; c != -1 && n < CELL_PATH.length; c = from[c]) n++;
         int i = n;
@@ -363,7 +436,7 @@ public final class FarPath {
             RAW[1] = startPZ;
         }
         // Soft arcs through a control point every ARC cells, kept clear of blocked ground (the fog is not blocked).
-        int m = PathSmoother.smooth(RAW, n, ARC, FarPath::blockedAt, SMOOTH);
+        int m = PathSmoother.smooth(RAW, n, ARC, this::blockedAt, SMOOTH);
         System.arraycopy(SMOOTH, 0, RAW, 0, 2 * m);
         pointCount = 0;
         version++;
@@ -377,11 +450,14 @@ public final class FarPath {
                 if (pointCount == fogPoint.length) {
                     points = Arrays.copyOf(points, points.length * 2);
                     fogPoint = Arrays.copyOf(fogPoint, fogPoint.length * 2);
+                    water = Arrays.copyOf(water, water.length * 2);
                 }
                 float f = (next - along) / len, x = ax + (bx - ax) * f, z = az + (bz - az) * f;
+                int cell = cellOf(x, z);
                 points[2 * pointCount] = x;
                 points[2 * pointCount + 1] = z;
-                fogPoint[pointCount] = ground(cellOf(x, z)) == FOG;
+                fogPoint[pointCount] = ground(cell) == FOG;
+                water[pointCount] = deep[cell];
                 pointCount++;
                 next += SPACING;
             }
@@ -394,7 +470,7 @@ public final class FarPath {
     /** Grid cells between the control points of the smoothed path (24 blocks). */
     private static final int ARC = 3;
 
-    private static boolean blockedAt(float x, float z) {
+    private boolean blockedAt(float x, float z) {
         return ground(cellOf(x, z)) == BLOCKED;
     }
 }

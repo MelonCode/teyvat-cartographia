@@ -175,16 +175,19 @@ public final class Theme {
     // World map overlays
     public static int GRID_LINE_MAJOR = 0x40FFFFFF;
     public static int GRID_LINE_MINOR = 0x18FFFFFF;
-    // (The path over explored land is drawn in the tracked pin kind's colour, worldMarkerPulse.)
+    // (The path over explored land is drawn in the golden colour of the marker, worldMarkerPulse.)
     public static int ROUTE_SHADOW = 0x60000000;
     /** The path where it crosses unexplored land (the fog). */
     public static int ROUTE_FOG = 0xCCF4F1EA;
+    /** The path by boat beside the main one (BoatRoute), and the badge under its boat icon. */
+    public static int ROUTE_BOAT = 0xE6C8CED6;
+    public static int ROUTE_BOAT_BADGE = 0xE02C323C;
     public static int PING_GLOW = 0x30FFFFFF;
     public static int PING_RING = 0xFFFFFFFF;
     public static int PING_CORE = 0xFFFFFFFF;
     public static int VIEW_CONE = 0x55FFFFFF;
     public static int PLAYER_CYAN = 0xFF00D4FF;
-    /** Off-screen indicator disc; its frame, glow and pointer are the player's green or the tracked pin kind's colour. */
+    /** Off-screen indicator disc; its frame, glow and pointer are the player's green or the tracked pin's gold. */
     public static int INDICATOR = 0xF0121820;
     public static int PLAYER_INDICATOR = 0xFF5BE36B;
     public static int INDICATOR_ICON = 0xFFFFFFFF;
@@ -209,19 +212,18 @@ public final class Theme {
     /** Soft dark halo behind the glyph, so it reads on bright sky and snow. */
     public static int WORLD_MARKER_HALO = 0x70101820;
     public static int WORLD_MARKER_TEXT = 0xFFFFFFFF;
-    /** Above / below arrow at the marker in the world (white; the edge pointer is in the pin kind's colour). */
+    /** Above / below arrow at the marker in the world (white; the edge pointer is golden). */
     public static int WORLD_MARKER_LEVEL = 0xFFFFFFFF;
     /**
-     * The beam of light over the marker (added to the scene): the soft glow, and its bright core, per kind of the
-     * tracked pin (custom orange, interactive mint, system violet). Opaque, the glow colour is also the pulse key's
-     * diamond, the glyph's flash, the path's stars and line and the edge pointers (see {@link #worldMarkerPulse}).
+     * The beam of light over the marker (added to the scene): the soft glow, and its bright core. One golden colour
+     * for every kind of pin, the colour of Genshin Impact's path stars (user decision 26.10.2026; until then custom
+     * orange, interactive mint, system violet). Opaque, the glow colour is also the pulse key's diamond, the glyph's
+     * flash, the path's stars and line and the edge pointers (see {@link #worldMarkerPulse}).
      */
-    public static int WORLD_MARKER_BEAM = 0x99FFA028;
-    public static int WORLD_MARKER_BEAM_CORE = 0xA6FFE6A8;
-    public static int WORLD_MARKER_BEAM_INTERACTIVE = 0x993CF5C0;
-    public static int WORLD_MARKER_BEAM_CORE_INTERACTIVE = 0xA6C8FFEE;
-    public static int WORLD_MARKER_BEAM_SYSTEM = 0x99B464FF;
-    public static int WORLD_MARKER_BEAM_CORE_SYSTEM = 0xA6E8D2FF;
+    public static int WORLD_MARKER_BEAM = 0x99FFEB4F;
+    public static int WORLD_MARKER_BEAM_CORE = 0xA6FFF3B0;
+    /** The beam's amber tint, laid over the scene with normal blending under the added glow (like the reference beam). */
+    public static int WORLD_MARKER_BEAM_TINT = 0x8CE8A93A;
 
 
     // Minimap
@@ -282,21 +284,9 @@ public final class Theme {
 
     // ------------------------------------------------------------------ colour maths
 
-    /** The beam's glow colour for a tracked pin of {@code kind} (custom when unknown). */
-    public static int worldMarkerBeam(MapConfig.PinKind kind) {
-        return kind == MapConfig.PinKind.INTERACTIVE ? WORLD_MARKER_BEAM_INTERACTIVE
-                : kind == MapConfig.PinKind.SYSTEM ? WORLD_MARKER_BEAM_SYSTEM : WORLD_MARKER_BEAM;
-    }
-
-    /** The beam's core colour for a tracked pin of {@code kind} (custom when unknown). */
-    public static int worldMarkerBeamCore(MapConfig.PinKind kind) {
-        return kind == MapConfig.PinKind.INTERACTIVE ? WORLD_MARKER_BEAM_CORE_INTERACTIVE
-                : kind == MapConfig.PinKind.SYSTEM ? WORLD_MARKER_BEAM_CORE_SYSTEM : WORLD_MARKER_BEAM_CORE;
-    }
-
-    /** The pulse colour of the in-world marker (diamond, glyph flash, stars): the beam's glow colour, opaque. */
-    public static int worldMarkerPulse(MapConfig.PinKind kind) {
-        return worldMarkerBeam(kind) | 0xFF000000;
+    /** The pulse colour of the in-world marker (diamond, glyph flash, stars, path line): the beam's glow colour, opaque. */
+    public static int worldMarkerPulse() {
+        return WORLD_MARKER_BEAM | 0xFF000000;
     }
 
     public static int withAlpha(int argb, float alpha) {

@@ -77,6 +77,7 @@
 
   "teyvatcartographia.nav.arrived": "You have arrived",
   "teyvatcartographia.nav.cleared": "Tracking stopped",
+  "teyvatcartographia.nav.boat": "From here on, only by boat",
   "teyvatcartographia.distance.blocks.one": "%s block",
   "teyvatcartographia.distance.blocks.few": "%s blocks",
   "teyvatcartographia.distance.blocks.many": "%s blocks",

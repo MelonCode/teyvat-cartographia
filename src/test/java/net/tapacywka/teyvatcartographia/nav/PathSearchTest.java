@@ -6,7 +6,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -193,13 +192,79 @@ class PathSearchTest {
     }
 
     @Test
-    void anIslandGoalEndsAtTheShoreQuickly() {
-        // The goal on an island in a lake the player cannot swim: the path ends at the nearest shore, no hang.
+    void anIslandGoalIsSwumToFromTheNearestShore() {
+        // The goal on an island in a lake too wide to swim by choice: with no other way, the path walks to the shore
+        // nearest the island and swims from there (25 blocks), no hang (user request 25.10.2026).
         Ground g = new Ground().deepWater(30, -40, 100, 40).rect(55, -5, 65, 5, 64, Terrain.DRY);
         assertTimeoutPreemptively(Duration.ofSeconds(5), () -> search(g, 0.5, 0.5, false, 60.5, 0.5));
-        assertFalse(PathFinder.reachedGoal());
-        assertTrue(PathFinder.pointCount() > 5, "it still leads towards the goal");
-        assertTrue(deepPoints(g, 0) == 0);
+        assertTrue(PathFinder.reachedGoal(), "on to the island");
+        assertTrue(waterPoints() * PathFinder.SPACING <= 32, "only the shortest swim: " + waterPoints() * PathFinder.SPACING + " blocks");
+    }
+
+    @Test
+    void theSwimStartsFromTheShoreNearestTheIsland() {
+        // The island lies close to the north shore: the path walks round to it (not into the water at once).
+        Ground g = new Ground().deepWater(10, -60, 110, 40).rect(55, 30, 65, 34, 64, Terrain.DRY);
+        search(g, 0.5, 0.5, false, 60.5, 32.5);
+        assertTrue(PathFinder.reachedGoal());
+        assertTrue(waterPoints() * PathFinder.SPACING <= 12, "a swim of about 6 blocks: " + waterPoints() * PathFinder.SPACING);
+    }
+
+    @Test
+    void aNarrowRiverIsSwumAcross() {
+        // Ten blocks of deep water across the whole grid: narrower than PathFinder.NARROW, swum on foot.
+        Ground g = new Ground().deepWater(28, -300, 37, 300);
+        search(g, 0.5, 0.5, false, 60.5, 0.5);
+        assertTrue(PathFinder.reachedGoal(), "across the river");
+        assertTrue(maxAbsZ() < 5, "straight over, max |z| " + maxAbsZ());
+        assertTrue(waterPoints() > 0, "the points over the river are marked as water");
+    }
+
+    @Test
+    void aWideRiverIsSwumOnlyWithNoOtherWay() {
+        // Twenty-six blocks of deep water across the whole grid: too wide to swim by choice, but there is no way round.
+        Ground g = new Ground().deepWater(20, -300, 45, 300);
+        search(g, 0.5, 0.5, false, 60.5, 0.5);
+        assertTrue(PathFinder.reachedGoal(), "across the river after all");
+        assertTrue(maxAbsZ() < 5, "straight over, max |z| " + maxAbsZ());
+        // With a bridge of land 40 blocks aside, that is taken instead.
+        g.rect(20, 38, 45, 42, 64, Terrain.DRY);
+        search(g, 0.5, 0.5, false, 60.5, 0.5);
+        assertTrue(PathFinder.reachedGoal());
+        assertTrue(deepPoints(g, 0) == 0, "over the bridge, not through the water");
+    }
+
+    @Test
+    void byBoatAWideRiverIsCrossed() {
+        Ground g = new Ground().deepWater(20, -300, 45, 300);
+        PathFinder.search(g, 0.5, 64, 0.5, false, true, 60.5, 0.5);
+        assertTrue(PathFinder.reachedGoal(), "across the river by boat");
+        assertTrue(maxAbsZ() < 5, "straight over, max |z| " + maxAbsZ());
+        assertTrue(waterPoints() > 10, "the crossing is marked as water: " + waterPoints());
+    }
+
+    @Test
+    void byBoatALakeIsCrossedNotWalkedRound() {
+        // The lake of deepWaterIsWalkedRound: by boat straight across it.
+        Ground g = new Ground().deepWater(20, -30, 40, 30);
+        PathFinder.search(g, 0.5, 64, 0.5, false, true, 60.5, 0.5);
+        assertTrue(PathFinder.reachedGoal());
+        assertTrue(maxAbsZ() < 10, "across the lake, max |z| " + maxAbsZ());
+    }
+
+    private static int waterPoints() {
+        int n = 0;
+        for (int i = 0; i < PathFinder.pointCount(); i++) if (PathFinder.water(i)) n++;
+        return n;
+    }
+
+    @Test
+    void swimmingCountsTheWaterInARow() {
+        assertTrue(PathFinder.swimAcross(0, false, false, 2) == 2, "into the water from land");
+        assertTrue(PathFinder.swimAcross(10, true, false, 2) == 12, "on through the water");
+        assertTrue(PathFinder.swimAcross(10, true, false, 2.8f) > PathFinder.NARROW - 4, "diagonal steps count their length");
+        assertTrue(PathFinder.swimAcross(0, false, true, 2) == Float.NEGATIVE_INFINITY, "out of the player's own water: no limit");
+        assertTrue(PathFinder.swimAcross(Float.NEGATIVE_INFINITY, true, false, 2) == Float.NEGATIVE_INFINITY, "and on from it");
     }
 
     @Test

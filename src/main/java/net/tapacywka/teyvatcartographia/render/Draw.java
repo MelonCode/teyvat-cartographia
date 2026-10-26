@@ -587,6 +587,34 @@ public final class Draw {
         endColor(b);
     }
 
+    /**
+     * The boat path ({@code BoatRoute}): the dash-dot of {@link #route} over land, only its dots over the pieces between
+     * two points marked in {@code water}, all in {@code argb}, the pattern starting {@code phase} GUI units in.
+     */
+    public static void boatRoute(GuiGraphics g, float[] xy, boolean[] water, int n, float width, int argb, float phase) {
+        if (n < 2) return;
+        Matrix4f m = mat(g);
+        BufferBuilder b = beginColor();
+        float along = phase, dotPeriod = ROUTE_DOT + ROUTE_GAP;
+        for (int i = 0; i + 1 < n; i++) {
+            float x1 = xy[2 * i], y1 = xy[2 * i + 1], x2 = xy[2 * i + 2], y2 = xy[2 * i + 3];
+            float dx = x2 - x1, dy = y2 - y1, len = (float) Math.sqrt(dx * dx + dy * dy);
+            if (len < 1e-4f) continue;
+            float ux = dx / len, uy = dy / len;
+            if (water[i] && water[i + 1]) {
+                for (float s = -(along % dotPeriod); s < len; s += dotPeriod) dash(b, m, x1, y1, ux, uy, s, s + ROUTE_DOT, len, width, argb);
+            } else {
+                for (float s = -(along % ROUTE_PERIOD); s < len; s += ROUTE_PERIOD) {
+                    dash(b, m, x1, y1, ux, uy, s, s + ROUTE_DASH, len, width, argb);
+                    float dot = s + ROUTE_DASH + ROUTE_GAP;
+                    dash(b, m, x1, y1, ux, uy, dot, dot + ROUTE_DOT, len, width, argb);
+                }
+            }
+            along += len;
+        }
+        endColor(b);
+    }
+
     private static void dash(BufferBuilder b, Matrix4f m, float x, float y, float ux, float uy, float s0, float s1, float len, float width, int argb) {
         s0 = Math.max(0, s0);
         s1 = Math.min(len, s1);

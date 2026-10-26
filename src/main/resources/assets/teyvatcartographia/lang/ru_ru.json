@@ -77,6 +77,7 @@
 
   "teyvatcartographia.nav.arrived": "Вы прибыли",
   "teyvatcartographia.nav.cleared": "Отслеживание остановлено",
+  "teyvatcartographia.nav.boat": "Дальнейший путь возможен только на лодке",
   "teyvatcartographia.distance.blocks.one": "%s блок",
   "teyvatcartographia.distance.blocks.few": "%s блока",
   "teyvatcartographia.distance.blocks.many": "%s блоков",

@@ -14,12 +14,14 @@ import net.tapacywka.teyvatcartographia.marker.Marker;
 import net.tapacywka.teyvatcartographia.marker.MarkerStore;
 import net.tapacywka.teyvatcartographia.marker.MarkerVisibility;
 import net.tapacywka.teyvatcartographia.marker.MarkerType;
+import net.tapacywka.teyvatcartographia.nav.BoatRoute;
 import net.tapacywka.teyvatcartographia.nav.Navigation;
 import net.tapacywka.teyvatcartographia.nav.Route;
 import net.tapacywka.teyvatcartographia.render.DayLight;
 import net.tapacywka.teyvatcartographia.render.CachedLayer;
 import net.tapacywka.teyvatcartographia.render.Draw;
 import net.tapacywka.teyvatcartographia.render.FogTexture;
+import net.tapacywka.teyvatcartographia.render.Icon;
 import net.tapacywka.teyvatcartographia.render.DrawText;
 import net.tapacywka.teyvatcartographia.render.MapLayerRenderer;
 import net.tapacywka.teyvatcartographia.render.MarkerRenderer;
@@ -228,7 +230,9 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         MapConfig.PinOptions targetOptions = MarkerVisibility.targetOptions();
         boolean path = targetOptions != null && targetOptions.pathOnMinimap() && Navigation.inPlayerDimension(target, player);
         Navigation.setPathWanted(Navigation.PATH_MINIMAP, path);
-        int route = path ? Route.version() : Integer.MIN_VALUE;
+        int route = path ? 31 * Route.version() + BoatRoute.version() : Integer.MIN_VALUE;
+        // While a line is drawn in (3 s after a new search) the layer is redrawn every frame.
+        if (path && (Route.revealing() || BoatRoute.revealing())) route += 7919 * (int) (net.minecraft.Util.getMillis() / 8);
         // The layer spans the map and the pills (shifted inward at the screen edge).
         Component[] cl = coordsLine == null ? null : coordsLines, bl = biomeLine == null ? null : biomeLines, tl = timeLine == null ? null : timeLines;
         Component[] t2 = timeWrap && time2Line != null ? time2Lines : null;
@@ -397,8 +401,15 @@ public final class MinimapLayer implements LayeredDraw.Layer {
 
         // Markers: kept inside the circle on which the "N" sits (never on or beyond the frame).
         float inner = innerRadius(mapR);
-        // The path to the target under them, inside the same circle (or square).
-        if (path) drawRoute(g, cx, cy, inner, alpha);
+        // The path to the target under them, and the target itself when it is off the map, both held the same distance
+        // inside the map's edge, like the "N", E, S and W (nearer the frame than the circle bounding the other pins).
+        // With a faded edge (settings: fade width), in the middle of the fading band when that lies farther in (user
+        // request 26.10.2026), so they end where the map is still half seen.
+        float edge = fadeEdge >= 1f ? mapR - TARGET_EDGE : Math.min(mapR - TARGET_EDGE, mapR * (1 + fadeStart) / 2);
+        if (path) {
+            drawBoatRoute(g, cx, cy, edge, inner, alpha);
+            drawRoute(g, cx, cy, edge, alpha);
+        }
         // Pins by MarkerVisibility (none but the target below scale 1); the target itself is drawn just after. The map
         // under them moves smoothly between pixels, so they are not snapped to the pixel grid (snapped, they shook).
         Draw.snapIcons(false);
@@ -412,7 +423,7 @@ public final class MinimapLayer implements LayeredDraw.Layer {
                 if (MarkerVisibility.shown(auto.get(i), zoom, true)) drawMarker(g, auto.get(i), cx, cy, inner, alpha);
             }
         }
-        if (target != null && target.dimension() == dim) drawTarget(g, target, cx, cy, inner, alpha);
+        if (target != null && target.dimension() == dim) drawTarget(g, target, cx, cy, edge, alpha);
         Draw.snapIcons(true);
 
         // View cone and player arrow
@@ -428,8 +439,9 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         for (int i = 0; i < (rotating ? 4 : 1); i++) {
             double angle = view.rotation + i * Math.PI / 2; // screen angle of the direction, clockwise from up
             float ns = (float) Math.sin(angle), nc = (float) Math.cos(angle);
-            // On the inner circle, or (square map) on the inner square's edge.
-            float nk = Theme.Style.squareMap ? inner / Math.max(Math.abs(ns), Math.abs(nc)) : inner;
+            // At the edge the path ends at ({@code edge}), or (square map) on that square's side (user request 26.10.2026; it was the
+            // inner circle of the other pins).
+            float nk = Theme.Style.squareMap ? edge / Math.max(Math.abs(ns), Math.abs(nc)) : edge;
             float a = i == 0 ? alpha : alpha * SIDE_LETTER_ALPHA;
             float half = Math.max(0, DrawText.width(COMPASS[i]) - 1) / 2f; // half the visible glyph, font units
             g.pose().pushPose();
@@ -452,46 +464,155 @@ public final class MinimapLayer implements LayeredDraw.Layer {
     }
     /** The pill rows in their order from the map outwards, reused. */
     private final Component[][] pillOrder = new Component[4][];
-    // Screen points of the path inside the map, one piece at a time, reused.
-    private float[] routeXY = new float[512];
-    private boolean[] routeFog = new boolean[256];
 
-    /** The path as a dash-dot line, gold over explored land and white through the fog, cut where it leaves the map. */
-    private void drawRoute(GuiGraphics g, float cx, float cy, float inner, float alpha) {
-        int n = Route.collect(), k = 0;
-        if (n < 2) return;
-        int line = Theme.withAlpha(Theme.worldMarkerPulse(MarkerVisibility.kind(Navigation.target())), alpha), fog = Theme.withAlpha(Theme.ROUTE_FOG, alpha), shadow = Theme.withAlpha(Theme.ROUTE_SHADOW, alpha);
-        // The walked part is gone: from the line's point nearest the player (the map's centre) on. Each piece's dashes
-        // start at their place along the whole line, so they stay put on the map as the player walks.
+    /**
+     * The path as a dash-dot line, gold over explored land and white through the fog, cut exactly where it leaves the
+     * map at {@code edge} (user report 25.10.2026: dropping the points beyond the circle of the "N" ended it up to a
+     * point spacing short of that circle, far inside the frame).
+     */
+    private void drawRoute(GuiGraphics g, float cx, float cy, float edge, float alpha) {
+        int n = Route.collect();
+        if (n < 2 && Route.oldCount() < 2) return;
+        pieceBoat = false;
+        pieceLine = Theme.withAlpha(Theme.worldMarkerPulse(), alpha);
+        pieceFog = Theme.withAlpha(Theme.ROUTE_FOG, alpha);
+        pieceShadow = Theme.withAlpha(Theme.ROUTE_SHADOW, alpha);
+        pieceN = 0;
+        // The line shown before the last search, wiped from its start while the new one is drawn in.
+        int on = Route.oldCount();
+        float from = Route.oldFrom();
+        for (int i = 0; i + 1 < on; i++) {
+            segment(g, view.screenX(Route.oldX(i), Route.oldZ(i)), view.screenY(Route.oldX(i), Route.oldZ(i)),
+                    view.screenX(Route.oldX(i + 1), Route.oldZ(i + 1)), view.screenY(Route.oldX(i + 1), Route.oldZ(i + 1)),
+                    Route.oldAlong(i), Route.oldAlong(i + 1), Route.oldFog(i), Route.oldFog(i + 1), cx, cy, edge, from, Float.POSITIVE_INFINITY);
+        }
+        endPiece(g);
+        // The walked part is gone: from the line's point nearest the player (the map's centre) on, up to where it is drawn in.
         int first = Route.cut(view.centerX, view.centerZ);
-        float phase = 0;
-        for (int i = first; i <= n; i++) {
-            boolean in = false;
-            float sx = 0, sy = 0;
-            if (i < n) {
-                float wx = i == first ? Route.cutX() : Route.x(i), wz = i == first ? Route.cutZ() : Route.z(i);
-                sx = view.screenX(wx, wz);
-                sy = view.screenY(wx, wz);
-                in = Theme.Style.squareMap ? Math.abs(sx - cx) <= inner && Math.abs(sy - cy) <= inner : Draw.inCircle(sx, sy, cx, cy, inner);
-                if (in && k == 0) phase = (float) ((i == first ? Route.cutAlong() : Route.along(i)) * view.scale);
-            }
-            if (in) {
-                if (k == routeFog.length) {
-                    routeXY = java.util.Arrays.copyOf(routeXY, 4 * k);
-                    routeFog = java.util.Arrays.copyOf(routeFog, 2 * k);
-                }
-                routeXY[2 * k] = sx;
-                routeXY[2 * k + 1] = sy;
-                routeFog[k++] = Route.fog(i);
-                continue;
-            }
-            if (k >= 2) {
-                Draw.route(g, routeXY, routeFog, k, 2f, shadow, shadow, phase);
-                Draw.route(g, routeXY, routeFog, k, 1f, line, fog, phase);
-            }
-            k = 0;
+        float to = Route.shownTo();
+        for (int i = first; i + 1 < n; i++) {
+            float ax = i == first ? Route.cutX() : Route.x(i), az = i == first ? Route.cutZ() : Route.z(i);
+            segment(g, view.screenX(ax, az), view.screenY(ax, az), view.screenX(Route.x(i + 1), Route.z(i + 1)), view.screenY(Route.x(i + 1), Route.z(i + 1)),
+                    i == first ? Route.cutAlong() : Route.along(i), Route.along(i + 1), Route.fog(i), Route.fog(i + 1), cx, cy, edge, Float.NEGATIVE_INFINITY, to);
+        }
+        endPiece(g);
+    }
+
+    /**
+     * The path by boat ({@link BoatRoute}) under the main one when it is clearly shorter: grey, dotted over deep water,
+     * without the part walked along it ({@link BoatRoute#start}), cut where it leaves the map at {@code edge}, with a
+     * boat icon where each crossing begins (inside the circle of the "N", {@code inner}).
+     */
+    private void drawBoatRoute(GuiGraphics g, float cx, float cy, float edge, float inner, float alpha) {
+        int n = BoatRoute.collect();
+        if (n < 2 && BoatRoute.oldCount() < 2) return;
+        int line = Theme.withAlpha(Theme.ROUTE_BOAT, alpha);
+        pieceBoat = true;
+        pieceLine = line;
+        pieceShadow = Theme.withAlpha(Theme.ROUTE_SHADOW, alpha);
+        pieceN = 0;
+        int on = BoatRoute.oldCount();
+        float from = BoatRoute.oldFrom();
+        for (int i = 0; i + 1 < on; i++) {
+            segment(g, view.screenX(BoatRoute.oldX(i), BoatRoute.oldZ(i)), view.screenY(BoatRoute.oldX(i), BoatRoute.oldZ(i)),
+                    view.screenX(BoatRoute.oldX(i + 1), BoatRoute.oldZ(i + 1)), view.screenY(BoatRoute.oldX(i + 1), BoatRoute.oldZ(i + 1)),
+                    BoatRoute.oldAlong(i), BoatRoute.oldAlong(i + 1), BoatRoute.oldWater(i), BoatRoute.oldWater(i + 1), cx, cy, edge, from, Float.POSITIVE_INFINITY);
+        }
+        endPiece(g);
+        int first = BoatRoute.start(view.centerX, view.centerZ);
+        float to = BoatRoute.shownTo();
+        for (int i = first; i + 1 < n; i++) {
+            segment(g, view.screenX(BoatRoute.x(i), BoatRoute.z(i)), view.screenY(BoatRoute.x(i), BoatRoute.z(i)),
+                    view.screenX(BoatRoute.x(i + 1), BoatRoute.z(i + 1)), view.screenY(BoatRoute.x(i + 1), BoatRoute.z(i + 1)),
+                    BoatRoute.along(i), BoatRoute.along(i + 1), BoatRoute.water(i), BoatRoute.water(i + 1), cx, cy, edge, Float.NEGATIVE_INFINITY, to);
+        }
+        endPiece(g);
+        // The boat icons over the line, inside the map only.
+        int badge = Theme.withAlpha(Theme.ROUTE_BOAT_BADGE, alpha);
+        for (int i = first; i < n; i++) {
+            if (!BoatRoute.crossingAt(i) || BoatRoute.along(i) > to) continue;
+            float sx = view.screenX(BoatRoute.x(i), BoatRoute.z(i)), sy = view.screenY(BoatRoute.x(i), BoatRoute.z(i));
+            boolean in = Theme.Style.squareMap ? Math.abs(sx - cx) <= inner - BOAT_BADGE && Math.abs(sy - cy) <= inner - BOAT_BADGE
+                    : Draw.inCircle(sx, sy, cx, cy, inner - BOAT_BADGE);
+            if (!in) continue;
+            Draw.circle(g, sx, sy, BOAT_BADGE, badge);
+            Draw.icon(g, Icon.BOAT, sx, sy, BOAT_BADGE * 1.6f, line);
         }
     }
+
+    /** Radius of the badge under the boat icon on the minimap (GUI units). */
+    private static final float BOAT_BADGE = 5;
+
+    /**
+     * The path lines end, and the tracked target off the map is held, this far inside the map's edge (GUI units; user
+     * request 26.10.2026: the line ran up to the frame, the target sat on the inner circle, 10 units in; 8 tried first, 4
+     * chosen), and the "N", E, S and W with them.
+     */
+    private static final float TARGET_EDGE = 4;
+
+    // The piece of a path line being collected: pieceN screen points in routeXY with the flags of their ends in
+    // routeFlag (fog on the main line, deep water on the boat line), its pattern starting pieceAlong GUI units in (its
+    // place along the whole line, so the dashes stay put on the map as the player walks), and how it is drawn.
+    private float[] routeXY = new float[512];
+    private boolean[] routeFlag = new boolean[256];
+    private int pieceN, pieceLine, pieceFog, pieceShadow;
+    private float pieceAlong;
+    private boolean pieceBoat;
+
+    /**
+     * Adds the segment from (ax, ay) to (bx, by) (screen points; {@code aAlong} to {@code bAlong} blocks along the
+     * line, its ends flagged {@code fa}, {@code fb}) to the piece being collected, cut to the map: a segment entering
+     * the map starts a new piece at the edge, one leaving it ends the piece there.
+     */
+    private void segment(GuiGraphics g, float ax, float ay, float bx, float by, float aAlong, float bAlong, boolean fa, boolean fb,
+                         float cx, float cy, float edge, float lo, float hi) {
+        if (!EdgeClip.clip(ax, ay, bx, by, cx, cy, edge, Theme.Style.squareMap)) {
+            endPiece(g);
+            return;
+        }
+        float t0 = EdgeClip.t0(), t1 = EdgeClip.t1();
+        // Only the part between lo and hi blocks along the line (drawn in, or wiped, after a new search).
+        float len = bAlong - aAlong;
+        if (len > 1e-6f) {
+            t0 = Math.max(t0, (lo - aAlong) / len);
+            t1 = Math.min(t1, (hi - aAlong) / len);
+        }
+        if (t0 >= t1) {
+            endPiece(g);
+            return;
+        }
+        if (pieceN == 0 || t0 > 0) {
+            endPiece(g);
+            pieceAlong = (float) ((aAlong + (bAlong - aAlong) * t0) * view.scale);
+            point(ax + (bx - ax) * t0, ay + (by - ay) * t0, fa);
+        }
+        point(ax + (bx - ax) * t1, ay + (by - ay) * t1, fb);
+        if (t1 < 1) endPiece(g);
+    }
+
+    private void point(float x, float y, boolean flag) {
+        if (pieceN == routeFlag.length) {
+            routeXY = java.util.Arrays.copyOf(routeXY, 4 * pieceN);
+            routeFlag = java.util.Arrays.copyOf(routeFlag, 2 * pieceN);
+        }
+        routeXY[2 * pieceN] = x;
+        routeXY[2 * pieceN + 1] = y;
+        routeFlag[pieceN++] = flag;
+    }
+
+    private void endPiece(GuiGraphics g) {
+        if (pieceN >= 2) {
+            if (pieceBoat) {
+                Draw.boatRoute(g, routeXY, routeFlag, pieceN, 2f, pieceShadow, pieceAlong);
+                Draw.boatRoute(g, routeXY, routeFlag, pieceN, 1f, pieceLine, pieceAlong);
+            } else {
+                Draw.route(g, routeXY, routeFlag, pieceN, 2f, pieceShadow, pieceShadow, pieceAlong);
+                Draw.route(g, routeXY, routeFlag, pieceN, 1f, pieceLine, pieceFog, pieceAlong);
+            }
+        }
+        pieceN = 0;
+    }
+
 
     private void drawMarker(GuiGraphics g, Marker m, float cx, float cy, float inner, float alpha) {
         if (Navigation.isTracking(m)) return;
@@ -677,14 +798,14 @@ public final class MinimapLayer implements LayeredDraw.Layer {
         // Distance in the shape's own metric: Euclidean for the round map, Chebyshev for the square one.
         float d = Theme.Style.squareMap ? Math.max(Math.abs(dx), Math.abs(dy)) : (float) Math.sqrt(dx * dx + dy * dy);
         if (d > r) {
-            // Out of range: held on the inner circle (same radius as the "N") in the target's direction.
+            // Out of range: held at the edge the path line ends at ({@link #TARGET_EDGE}) in the target's direction.
             sx = cx + dx / d * r;
             sy = cy + dy / d * r;
         }
         MarkerRenderer.draw(g, type, sx, sy, size, false, false, alpha);
     }
 
-    /** Radius of the inner circle carrying the "N" and bounding the markers: a marker's half-size inside the frame. */
+    /** Radius of the inner circle bounding the markers: a marker's half-size inside the frame (the "N" sits at {@link #TARGET_EDGE}). */
     private static float innerRadius(float r) {
         return r - MarkerRenderer.SIZE_SMALL / 2f - 3;
     }
