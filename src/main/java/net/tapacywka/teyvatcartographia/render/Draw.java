@@ -105,7 +105,7 @@ public final class Draw {
         restore();
     }
 
-    private static void endPremultiplied(BufferBuilder buffer, int textureId) {
+    static void endPremultiplied(BufferBuilder buffer, int textureId) {
         MeshData mesh = buffer.build();
         if (mesh == null) return;
         setup();

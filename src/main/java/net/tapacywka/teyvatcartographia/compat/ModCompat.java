@@ -34,8 +34,8 @@ public final class ModCompat {
     }
 
     /**
-     * VulkanMod draws the game with Vulkan: OpenGL calls that bypass the game's render state (copying the frame for
-     * the dissolving list edges and the menu blur) come out black there, so those are left out (Project Amber's Vulkan
+     * VulkanMod draws the game with Vulkan: raw OpenGL frame copies come out black or empty there, so the menu blur
+     * copies the frame through the game's own post-processing under it ({@code render/Backdrop}; Project Amber's Vulkan
      * build, 26.10.2026).
      */
     public static boolean vulkan() {
